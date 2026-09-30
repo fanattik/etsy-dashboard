@@ -15,6 +15,7 @@ Příkazy:
 import base64
 import csv
 import hashlib
+import html
 import io
 import json
 import os
@@ -38,9 +39,9 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 API = "https://openapi.etsy.com/v3/application"
 AUTH_URL = "https://www.etsy.com/oauth/connect"
 TOKEN_URL = "https://api.etsy.com/v3/public/oauth/token"
-SCOPES = "transactions_r shops_r profile_r"
+SCOPES = "transactions_r shops_r profile_r listings_r"
 PORT = 8765
-VERSION = "1.9"
+VERSION = "1.10"
 UPDATE_BASE = os.environ.get("ETSY_DASHBOARD_UPDATE_URL") or "https://raw.githubusercontent.com/fanattik/etsy-dashboard/main/app/"
 UPDATE_EVERY = 24 * 3600
 RATES_URL = os.environ.get("ETSY_DASHBOARD_RATES_URL") or "https://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml"
@@ -270,6 +271,10 @@ def db(path=None):
     con.execute("""CREATE TABLE IF NOT EXISTS vypis (
         shop TEXT, entry_id INTEGER PRIMARY KEY, datum_ts INTEGER, typ TEXT, popis TEXT,
         castka REAL, mena TEXT, zustatek REAL, reference TEXT, pridano_ts INTEGER)""")
+    con.execute("""CREATE TABLE IF NOT EXISTS listingy (
+        shop TEXT, listing_id INTEGER PRIMARY KEY, nazev TEXT, stav TEXT, cena REAL, mena TEXT,
+        mnozstvi INTEGER, zobrazeni INTEGER, oblibene INTEGER, stitky TEXT, obrazek TEXT, url TEXT,
+        sku TEXT, vytvoreno_ts INTEGER, zmeneno_ts INTEGER, pridano_ts INTEGER)""")
     con.execute("""CREATE TABLE IF NOT EXISTS csv_polozky (
         receipt_id INTEGER PRIMARY KEY, polozky TEXT)""")
     con.execute("""CREATE TABLE IF NOT EXISTS stav (
@@ -350,8 +355,45 @@ def check_shop(cfg, tokens, con, shop_id):
                             f"{amount:+.2f} {e.get('currency', '')}")
         start = end
     set_last_ts(con, shop_id, "vypis", now)
+    try:  # chyba u listingů nesmí zahodit objednávky a výpis
+        sync_listings(cfg, tokens, con, shop_id, name, now)
+    except Exception as e:
+        print(f"⚠️  {name}: listingy: {e}")
     con.commit()
     return news
+
+
+LISTING_STATES = ("active", "inactive", "draft", "sold_out", "expired")
+
+
+def sync_listings(cfg, tokens, con, shop_id, name, now):
+    """Listingy (položky v obchodě). Všechny stavy vyžadují oprávnění listings_r; shopy přihlášené
+    ve starší verzi ho nemají, pro ně se stáhnou aspoň aktivní listingy (stačí API klíč)."""
+    listings, complete = [], True
+    try:
+        for state in LISTING_STATES:
+            listings += api_get_all(cfg, tokens, shop_id, f"/shops/{shop_id}/listings",
+                                    {"state": state, "includes": "Images"})
+    except Exception:
+        complete, listings = False, api_get_all(cfg, tokens, shop_id, f"/shops/{shop_id}/listings/active",
+                                                {"includes": "Images"})
+    seen = set()
+    for l in listings:
+        price, cur = money(l.get("price"))
+        images = l.get("images") or []
+        old = con.execute("SELECT pridano_ts FROM listingy WHERE listing_id=?", (l["listing_id"],)).fetchone()
+        con.execute("INSERT OR REPLACE INTO listingy VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)", (
+            name, l["listing_id"], html.unescape(l.get("title") or ""), l.get("state", ""), price, cur,
+            l.get("quantity"), l.get("views"), l.get("num_favorers"), ", ".join(l.get("tags") or []),
+            images[0].get("url_170x135", "") if images else "", l.get("url", ""),
+            ", ".join(l.get("skus") or []), l.get("created_timestamp") or l.get("creation_timestamp") or 0,
+            l.get("last_modified_timestamp") or l.get("updated_timestamp") or 0, old[0] if old else 0))
+        seen.add(l["listing_id"])
+    con.execute("DELETE FROM listingy WHERE shop=? AND listing_id<0", (name,))  # API nahradí data z CSV
+    if complete:  # smazané listingy
+        for (lid,) in con.execute("SELECT listing_id FROM listingy WHERE shop=?", (name,)).fetchall():
+            if lid not in seen:
+                con.execute("DELETE FROM listingy WHERE listing_id=?", (lid,))
 
 
 def run_check(cfg):
@@ -492,23 +534,24 @@ def dashboard_data(db_path=None):
     data = {
         "objednavky": rows_as_dicts(con, "SELECT * FROM objednavky ORDER BY vytvoreno_ts DESC"),
         "vypis": rows_as_dicts(con, "SELECT * FROM vypis ORDER BY datum_ts DESC, entry_id DESC"),
+        "listingy": rows_as_dicts(con, "SELECT * FROM listingy ORDER BY nazev"),
     }
     con.close()
     return data
 
 
 CSV_HEADERS = {
-    "cs": {"shop": "Shopa", "receipt_id": "Číslo objednávky", "vytvoreno_ts": "Datum", "zakaznik": "Zákazník",
+    "cs": {"listing_id": "ID listingu", "nazev": "Název", "cena": "Cena", "mnozstvi": "Skladem", "zobrazeni": "Zobrazení", "oblibene": "Oblíbené", "stitky": "Štítky", "sku": "SKU", "url": "Odkaz", "shop": "Shopa", "receipt_id": "Číslo objednávky", "vytvoreno_ts": "Datum", "zakaznik": "Zákazník",
            "polozky": "Položky", "celkem": "Celkem", "mena": "Měna", "zaplaceno": "Zaplaceno",
            "odeslano": "Odesláno", "stav": "Stav", "entry_id": "ID pohybu", "datum_ts": "Datum",
            "typ": "Typ", "popis": "Popis", "castka": "Částka", "zustatek": "Zůstatek",
            "reference": "Reference"},
-    "en": {"shop": "Shop", "receipt_id": "Order ID", "vytvoreno_ts": "Date", "zakaznik": "Buyer",
+    "en": {"listing_id": "Listing ID", "nazev": "Title", "cena": "Price", "mnozstvi": "Quantity", "zobrazeni": "Views", "oblibene": "Favorites", "stitky": "Tags", "sku": "SKU", "url": "URL", "shop": "Shop", "receipt_id": "Order ID", "vytvoreno_ts": "Date", "zakaznik": "Buyer",
            "polozky": "Items", "celkem": "Total", "mena": "Currency", "zaplaceno": "Paid",
            "odeslano": "Shipped", "stav": "Status", "entry_id": "Entry ID", "datum_ts": "Date",
            "typ": "Type", "popis": "Description", "castka": "Amount", "zustatek": "Balance",
            "reference": "Reference"},
-    "de": {"shop": "Shop", "receipt_id": "Bestellnr.", "vytvoreno_ts": "Datum", "zakaznik": "Kunde",
+    "de": {"listing_id": "Angebots-ID", "nazev": "Titel", "cena": "Preis", "mnozstvi": "Bestand", "zobrazeni": "Aufrufe", "oblibene": "Favoriten", "stitky": "Tags", "sku": "SKU", "url": "Link", "shop": "Shop", "receipt_id": "Bestellnr.", "vytvoreno_ts": "Datum", "zakaznik": "Kunde",
            "polozky": "Artikel", "celkem": "Gesamt", "mena": "Währung", "zaplaceno": "Bezahlt",
            "odeslano": "Versandt", "stav": "Status", "entry_id": "Buchungsnr.", "datum_ts": "Datum",
            "typ": "Typ", "popis": "Beschreibung", "castka": "Betrag", "zustatek": "Saldo",
@@ -523,6 +566,11 @@ def csv_export(kind, db_path=None, lang="cs"):
         cols = ["shop", "receipt_id", "vytvoreno_ts", "zakaznik", "polozky", "celkem", "mena",
                 "zaplaceno", "odeslano", "stav"]
         rows = con.execute(f"SELECT {','.join(cols)} FROM objednavky ORDER BY shop, vytvoreno_ts").fetchall()
+    elif kind == "listingy":
+        cols = ["shop", "listing_id", "nazev", "stav", "cena", "mena", "mnozstvi", "zobrazeni", "oblibene",
+                "stitky", "sku", "url"]
+        rows = con.execute(f"SELECT {','.join(cols)} FROM listingy ORDER BY shop, nazev").fetchall()
+        rows = [(r[0], r[1] if r[1] > 0 else "") + tuple(r[2:]) for r in rows]
     else:
         cols = ["shop", "entry_id", "datum_ts", "typ", "popis", "castka", "mena", "zustatek", "reference"]
         rows = con.execute(f"SELECT {','.join(cols)} FROM vypis ORDER BY shop, datum_ts").fetchall()
@@ -559,7 +607,19 @@ def make_demo_db(path):
         "DemoHandmade": ["Ceramic Mug", "Linen Tote Bag", "Custom Name Necklace",
                          "Wooden Coaster Set", "Scented Candle"],
     }
-    rid, eid = 3000000000, 900000
+    rid, eid, lid = 3000000000, 900000, 1500000000
+    for shop, products in shops.items():
+        for i, p in enumerate(products):
+            lid += 1
+            digital = shop == "DemoPrintables"
+            state = "draft" if p == "Wedding Checklist" else "sold_out" if p == "Scented Candle" else "active"
+            con.execute("INSERT INTO listingy VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)", (
+                shop, lid, p, state, rnd.choice([3.49, 4.99, 6.99, 8.99]) if digital else rnd.choice([12.9, 18.5, 24.0, 35.0]),
+                "USD", 999 if digital else (0 if state == "sold_out" else rnd.randint(1, 25)),
+                0 if state == "draft" else rnd.randint(150, 4200), 0 if state == "draft" else rnd.randint(5, 380),
+                ", ".join(rnd.sample(["printable", "gift", "planner", "minimalist", "handmade", "custom", "home decor", "for her"], 3)),
+                "", f"https://www.etsy.com/listing/{lid}", f"{shop[4:7].upper()}-{i + 1:03d}",
+                int((now - timedelta(days=rnd.randint(60, 700))).timestamp()), int(time.time()), 0))
     for shop, products in shops.items():
         digital = shop == "DemoPrintables"
         balance = 0.0
@@ -808,6 +868,25 @@ def import_payments(con, shop, rows):
     return n
 
 
+def import_listings(con, shop, rows):
+    """Download Data → Currently for Sale Listings (EtsyListingsDownload.csv). Soubor je úplný
+    seznam aktivních listingů, proto nahradí dříve nahrané listingy z CSV. Listingy z API zůstanou."""
+    con.execute("DELETE FROM listingy WHERE shop=? AND listing_id<0", (shop,))
+    api_titles = {r[0] for r in con.execute("SELECT nazev FROM listingy WHERE shop=?", (shop,))}
+    now, n = int(time.time()), 0
+    for r in rows:
+        title = html.unescape(pick(r, "TITLE", "Title").strip())
+        if not title or title in api_titles:
+            continue
+        qty = pick(r, "QUANTITY", "Quantity").strip()
+        con.execute("INSERT OR REPLACE INTO listingy VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)", (
+            shop, csv_id(shop, "listing", title), title, "active", parse_money(pick(r, "PRICE", "Price")),
+            pick(r, "CURRENCY_CODE", "Currency"), int(qty) if qty.isdigit() else None, None, None,
+            pick(r, "TAGS", "Tags").replace(",", ", "), pick(r, "IMAGE1"), "", pick(r, "SKU"), 0, now, 0))
+        n += 1
+    return n
+
+
 def import_csv(shop, filename, text, db_path=None):
     shop = (shop or "").strip()
     if not shop:
@@ -824,9 +903,11 @@ def import_csv(shop, filename, text, db_path=None):
             kind, n = "order_items", import_order_items(con, shop, rows)
         elif "Sale Date" in header and ("Order ID" in header or "Order Id" in header):
             kind, n = "orders", import_orders(con, shop, rows)
+        elif {"TITLE", "PRICE", "QUANTITY"} <= header:
+            kind, n = "listings", import_listings(con, shop, rows)
         else:
             raise AppError("import_unknown", f"Soubor {filename} nevypadá jako export z Etsy "
-                           "(výpis, Orders, Order Items nebo Payments).", soubor=filename)
+                           "(výpis, Orders, Order Items, Payments nebo Listings).", soubor=filename)
         con.commit()
     finally:
         con.close()
@@ -868,7 +949,7 @@ class Handler(BaseHTTPRequestHandler):
         else:
             shops = [{"id": k, "name": v.get("shop_name", k)} for k, v in tokens.items()]
             con = db(self.db_path)
-            names = {r[0] for r in con.execute("SELECT shop FROM objednavky UNION SELECT shop FROM vypis")}
+            names = {r[0] for r in con.execute("SELECT shop FROM objednavky UNION SELECT shop FROM vypis UNION SELECT shop FROM listingy")}
             con.close()
             shops += [{"id": None, "name": n} for n in sorted(names - {s["name"] for s in shops})]
         settings = {k: cfg.get(k) for k in ("interval_minut", "ntfy_topic", "redirect_uri", "keystring", "jazyk")}
@@ -895,11 +976,11 @@ class Handler(BaseHTTPRequestHandler):
             return self.send(200, dashboard_data(self.db_path))
         if path == "/api/kurzy":
             return self.send(200, get_rates())
-        if path in ("/export/objednavky.csv", "/export/vypis.csv"):
+        if path in ("/export/objednavky.csv", "/export/vypis.csv", "/export/listingy.csv"):
             kind = path.split("/")[-1].split(".")[0]
             lang = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query).get("lang", ["cs"])[0]
-            fname = {"en": {"objednavky": "orders", "vypis": "statement"},
-                     "de": {"objednavky": "bestellungen", "vypis": "kontoauszug"}}.get(lang, {}).get(kind, kind)
+            fname = {"en": {"objednavky": "orders", "vypis": "statement", "listingy": "listings"},
+                     "de": {"objednavky": "bestellungen", "vypis": "kontoauszug", "listingy": "angebote"}}.get(lang, {}).get(kind, kind)
             return self.send(200, csv_export(kind, self.db_path, lang), "text/csv; charset=utf-8",
                              {"Content-Disposition": f'attachment; filename="{fname}.csv"'})
         self.send(404, {"chyba": "nenalezeno"})
