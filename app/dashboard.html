@@ -390,7 +390,8 @@ dialog::backdrop { background: rgba(0,0,0,.4); }
             <div class="actions left"><button class="btn" id="authStart" data-i18n="authStart"></button></div>
             <div id="authStep" hidden>
               <p class="hint" data-i18n="authHint"></p>
-              <div class="field"><textarea id="authUrl" rows="3" placeholder="https://localhost:3003/etsy?code=…&state=…"></textarea></div>
+              <p class="hint"><a id="authLink" target="_blank" rel="noopener" style="color:var(--text);text-decoration:underline" data-i18n="authOpenLink"></a></p>
+              <div class="field"><textarea id="authUrl" rows="3" placeholder="https://…?code=…&state=…"></textarea></div>
               <div class="actions"><button class="btn primary" id="authFinish" data-i18n="authFinish"></button></div>
             </div>
             <div class="msg" id="authMsg"></div>
@@ -462,7 +463,8 @@ const T = {
     ntfyLabel: "Upozornění na mobil přes ntfy (nepovinné, název tématu)", ntfyPh: "např. moje-shopa-etsy-8f3k2", save: "Uložit",
     shopsTitle: "Shopy", shopsHint: "Přihlas každou shopu zvlášť. Pro druhou shopu se na Etsy nejdřív odhlas, nebo otevři odkaz v anonymním okně.",
     authStart: "+ Přihlásit shopu",
-    authHint: "Na Etsy potvrď přístup. Prohlížeč pak ukáže chybu „nelze se připojit“, to je v pořádku. Zkopíruj celou adresu z adresního řádku a vlož ji sem:",
+    authHint: "V nové záložce se otevřelo Etsy. Klikni tam na Grant access. Etsy tě pak přesměruje na tvou Callback URL (u localhost prohlížeč ukáže chybu „nelze se připojit“, to je v pořádku). Až potom zkopíruj celou adresu z adresního řádku, obsahuje ?code=, a vlož ji sem:",
+    authOpenLink: "Záložka se neotevřela? Otevři přihlášení na Etsy →",
     authFinish: "Dokončit přihlášení", updTitle: "Aktualizace", version: "Verze", updAuto: "Nové verze se stahují samy jednou denně.",
     updBtn: "Zkontrolovat aktualizace", unTitle: "Odinstalovat",
     unHint: "Zastaví hlídání a vypne automatické spouštění po zapnutí Macu. Pak stačí přetáhnout aplikaci Etsy Dashboard z Aplikací do koše.",
@@ -526,7 +528,8 @@ const T = {
     ntfyLabel: "Phone notifications via ntfy (optional, topic name)", ntfyPh: "e.g. my-shop-etsy-8f3k2", save: "Save",
     shopsTitle: "Shops", shopsHint: "Connect each shop separately. For a second shop, sign out of Etsy first or open the link in a private window.",
     authStart: "+ Connect a shop",
-    authHint: "Approve access on Etsy. The browser will then show a “can't connect” error, that's expected. Copy the full address from the address bar and paste it here:",
+    authHint: "Etsy opened in a new tab. Click Grant access there. Etsy then redirects you to your Callback URL (with localhost the browser shows a “can't connect” error, that's expected). Only then copy the full address from the address bar, it contains ?code=, and paste it here:",
+    authOpenLink: "No new tab? Open the Etsy sign-in →",
     authFinish: "Finish sign-in", updTitle: "Updates", version: "Version", updAuto: "New versions are installed automatically once a day.",
     updBtn: "Check for updates", unTitle: "Uninstall",
     unHint: "Stops background checking and turns off autostart at login. Then just drag Etsy Dashboard from Applications to the Trash.",
@@ -564,7 +567,8 @@ const T = {
     plural: { order: ["order", "orders"], move: ["transaction", "transactions"] },
     errors: { demo: "Nothing can be changed in demo mode.", need_keys: "Enter the Keystring and Shared secret in Settings first.",
       auth_denied: "Etsy denied access: {detail}", auth_state: "This address doesn't belong to this sign-in. Click “Connect a shop” again.",
-      auth_code: "The address is missing 'code'.", no_shop: "This Etsy account has no shop.",
+      auth_code: "The address is missing 'code'. Paste the full address you land on after clicking Grant access on Etsy.",
+      auth_connect_url: "This is the Etsy sign-in link, not the address after signing in. Open it, click Grant access on Etsy and paste the address you land on (it starts with your Callback URL and contains ?code=).", no_shop: "This Etsy account has no shop.",
       import_shop: "Choose or type the shop the file belongs to.",
       import_unknown: "{soubor} doesn't look like an Etsy export (statement, Orders, Order Items or Payments)." },
   },
@@ -594,7 +598,8 @@ const T = {
     ntfyLabel: "Handy-Benachrichtigungen über ntfy (optional, Themenname)", ntfyPh: "z. B. mein-shop-etsy-8f3k2", save: "Speichern",
     shopsTitle: "Shops", shopsHint: "Verbinde jeden Shop einzeln. Für einen zweiten Shop melde dich zuerst bei Etsy ab oder öffne den Link in einem privaten Fenster.",
     authStart: "+ Shop verbinden",
-    authHint: "Bestätige den Zugriff auf Etsy. Der Browser zeigt danach „Verbindung nicht möglich“, das ist in Ordnung. Kopiere die komplette Adresse aus der Adresszeile und füge sie hier ein:",
+    authHint: "Etsy wurde in einem neuen Tab geöffnet. Klicke dort auf Grant access. Etsy leitet dich dann zu deiner Callback-URL weiter (bei localhost zeigt der Browser „Verbindung nicht möglich“, das ist in Ordnung). Erst dann kopiere die komplette Adresse aus der Adresszeile, sie enthält ?code=, und füge sie hier ein:",
+    authOpenLink: "Kein neuer Tab? Etsy-Anmeldung öffnen →",
     authFinish: "Anmeldung abschließen", updTitle: "Updates", version: "Version", updAuto: "Neue Versionen werden einmal täglich automatisch installiert.",
     updBtn: "Nach Updates suchen", unTitle: "Deinstallieren",
     unHint: "Beendet die Hintergrundprüfung und den Autostart beim Anmelden. Danach Etsy Dashboard einfach aus „Programme“ in den Papierkorb ziehen.",
@@ -633,7 +638,8 @@ const T = {
     plural: { order: ["Bestellung", "Bestellungen"], move: ["Buchung", "Buchungen"] },
     errors: { demo: "Im Demo-Modus kann nichts geändert werden.", need_keys: "Trage zuerst Keystring und Shared secret in den Einstellungen ein.",
       auth_denied: "Etsy hat den Zugriff verweigert: {detail}", auth_state: "Diese Adresse gehört nicht zu dieser Anmeldung. Klicke erneut auf „Shop verbinden“.",
-      auth_code: "In der Adresse fehlt 'code'.", no_shop: "Dieses Etsy-Konto hat keinen Shop.",
+      auth_code: "In der Adresse fehlt 'code'. Füge die komplette Adresse ein, auf der du nach Grant access auf Etsy landest.",
+      auth_connect_url: "Das ist der Etsy-Anmeldelink, nicht die Adresse nach der Anmeldung. Öffne ihn, klicke auf Etsy auf Grant access und füge die Adresse ein, auf der du landest (beginnt mit deiner Callback-URL und enthält ?code=).", no_shop: "Dieses Etsy-Konto hat keinen Shop.",
       import_shop: "Wähle oder tippe den Shop, zu dem die Datei gehört.",
       import_unknown: "{soubor} sieht nicht wie ein Etsy-Export aus (Kontoauszug, Orders, Order Items oder Payments)." },
   },
@@ -1350,7 +1356,7 @@ $("#ntfySave").onclick = async () => {
   catch (e) { msg($("#ntfyMsg"), e.message); }
 };
 $("#authStart").onclick = async () => {
-  try { const { url } = await api("/api/prihlasit/start", {}); window.open(url, "_blank"); $("#authStep").hidden = false; $("#authUrl").value = ""; $("#authMsg").textContent = ""; }
+  try { const { url } = await api("/api/prihlasit/start", {}); $("#authLink").href = url; window.open(url, "_blank"); $("#authStep").hidden = false; $("#authUrl").value = ""; $("#authMsg").textContent = ""; }
   catch (e) { msg($("#authMsg"), e.message); }
 };
 $("#authFinish").onclick = async () => {

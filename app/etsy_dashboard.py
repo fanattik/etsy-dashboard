@@ -41,7 +41,7 @@ AUTH_URL = "https://www.etsy.com/oauth/connect"
 TOKEN_URL = "https://api.etsy.com/v3/public/oauth/token"
 SCOPES = "transactions_r shops_r profile_r listings_r"
 PORT = 8765
-VERSION = "1.11"
+VERSION = "1.12"
 UPDATE_BASE = os.environ.get("ETSY_DASHBOARD_UPDATE_URL") or "https://raw.githubusercontent.com/fanattik/etsy-dashboard/main/app/"
 UPDATE_EVERY = 24 * 3600
 RATES_URL = os.environ.get("ETSY_DASHBOARD_RATES_URL") or "https://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml"
@@ -224,16 +224,22 @@ def auth_start(cfg):
 
 
 def auth_finish(cfg, pasted):
-    query = urllib.parse.parse_qs(urllib.parse.urlparse(pasted.strip()).query)
+    url = urllib.parse.urlparse(pasted.strip())
+    query = urllib.parse.parse_qs(url.query)
+    if "code_challenge" in query or url.path.startswith("/oauth/connect"):  # vložený přihlašovací odkaz
+        raise AppError("auth_connect_url", "Tohle je přihlašovací odkaz na Etsy, ne adresa po přihlášení. "
+                       "Otevři ho, na Etsy klikni na Grant access a vlož sem adresu, na které pak skončíš "
+                       "(začíná tvou Callback URL a obsahuje ?code=).")
     if "error" in query:
         detail = query.get("error_description", query["error"])[0]
         raise AppError("auth_denied", "Etsy přístup nepovolilo: " + detail, detail=detail)
+    if "code" not in query:
+        raise AppError("auth_code", "V adrese chybí 'code'. Vlož celou adresu, na které skončíš po kliknutí "
+                       "na Grant access na Etsy.")
     state = query.get("state", [""])[0]
     verifier = PENDING_AUTH.pop(state, None)
     if not verifier:
         raise AppError("auth_state", "Adresa nepatří k tomuto přihlášení. Klikni znovu na „Přihlásit shopu“.")
-    if "code" not in query:
-        raise AppError("auth_code", "V adrese chybí 'code'.")
     tok = token_request(cfg, {
         "grant_type": "authorization_code",
         "client_id": cfg["keystring"],
