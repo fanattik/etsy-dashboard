@@ -40,7 +40,7 @@ AUTH_URL = "https://www.etsy.com/oauth/connect"
 TOKEN_URL = "https://api.etsy.com/v3/public/oauth/token"
 SCOPES = "transactions_r shops_r profile_r"
 PORT = 8765
-VERSION = "1.6"
+VERSION = "1.7"
 UPDATE_BASE = os.environ.get("ETSY_DASHBOARD_UPDATE_URL") or "https://raw.githubusercontent.com/fanattik/etsy-dashboard/main/app/"
 UPDATE_EVERY = 24 * 3600
 RATES_URL = os.environ.get("ETSY_DASHBOARD_RATES_URL") or "https://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml"
@@ -697,7 +697,7 @@ def import_statement(con, shop, rows):
                 o["total"] += net
                 o["ts"] = ts
             elif title.startswith("Transaction fee: ") and not title.startswith("Transaction fee: Shipping"):
-                name = title[len("Transaction fee: "):]
+                name = fee_item_name(title)
                 o["items"][name] = o["items"].get(name, 0) + 1
     # objednávky odvozené z výpisu (bez jména zákazníka); CSV objednávek je pak přepíše
     for rid, o in orders.items():
@@ -708,7 +708,35 @@ def import_statement(con, shop, rows):
             shop, rid, o["ts"], "", items, round(o["total"], 2), o["cur"], 1, None, "Zaplaceno", o["ts"], 0))
         if items:
             con.execute("UPDATE objednavky SET polozky=? WHERE receipt_id=? AND polozky=''", (items, rid))
+    fill_items_from_ledger(con)
     return added
+
+
+def fee_item_name(title):
+    """„Transaction fee: Design 3D Cover | ...“ → „Design 3D Cover“ (Etsy názvy ve výpisu zkracuje)."""
+    name = title[len("Transaction fee: "):].strip()
+    name = _re.sub(r"\s*\|\s*\.\.\.$", "", name)
+    return _re.sub(r"\s*\.\.\.$", "…", name)
+
+
+def fill_items_from_ledger(con):
+    """Objednávky, u kterých známe jen počet kusů („3 ks“), doplní názvy produktů
+    z řádků „Transaction fee: …“ v nahraném výpisu (pořadí nahrávání souborů pak nehraje roli)."""
+    todo = con.execute("SELECT receipt_id, polozky FROM objednavky WHERE polozky='' OR polozky GLOB '[0-9]* ks'").fetchall()
+    for rid, old in todo:
+        names = {}
+        for (title,) in con.execute("SELECT popis FROM vypis WHERE popis LIKE 'Transaction fee: %' "
+                                    "AND popis NOT LIKE 'Transaction fee: Shipping%' AND reference LIKE ?",
+                                    (f"%Order #{rid}%",)):
+            name = fee_item_name(title)
+            names[name] = names.get(name, 0) + 1
+        if not names:
+            continue
+        count = _re.match(r"(\d+) ks$", old or "")
+        if count and len(names) == 1:  # jeden produkt: přesný počet kusů je z CSV objednávek
+            names = {next(iter(names)): int(count.group(1))}
+        items = "; ".join(f"{q}x {n}" for n, q in names.items())
+        con.execute("UPDATE objednavky SET polozky=? WHERE receipt_id=?", (items, rid))
 
 
 def csv_items(con, rid):
@@ -743,6 +771,7 @@ def import_orders(con, shop, rows):
             pick(r, "Currency"), 1, int(shipped), pick(r, "Status") or ("Odesláno" if shipped else "Zaplaceno"),
             now, old[1] if old else 0))
         added += 1
+    fill_items_from_ledger(con)
     return added
 
 
@@ -973,6 +1002,10 @@ def serve(demo=False, open_browser=True):
             webbrowser.open(url)
         return
     if not demo:
+        con = db()  # doplní názvy produktů i do dříve nahraných objednávek
+        fill_items_from_ledger(con)
+        con.commit()
+        con.close()
         threading.Thread(target=watcher_loop, daemon=True).start()
     server = ThreadingHTTPServer(("127.0.0.1", PORT), Handler)
     print(f"Etsy Dashboard běží na {url}  (ukončíš Ctrl+C nebo zavřením okna)")
