@@ -4,7 +4,7 @@ A small local dashboard for Etsy sellers: orders, revenue, Etsy fees, payouts an
 
 ![Dashboard](docs/screenshot.png)
 
-> The user interface is currently in Czech. A step-by-step guide in Czech is in [docs/NAVOD.md](docs/NAVOD.md).
+The interface is available in English, Czech and German (switch in the top right corner; it follows your browser language by default). A step-by-step guide in Czech is in [docs/NAVOD.md](docs/NAVOD.md).
 
 ## Features
 
@@ -24,7 +24,7 @@ A small local dashboard for Etsy sellers: orders, revenue, Etsy fees, payouts an
 2. Open it. The app is not signed with an Apple Developer ID, so macOS blocks the first launch: click *Done*, then go to *System Settings → Privacy & Security* and click *Open Anyway*. This is needed only once.
 3. If Python 3 is missing, the app offers to download it from python.org.
 
-The app installs a background service (LaunchAgent) that starts at login, so afterwards the dashboard is always at <http://127.0.0.1:8765>. Uninstall from the dashboard: *Settings → Odinstalovat*.
+The app installs a background service (LaunchAgent) that starts at login, so afterwards the dashboard is always at <http://127.0.0.1:8765>. Uninstall from the dashboard: *Settings → Uninstall*.
 
 ## Run anywhere else
 
@@ -55,3 +55,7 @@ python3 app/etsy_dashboard.py jednou   # one API sync without the UI (cron)
 ## Releasing an update
 
 Bump `VERSION` in `app/etsy_dashboard.py`, run `python3 mac/build_mac_app.py` (it also rewrites `app/version.json` and the zip) and push to `main`. Installed apps pick it up within a day.
+
+## License
+
+[MIT](LICENSE)

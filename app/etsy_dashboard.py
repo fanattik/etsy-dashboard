@@ -40,7 +40,7 @@ AUTH_URL = "https://www.etsy.com/oauth/connect"
 TOKEN_URL = "https://api.etsy.com/v3/public/oauth/token"
 SCOPES = "transactions_r shops_r profile_r"
 PORT = 8765
-VERSION = "1.4"
+VERSION = "1.5"
 UPDATE_BASE = os.environ.get("ETSY_DASHBOARD_UPDATE_URL") or "https://raw.githubusercontent.com/fanattik/etsy-dashboard/main/app/"
 UPDATE_EVERY = 24 * 3600
 
@@ -61,11 +61,38 @@ DEFAULT_CONFIG = {
     "interval_minut": 15,
     "prvni_stazeni_dni": 365,
     "ntfy_topic": "",
+    "jazyk": "cs",
 }
 
 LOCK = threading.Lock()  # jedna kontrola / zápis tokenů naráz
 STATUS = {"posledni_kontrola": None, "chyby": {}, "bezi": False}
 PENDING_AUTH = {}  # state -> code_verifier
+
+# Texty, které posílá server (upozornění na telefon). Dashboard má vlastní překlady.
+TEXTS = {
+    "cs": {"order": "🛒 {shop}: nová objednávka {total} od {buyer} ({items})",
+           "status": "🔄 {shop}: objednávka {id} je teď {status}",
+           "more": "… a dalších {n}", "title": "Etsy Dashboard: novinky"},
+    "en": {"order": "🛒 {shop}: new order {total} from {buyer} ({items})",
+           "status": "🔄 {shop}: order {id} is now {status}",
+           "more": "… and {n} more", "title": "Etsy Dashboard: news"},
+    "de": {"order": "🛒 {shop}: neue Bestellung {total} von {buyer} ({items})",
+           "status": "🔄 {shop}: Bestellung {id} ist jetzt {status}",
+           "more": "… und {n} weitere", "title": "Etsy Dashboard: Neuigkeiten"},
+}
+
+
+def tr(cfg, key, **kw):
+    return TEXTS.get(cfg.get("jazyk"), TEXTS["cs"])[key].format(**kw)
+
+
+class AppError(RuntimeError):
+    """Chyba pro uživatele: český text + kód, podle kterého ji dashboard přeloží."""
+
+    def __init__(self, kod, text, **param):
+        super().__init__(text)
+        self.kod = kod
+        self.param = param
 
 # macOS: Python z python.org nemá vlastní kořenové certifikáty, systémové jsou v /etc/ssl/cert.pem
 SSL_CTX = ssl.create_default_context()
@@ -195,13 +222,14 @@ def auth_start(cfg):
 def auth_finish(cfg, pasted):
     query = urllib.parse.parse_qs(urllib.parse.urlparse(pasted.strip()).query)
     if "error" in query:
-        raise RuntimeError("Etsy přístup nepovolilo: " + query.get("error_description", query["error"])[0])
+        detail = query.get("error_description", query["error"])[0]
+        raise AppError("auth_denied", "Etsy přístup nepovolilo: " + detail, detail=detail)
     state = query.get("state", [""])[0]
     verifier = PENDING_AUTH.pop(state, None)
     if not verifier:
-        raise RuntimeError("Adresa nepatří k tomuto přihlášení. Klikni znovu na „Přihlásit shopu“.")
+        raise AppError("auth_state", "Adresa nepatří k tomuto přihlášení. Klikni znovu na „Přihlásit shopu“.")
     if "code" not in query:
-        raise RuntimeError("V adrese chybí 'code'.")
+        raise AppError("auth_code", "V adrese chybí 'code'.")
     tok = token_request(cfg, {
         "grant_type": "authorization_code",
         "client_id": cfg["keystring"],
@@ -216,7 +244,7 @@ def auth_finish(cfg, pasted):
             me = api_get(cfg, tokens, "_novy", "/users/me")
             shop_id = str(me.get("shop_id") or "")
             if not shop_id:
-                raise RuntimeError("Tento Etsy účet nemá shopu.")
+                raise AppError("no_shop", "Tento Etsy účet nemá shopu.")
             shop = api_get(cfg, tokens, "_novy", f"/shops/{shop_id}")
         finally:
             tokens.pop("_novy", None)
@@ -288,9 +316,9 @@ def check_shop(cfg, tokens, con, shop_id):
             int(bool(r.get("is_shipped"))), r.get("status", ""),
             r.get("updated_timestamp") or r.get("update_timestamp") or 0, added))
         if old is None and not first:
-            news.append(f"🛒 {name}: nová objednávka {total:.2f} {cur} od {r.get('name', '')} ({items})")
+            news.append(tr(cfg, "order", shop=name, total=f"{total:.2f} {cur}", buyer=r.get("name", ""), items=items))
         elif old is not None and old[0] != r.get("status", ""):
-            news.append(f"🔄 {name}: objednávka {r['receipt_id']} je teď {r.get('status', '')}")
+            news.append(tr(cfg, "status", shop=name, id=r["receipt_id"], status=r.get("status", "")))
     set_last_ts(con, shop_id, "objednavky", now)
 
     # --- platební účet (měsíční výpis): prodeje, poplatky, refundy, výplaty
@@ -356,9 +384,9 @@ def notify(cfg, lines):
     topic = cfg.get("ntfy_topic")
     if not topic or not lines:
         return
-    body = "\n".join(lines[:20]) + (f"\n… a dalších {len(lines) - 20}" if len(lines) > 20 else "")
+    body = "\n".join(lines[:20]) + ("\n" + tr(cfg, "more", n=len(lines) - 20) if len(lines) > 20 else "")
     req = urllib.request.Request(f"https://ntfy.sh/{urllib.parse.quote(topic)}", data=body.encode("utf-8"),
-                                 method="POST", headers={"Title": "Etsy Dashboard: novinky", "Tags": "shopping_cart"})
+                                 method="POST", headers={"Title": tr(cfg, "title"), "Tags": "shopping_cart"})
     try:
         urllib.request.urlopen(req, timeout=30, context=SSL_CTX).close()
     except Exception as e:
@@ -436,8 +464,27 @@ def dashboard_data(db_path=None):
     return data
 
 
-def csv_export(kind, db_path=None):
-    """CSV pro Excel (středník, desetinná čárka, UTF-8 s BOM)."""
+CSV_HEADERS = {
+    "cs": {"shop": "Shopa", "receipt_id": "Číslo objednávky", "vytvoreno_ts": "Datum", "zakaznik": "Zákazník",
+           "polozky": "Položky", "celkem": "Celkem", "mena": "Měna", "zaplaceno": "Zaplaceno",
+           "odeslano": "Odesláno", "stav": "Stav", "entry_id": "ID pohybu", "datum_ts": "Datum",
+           "typ": "Typ", "popis": "Popis", "castka": "Částka", "zustatek": "Zůstatek",
+           "reference": "Reference"},
+    "en": {"shop": "Shop", "receipt_id": "Order ID", "vytvoreno_ts": "Date", "zakaznik": "Buyer",
+           "polozky": "Items", "celkem": "Total", "mena": "Currency", "zaplaceno": "Paid",
+           "odeslano": "Shipped", "stav": "Status", "entry_id": "Entry ID", "datum_ts": "Date",
+           "typ": "Type", "popis": "Description", "castka": "Amount", "zustatek": "Balance",
+           "reference": "Reference"},
+    "de": {"shop": "Shop", "receipt_id": "Bestellnr.", "vytvoreno_ts": "Datum", "zakaznik": "Kunde",
+           "polozky": "Artikel", "celkem": "Gesamt", "mena": "Währung", "zaplaceno": "Bezahlt",
+           "odeslano": "Versandt", "stav": "Status", "entry_id": "Buchungsnr.", "datum_ts": "Datum",
+           "typ": "Typ", "popis": "Beschreibung", "castka": "Betrag", "zustatek": "Saldo",
+           "reference": "Referenz"},
+}
+
+
+def csv_export(kind, db_path=None, lang="cs"):
+    """CSV pro Excel (UTF-8 s BOM). Česky a německy středník a desetinná čárka, anglicky čárka a tečka."""
     con = db(db_path)
     if kind == "objednavky":
         cols = ["shop", "receipt_id", "vytvoreno_ts", "zakaznik", "polozky", "celkem", "mena",
@@ -448,15 +495,17 @@ def csv_export(kind, db_path=None):
         rows = con.execute(f"SELECT {','.join(cols)} FROM vypis ORDER BY shop, datum_ts").fetchall()
     con.close()
     buf = io.StringIO()
-    w = csv.writer(buf, delimiter=";")
-    w.writerow([c.replace("_ts", "") for c in cols])
+    comma = lang == "en"
+    w = csv.writer(buf, delimiter="," if comma else ";")
+    names = CSV_HEADERS.get(lang, CSV_HEADERS["cs"])
+    w.writerow([names.get(c, c.replace("_ts", "")) for c in cols])
     for row in rows:
         out = []
         for c, v in zip(cols, row):
             if c.endswith("_ts"):
                 v = datetime.fromtimestamp(v).strftime("%Y-%m-%d %H:%M") if v else ""
             elif isinstance(v, float):
-                v = f"{v:.2f}".replace(".", ",")
+                v = f"{v:.2f}" if comma else f"{v:.2f}".replace(".", ",")
             out.append(v)
         w.writerow(out)
     return ("﻿" + buf.getvalue()).encode("utf-8")
@@ -700,25 +749,26 @@ def import_payments(con, shop, rows):
 def import_csv(shop, filename, text, db_path=None):
     shop = (shop or "").strip()
     if not shop:
-        raise RuntimeError("Vyber nebo napiš, ke které shopě soubor patří.")
+        raise AppError("import_shop", "Vyber nebo napiš, ke které shopě soubor patří.")
     rows = list(csv.DictReader(io.StringIO(text.lstrip("﻿"))))
     header = set(rows[0].keys()) if rows else set()
     con = db(db_path)
     try:
         if {"Date", "Type", "Title", "Net"} <= header:
-            kind, n = "výpis", import_statement(con, shop, rows)
+            kind, n = "statement", import_statement(con, shop, rows)
         elif {"Payment ID", "Order ID", "Gross Amount"} <= header:
-            kind, n = "platby", import_payments(con, shop, rows)
+            kind, n = "payments", import_payments(con, shop, rows)
         elif "Item Name" in header and ("Order ID" in header or "Order Id" in header):
-            kind, n = "položky objednávek", import_order_items(con, shop, rows)
+            kind, n = "order_items", import_order_items(con, shop, rows)
         elif "Sale Date" in header and ("Order ID" in header or "Order Id" in header):
-            kind, n = "objednávky", import_orders(con, shop, rows)
+            kind, n = "orders", import_orders(con, shop, rows)
         else:
-            raise RuntimeError(f"Soubor {filename} nevypadá jako export z Etsy (výpis, Orders, Order Items nebo Payments).")
+            raise AppError("import_unknown", f"Soubor {filename} nevypadá jako export z Etsy "
+                           "(výpis, Orders, Order Items nebo Payments).", soubor=filename)
         con.commit()
     finally:
         con.close()
-    return {"soubor": filename, "typ": kind, "novych": n, "radku": len(rows)}
+    return {"soubor": filename, "druh": kind, "novych": n, "radku": len(rows)}
 
 
 # ------------------------------------------------------------------ web server
@@ -759,7 +809,7 @@ class Handler(BaseHTTPRequestHandler):
             names = {r[0] for r in con.execute("SELECT shop FROM objednavky UNION SELECT shop FROM vypis")}
             con.close()
             shops += [{"id": None, "name": n} for n in sorted(names - {s["name"] for s in shops})]
-        settings = {k: cfg.get(k) for k in ("interval_minut", "ntfy_topic", "redirect_uri", "keystring")}
+        settings = {k: cfg.get(k) for k in ("interval_minut", "ntfy_topic", "redirect_uri", "keystring", "jazyk")}
         settings["ma_secret"] = bool(cfg.get("shared_secret"))
         return {
             "demo": self.demo,
@@ -783,8 +833,11 @@ class Handler(BaseHTTPRequestHandler):
             return self.send(200, dashboard_data(self.db_path))
         if path in ("/export/objednavky.csv", "/export/vypis.csv"):
             kind = path.split("/")[-1].split(".")[0]
-            return self.send(200, csv_export(kind, self.db_path), "text/csv; charset=utf-8",
-                             {"Content-Disposition": f'attachment; filename="{kind}.csv"'})
+            lang = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query).get("lang", ["cs"])[0]
+            fname = {"en": {"objednavky": "orders", "vypis": "statement"},
+                     "de": {"objednavky": "bestellungen", "vypis": "kontoauszug"}}.get(lang, {}).get(kind, kind)
+            return self.send(200, csv_export(kind, self.db_path, lang), "text/csv; charset=utf-8",
+                             {"Content-Disposition": f'attachment; filename="{fname}.csv"'})
         self.send(404, {"chyba": "nenalezeno"})
 
     def do_POST(self):
@@ -794,10 +847,10 @@ class Handler(BaseHTTPRequestHandler):
         try:
             body = self.read_json()
             if self.demo and path != "/api/zkontrolovat":
-                return self.send(400, {"chyba": "V ukázkovém režimu nejde nic měnit."})
+                return self.send(400, {"chyba": "V ukázkovém režimu nejde nic měnit.", "kod": "demo"})
             if path == "/api/nastaveni":
                 cfg = load_config()
-                for k in ("keystring", "redirect_uri", "ntfy_topic"):
+                for k in ("keystring", "redirect_uri", "ntfy_topic", "jazyk"):
                     if k in body:
                         cfg[k] = str(body[k]).strip()
                 if body.get("shared_secret"):
@@ -809,7 +862,8 @@ class Handler(BaseHTTPRequestHandler):
             if path == "/api/prihlasit/start":
                 cfg = load_config()
                 if not config_ready(cfg):
-                    return self.send(400, {"chyba": "Nejdřív vyplň Keystring a Shared secret v Nastavení."})
+                    return self.send(400, {"chyba": "Nejdřív vyplň Keystring a Shared secret v Nastavení.",
+                                           "kod": "need_keys"})
                 return self.send(200, {"url": auth_start(cfg)})
             if path == "/api/prihlasit/dokoncit":
                 name = auth_finish(load_config(), body.get("url", ""))
@@ -833,7 +887,7 @@ class Handler(BaseHTTPRequestHandler):
                 news = [] if self.demo else run_check(load_config())
                 return self.send(200, {"ok": True, "novinky": news, "chyby": STATUS["chyby"]})
         except Exception as e:
-            return self.send(400, {"chyba": str(e)})
+            return self.send(400, {"chyba": str(e), "kod": getattr(e, "kod", None), "param": getattr(e, "param", {})})
         self.send(404, {"chyba": "nenalezeno"})
 
 

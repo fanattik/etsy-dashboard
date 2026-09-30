@@ -13,6 +13,22 @@ dialog() {  # $1 = text, $2 = tlačítka (AppleScript seznam), vrací stisknuté
   osascript -e "button returned of (display dialog \"$1\" buttons {$2} default button 1 with title \"Etsy Dashboard\" with icon note)" 2>/dev/null
 }
 
+# Texty dialogů podle jazyka systému (čeština, němčina, jinak angličtina)
+case "$(defaults read -g AppleLanguages 2>/dev/null | sed -n '2p' | tr -d ' ",' | cut -c1-2)" in
+  cs|sk)
+    T_PY="Etsy Dashboard potřebuje Python 3. Stáhni z python.org „macOS installer“, nainstaluj ho a pak otevři Etsy Dashboard znovu."
+    T_DL="Stáhnout Python"; T_CANCEL="Zrušit"
+    T_FAIL="Etsy Dashboard se nepodařilo spustit. Podrobnosti jsou v souboru log.txt ve složce ~/Library/Application Support/EtsyDashboard." ;;
+  de)
+    T_PY="Etsy Dashboard benötigt Python 3. Lade auf python.org den „macOS installer“ herunter, installiere ihn und öffne Etsy Dashboard erneut."
+    T_DL="Python laden"; T_CANCEL="Abbrechen"
+    T_FAIL="Etsy Dashboard konnte nicht gestartet werden. Details stehen in log.txt im Ordner ~/Library/Application Support/EtsyDashboard." ;;
+  *)
+    T_PY="Etsy Dashboard needs Python 3. Download the “macOS installer” from python.org, install it and open Etsy Dashboard again."
+    T_DL="Download Python"; T_CANCEL="Cancel"
+    T_FAIL="Etsy Dashboard could not start. Details are in log.txt in ~/Library/Application Support/EtsyDashboard." ;;
+esac
+
 running() { curl -s -m 2 -o /dev/null "$URL/api/stav"; }
 
 # Převod ze starší verze „Etsy hlídač“: vypnout starou službu a převzít její data
@@ -57,8 +73,8 @@ if [ "$needs_install" = 1 ]; then
     fi
   done
   if [ -z "$PY" ]; then
-    b=$(dialog "Etsy Dashboard potřebuje Python 3. Stáhni z python.org „macOS installer“, nainstaluj ho a pak otevři Etsy Dashboard znovu." "\"Stáhnout Python\", \"Zrušit\"")
-    [ "$b" = "Stáhnout Python" ] && open "https://www.python.org/downloads/macos/"
+    b=$(dialog "$T_PY" "\"$T_DL\", \"$T_CANCEL\"")
+    [ "$b" = "$T_DL" ] && open "https://www.python.org/downloads/macos/"
     exit 1
   fi
 
@@ -95,7 +111,7 @@ fi
 
 for _ in $(seq 1 30); do running && break; sleep 0.5; done
 if ! running; then
-  dialog "Etsy Dashboard se nepodařilo spustit. Podrobnosti jsou v souboru log.txt ve složce ~/Library/Application Support/EtsyDashboard." "\"OK\"" >/dev/null
+  dialog "$T_FAIL" "\"OK\"" >/dev/null
   exit 1
 fi
 open "$URL/"

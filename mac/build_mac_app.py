@@ -105,6 +105,8 @@ def main():
         add(z, app + "Resources/etsy_dashboard.py", read("app/etsy_dashboard.py"), when=when)
         add(z, app + "Resources/dashboard.html", read("app/dashboard.html"), when=when)
         add(z, root + "NAVOD.md", read("docs/NAVOD.md"), when=when)
+        add(z, root + "README.md", read("README.md"), when=when)
+        add(z, root + "LICENSE", read("LICENSE"), when=when)
     icon_png(512).save(os.path.join(ROOT, "docs", "icon.png"))
     print("Hotovo:", OUT_ZIP)
 

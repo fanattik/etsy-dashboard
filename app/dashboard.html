@@ -111,70 +111,72 @@ dialog::backdrop { background: rgba(0,0,0,.35); }
 <body>
 <div class="wrap">
   <header>
-    <h1><span class="logo"><svg width="18" height="18" viewBox="0 0 32 32"><path d="M9 24V8h14M9 16h10" stroke="white" stroke-width="4" fill="none" stroke-linecap="round"/></svg></span>Etsy Dashboard <span id="demoBadge" class="demo" hidden>UKÁZKA</span></h1>
-    <div class="status" id="status">Načítám…</div>
+    <h1><span class="logo"><svg width="18" height="18" viewBox="0 0 32 32"><path d="M9 24V8h14M9 16h10" stroke="white" stroke-width="4" fill="none" stroke-linecap="round"/></svg></span>Etsy Dashboard <span id="demoBadge" class="demo" data-i18n="demo" hidden></span></h1>
+    <div class="status" id="status"></div>
     <div class="spacer"></div>
-    <button class="btn" id="notifBtn" hidden>🔔 Povolit upozornění</button>
-    <button class="btn" id="importBtn">⬆ Nahrát CSV z Etsy</button>
-    <button class="btn" id="checkBtn">↻ Zkontrolovat teď</button>
-    <button class="btn" id="settingsBtn">⚙ Nastavení</button>
+    <button class="btn" id="notifBtn" data-i18n="notifBtn" hidden></button>
+    <button class="btn" id="importBtn" data-i18n="importBtn"></button>
+    <button class="btn" id="checkBtn" data-i18n="checkBtn"></button>
+    <button class="btn" id="settingsBtn" data-i18n="settingsBtn"></button>
+    <select id="lang" aria-label="Language / Jazyk / Sprache">
+      <option value="cs">CZ</option><option value="en">EN</option><option value="de">DE</option>
+    </select>
   </header>
 
   <div id="welcome" class="card welcome" hidden>
-    <h2>Vítej! Jak dostat data z Etsy?</h2>
-    <p><b>Hned: nahraj CSV z Etsy.</b> V Shop Manageru → Settings → Options → Download Data stáhni
-      <b>Payment Account</b> (měsíční výpis), případně i <b>Orders</b> a <b>Order Items</b>, a nahraj je sem.</p>
-    <button class="btn primary" onclick="openImport()">⬆ Nahrát CSV z Etsy</button>
-    <p style="margin-top:22px"><b>Automaticky přes Etsy API</b> (až Etsy schválí aplikaci):</p>
+    <h2 data-i18n="welcomeTitle"></h2>
+    <p data-i18n="welcomeCsv"></p>
+    <button class="btn primary" onclick="openImport()" data-i18n="importBtn"></button>
+    <p style="margin-top:22px" data-i18n="welcomeApi"></p>
     <ol>
-      <li>Na <a href="https://www.etsy.com/developers/register" target="_blank" rel="noopener">etsy.com/developers</a> si zaregistruj aplikaci (zdarma).</li>
-      <li>Do <b>Callback URLs</b> přidej <code>https://localhost:3003/etsy</code>.</li>
-      <li>Klikni na <b>Nastavení</b>, vlož Keystring a Shared secret a přihlas obě shopy.</li>
+      <li data-i18n="welcomeStep1"></li>
+      <li data-i18n="welcomeStep2"></li>
+      <li data-i18n="welcomeStep3"></li>
     </ol>
-    <button class="btn" onclick="openSettings()">Otevřít nastavení</button>
+    <button class="btn" onclick="openSettings()" data-i18n="openSettings"></button>
   </div>
 
   <div id="main" hidden>
     <div class="filters">
       <div class="chips" id="shopChips"></div>
       <div class="spacer"></div>
-      <select id="period" aria-label="Období"></select>
+      <select id="period" data-i18n-aria="period"></select>
     </div>
 
     <div class="banner" id="banner">
-      <div class="row"><b id="bannerTitle"></b><div class="spacer"></div><button class="btn" id="bannerOk">Označit jako viděné</button></div>
+      <div class="row"><b id="bannerTitle"></b><div class="spacer"></div><button class="btn" id="bannerOk" data-i18n="bannerOk"></button></div>
       <ul id="bannerList"></ul>
     </div>
 
     <div class="grid kpis" id="kpis"></div>
 
     <div class="card full">
-      <h2>Tržby po měsících <span class="note">posledních 12 měsíců, z objednávek</span></h2>
+      <h2><span data-i18n="chartTitle"></span> <span class="note" data-i18n="chartNote"></span></h2>
       <div class="legend" id="legend"></div>
       <div id="chart"></div>
     </div>
 
     <div class="grid halves">
       <div class="card">
-        <h2>Kam jdou peníze <span class="note">výpis ve vybraném období</span></h2>
+        <h2><span data-i18n="feesTitle"></span> <span class="note" data-i18n="feesNote"></span></h2>
         <ul class="list" id="fees"></ul>
       </div>
       <div class="card">
-        <h2>Nejprodávanější <span class="note">ve vybraném období</span></h2>
+        <h2><span data-i18n="topTitle"></span> <span class="note" data-i18n="topNote"></span></h2>
         <ul class="list" id="top"></ul>
       </div>
     </div>
 
       <div class="card full">
         <div class="tabs">
-          <button class="tab on" data-tab="orders">Objednávky</button>
-          <button class="tab" data-tab="ledger">Výpis (platby a poplatky)</button>
+          <button class="tab on" data-tab="orders" data-i18n="tabOrders"></button>
+          <button class="tab" data-tab="ledger" data-i18n="tabLedger"></button>
           <div class="spacer"></div>
-          <input class="search" id="search" placeholder="Hledat zákazníka, produkt, popis…">
+          <input class="search" id="search" data-i18n-ph="searchPh">
           <a class="btn" id="exportBtn" href="/export/objednavky.csv">⬇ CSV</a>
         </div>
         <div class="tablewrap"><table id="table"></table></div>
-        <div class="more"><button class="btn" id="moreBtn" hidden>Zobrazit další</button></div>
+        <div class="more"><button class="btn" id="moreBtn" data-i18n="moreBtn" hidden></button></div>
       </div>
   </div>
 </div>
@@ -183,62 +185,61 @@ dialog::backdrop { background: rgba(0,0,0,.35); }
 
 <dialog id="import">
   <div class="dlg">
-    <h3>Nahrát CSV z Etsy</h3>
-    <p class="hint">Na Etsy: Shop Manager → Settings → Options → <b>Download Data</b>. Stáhni <b>Payment Account</b> CSV (měsíční výpis) za měsíce, které chceš vidět.
-      Pro jména zákazníků a přesné položky přidej i <b>Orders</b> a <b>Order Items</b>. Nahrát stejný soubor znovu nevadí, nic se nezdvojí.</p>
-    <label for="impShop">Shopa, ke které soubory patří</label>
-    <input id="impShop" list="shopNames" placeholder="název shopy na Etsy">
+    <h3 data-i18n="impTitle"></h3>
+    <p class="hint" data-i18n="impHint"></p>
+    <label for="impShop" data-i18n="impShopLabel"></label>
+    <input id="impShop" list="shopNames" data-i18n-ph="impShopPh">
     <datalist id="shopNames"></datalist>
-    <label>Soubory CSV</label>
-    <div id="drop" class="drop">Přetáhni sem CSV soubory, nebo <label for="impFiles" class="link">vyber z počítače</label>
+    <label data-i18n="impFilesLabel"></label>
+    <div id="drop" class="drop"><span data-i18n="impDrop"></span>
       <input id="impFiles" type="file" accept=".csv,text/csv" multiple hidden></div>
     <ul class="list" id="impResults"></ul>
-    <div class="actions"><button class="btn" onclick="$('#import').close()">Zavřít</button></div>
+    <div class="actions"><button class="btn" onclick="$('#import').close()" data-i18n="close"></button></div>
   </div>
 </dialog>
 
 <dialog id="settings">
   <div class="dlg">
-    <h3>Nastavení</h3>
-    <p class="hint">Klíče najdeš na etsy.com/developers → Your apps → tvoje aplikace. Ukládají se jen do tohoto počítače.</p>
+    <h3 data-i18n="settingsTitle"></h3>
+    <p class="hint" data-i18n="setHint"></p>
     <label for="keystring">Keystring</label>
     <input id="keystring" autocomplete="off">
     <label for="secret">Shared secret</label>
     <input id="secret" type="password" autocomplete="off" placeholder="">
-    <label for="redirect">Callback URL (musí být stejná jako v Etsy aplikaci)</label>
+    <label for="redirect" data-i18n="redirectLabel"></label>
     <input id="redirect">
-    <label for="interval">Kontrolovat každých (minut)</label>
+    <label for="interval" data-i18n="intervalLabel"></label>
     <input id="interval" type="number" min="5" step="5">
-    <label for="ntfy">Upozornění na mobil přes ntfy (nepovinné, název tématu)</label>
-    <input id="ntfy" placeholder="např. moje-shopa-etsy-8f3k2">
-    <div class="actions"><button class="btn primary" id="saveBtn">Uložit</button></div>
+    <label for="ntfy" data-i18n="ntfyLabel"></label>
+    <input id="ntfy" data-i18n-ph="ntfyPh">
+    <div class="actions"><button class="btn primary" id="saveBtn" data-i18n="save"></button></div>
     <div class="msg" id="saveMsg"></div>
 
     <section>
-      <h3>Shopy</h3>
+      <h3 data-i18n="shopsTitle"></h3>
       <div id="shopList"></div>
-      <p class="hint">Přihlas každou shopu zvlášť. Pro druhou shopu se na Etsy nejdřív odhlas, nebo otevři odkaz v anonymním okně.</p>
-      <div class="actions" style="justify-content:flex-start"><button class="btn" id="authStart">+ Přihlásit shopu</button></div>
+      <p class="hint" data-i18n="shopsHint"></p>
+      <div class="actions" style="justify-content:flex-start"><button class="btn" id="authStart" data-i18n="authStart"></button></div>
       <div id="authStep" hidden>
-        <p class="hint">Na Etsy potvrď přístup. Prohlížeč pak ukáže chybu „nelze se připojit“, to je v pořádku. Zkopíruj celou adresu z adresního řádku a vlož ji sem:</p>
+        <p class="hint" data-i18n="authHint"></p>
         <textarea id="authUrl" rows="3" placeholder="https://localhost:3003/etsy?code=…&state=…"></textarea>
-        <div class="actions"><button class="btn primary" id="authFinish">Dokončit přihlášení</button></div>
+        <div class="actions"><button class="btn primary" id="authFinish" data-i18n="authFinish"></button></div>
       </div>
       <div class="msg" id="authMsg"></div>
     </section>
     <section>
-      <h3>Aktualizace</h3>
-      <p class="hint">Verze <b id="verze"></b>. Nové verze se stahují samy jednou denně.</p>
-      <div class="actions" style="justify-content:flex-start"><button class="btn" id="updBtn">Zkontrolovat aktualizace</button></div>
+      <h3 data-i18n="updTitle"></h3>
+      <p class="hint"><span data-i18n="version"></span> <b id="verze"></b>. <span data-i18n="updAuto"></span></p>
+      <div class="actions" style="justify-content:flex-start"><button class="btn" id="updBtn" data-i18n="updBtn"></button></div>
       <div class="msg" id="updMsg"></div>
     </section>
     <section>
-      <h3>Odinstalovat</h3>
-      <p class="hint">Zastaví hlídání a vypne automatické spouštění po zapnutí Macu. Pak stačí přetáhnout aplikaci Etsy Dashboard z Aplikací do koše.</p>
-      <label style="display:flex;gap:8px;align-items:center;color:var(--text)"><input type="checkbox" id="unDelete" style="width:auto"> Smazat i stažená data a klíče</label>
-      <div class="actions" style="justify-content:flex-start"><button class="btn danger" id="unBtn">Odinstalovat</button></div>
+      <h3 data-i18n="unTitle"></h3>
+      <p class="hint" data-i18n="unHint"></p>
+      <label style="display:flex;gap:8px;align-items:center;color:var(--text)"><input type="checkbox" id="unDelete" style="width:auto"> <span data-i18n="unDelete"></span></label>
+      <div class="actions" style="justify-content:flex-start"><button class="btn danger" id="unBtn" data-i18n="unBtn"></button></div>
     </section>
-    <div class="actions"><button class="btn" onclick="settings.close()">Zavřít</button></div>
+    <div class="actions"><button class="btn" onclick="settings.close()" data-i18n="close"></button></div>
   </div>
 </dialog>
 
@@ -249,18 +250,241 @@ const LS = {
   set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
 };
 const PAYOUT = /disburse|deposit|payout/i, REFUND = /refund/i, SALE = /^(sale|payment)$|payment for|^PAYMENT/i;
-const MONTHS = ["leden","únor","březen","duben","květen","červen","červenec","srpen","září","říjen","listopad","prosinec"];
-const MONTHS_SHORT = ["led","úno","bře","dub","kvě","čvn","čvc","srp","zář","říj","lis","pro"];
-const TYPE_NAMES = { transaction: "Transakční poplatky", processing: "Poplatky za zpracování platby",
-  listing: "Poplatky za inzerci", offsite_ads_fee: "Etsy Ads / Offsite Ads", shipping_transaction: "Poplatky z poštovného",
-  vat_tax_ep: "DPH z poplatků", vat: "DPH z poplatků", etsy_ads: "Etsy Ads", sale: "Prodeje", payment: "Prodeje", refund: "Refundace" };
+
+// ---------- překlady (cs = výchozí, chybějící klíč se vezme z češtiny)
+const DEVLINK = `<a href="https://www.etsy.com/developers/register" target="_blank" rel="noopener">etsy.com/developers</a>`;
+const T = {
+  cs: {
+    locale: "cs-CZ", demo: "UKÁZKA", loading: "Načítám…", notifBtn: "🔔 Povolit upozornění", importBtn: "⬆ Nahrát CSV z Etsy",
+    checkBtn: "↻ Zkontrolovat teď", settingsBtn: "⚙ Nastavení",
+    welcomeTitle: "Vítej! Jak dostat data z Etsy?",
+    welcomeCsv: "<b>Hned: nahraj CSV z Etsy.</b> V Shop Manageru → Settings → Options → Download Data stáhni <b>Payment Account</b> (měsíční výpis), případně i <b>Orders</b> a <b>Order Items</b>, a nahraj je sem.",
+    welcomeApi: "<b>Automaticky přes Etsy API</b> (až Etsy schválí aplikaci):",
+    welcomeStep1: `Na ${DEVLINK} si zaregistruj aplikaci (zdarma).`,
+    welcomeStep2: "Do <b>Callback URLs</b> přidej <code>https://localhost:3003/etsy</code>.",
+    welcomeStep3: "Klikni na <b>Nastavení</b>, vlož Keystring a Shared secret a přihlas své shopy.",
+    openSettings: "Otevřít nastavení", period: "Období", bannerOk: "Označit jako viděné",
+    chartTitle: "Tržby po měsících", chartNote: "posledních 12 měsíců, z objednávek",
+    feesTitle: "Kam jdou peníze", feesNote: "výpis ve vybraném období", topTitle: "Nejprodávanější", topNote: "ve vybraném období",
+    tabOrders: "Objednávky", tabLedger: "Výpis (platby a poplatky)", searchPh: "Hledat zákazníka, produkt, popis…", moreBtn: "Zobrazit další",
+    impTitle: "Nahrát CSV z Etsy",
+    impHint: "Na Etsy: Shop Manager → Settings → Options → <b>Download Data</b>. Stáhni <b>Payment Account</b> CSV (měsíční výpis) za měsíce, které chceš vidět. Pro jména zákazníků a přesné položky přidej i <b>Orders</b> a <b>Order Items</b>. Nahrát stejný soubor znovu nevadí, nic se nezdvojí.",
+    impShopLabel: "Shopa, ke které soubory patří", impShopPh: "název shopy na Etsy", impFilesLabel: "Soubory CSV",
+    impDrop: `Přetáhni sem CSV soubory, nebo <label for="impFiles" class="link">vyber z počítače</label>`,
+    close: "Zavřít", settingsTitle: "Nastavení",
+    setHint: "Klíče najdeš na etsy.com/developers → Your apps → tvoje aplikace. Ukládají se jen do tohoto počítače.",
+    redirectLabel: "Callback URL (musí být stejná jako v Etsy aplikaci)", intervalLabel: "Kontrolovat každých (minut)",
+    ntfyLabel: "Upozornění na mobil přes ntfy (nepovinné, název tématu)", ntfyPh: "např. moje-shopa-etsy-8f3k2", save: "Uložit",
+    shopsTitle: "Shopy", shopsHint: "Přihlas každou shopu zvlášť. Pro druhou shopu se na Etsy nejdřív odhlas, nebo otevři odkaz v anonymním okně.",
+    authStart: "+ Přihlásit shopu",
+    authHint: "Na Etsy potvrď přístup. Prohlížeč pak ukáže chybu „nelze se připojit“, to je v pořádku. Zkopíruj celou adresu z adresního řádku a vlož ji sem:",
+    authFinish: "Dokončit přihlášení", updTitle: "Aktualizace", version: "Verze", updAuto: "Nové verze se stahují samy jednou denně.",
+    updBtn: "Zkontrolovat aktualizace", unTitle: "Odinstalovat",
+    unHint: "Zastaví hlídání a vypne automatické spouštění po zapnutí Macu. Pak stačí přetáhnout aplikaci Etsy Dashboard z Aplikací do koše.",
+    unDelete: "Smazat i stažená data a klíče", unBtn: "Odinstalovat",
+    lastCheck: "Poslední kontrola: {t}", never: "zatím neproběhla", justNow: "právě teď", minAgo: "před {n} min", checking: "Kontroluji…",
+    csvOnly: "Data z nahraných CSV (Etsy API zatím není propojené)", notRunning: "Aplikace neběží?", error: "Chyba",
+    pThis: "Tento měsíc", pLast: "Minulý měsíc", p30: "Posledních 30 dní", pYear: "Letos", pAll: "Vše", allShops: "Všechny shopy",
+    kRevenue: "Tržby", kOrders: "Objednávky", kAvg: "Průměrná objednávka", kFees: "Poplatky Etsy", kNet: "Čistě na účet",
+    kPayouts: "Vyplaceno na banku", kBalance: "Zůstatek na Etsy", kToShip: "K odeslání",
+    vsPrev: "{sign} {p} % oproti předchozímu období", noneBefore: "předtím žádné", feePct: "{p} % z tržeb",
+    netSub: "prodeje minus poplatky a refundace", payoutsN: "{n}× výplata", balSub: "podle posledního pohybu",
+    balNone: "v CSV výpisu není, ukáže až Etsy API", shipPending: "zaplaceno, neodesláno", allShipped: "vše odesláno",
+    shipUnknown: "ukáže CSV Orders nebo Etsy API", inCur: "v {cur}", nothing: "V tomto období nic.", noMoves: "V tomto období žádné pohyby.",
+    types: { transaction: "Transakční poplatky", processing: "Poplatky za zpracování platby", listing: "Poplatky za inzerci",
+      offsite_ads_fee: "Etsy Ads / Offsite Ads", shipping_transaction: "Poplatky z poštovného", vat_tax_ep: "DPH z poplatků",
+      vat: "DPH z poplatků", etsy_ads: "Etsy Ads", sale: "Prodeje", payment: "Prodeje", refund: "Refundace" },
+    payoutGroup: "Výplaty na banku", other: "Ostatní",
+    colDate: "Datum", colShop: "Shopa", colBuyer: "Zákazník", colItems: "Položky", colTotal: "Celkem", colStatus: "Stav",
+    colDesc: "Popis", colType: "Typ", colAmount: "Částka", colBalance: "Zůstatek",
+    statuses: {},
+    bannerTitle: "Novinky od poslední návštěvy: {o}, {l} na účtu", bannerItem: "{total} od {buyer}", andMore: "… a další ({n})",
+    newOrder: "Nová objednávka na Etsy", newOrders: "{n} nové objednávky na Etsy",
+    secretSaved: "uloženo (vyplň jen pro změnu)", remove: "Odebrat", noShops: "Zatím žádná shopa.", saved: "Uloženo.",
+    shopConnected: "Shopa {shop} je přihlášená. Stahuji historii, chvíli to potrvá.",
+    updSearching: "Hledám novou verzi…", updLatest: "Máš nejnovější verzi ({v}).",
+    updInstalling: "Instaluji verzi {v}, stránka se za chvíli obnoví…", updFailed: "Aktualizaci se nepodařilo zkontrolovat: ",
+    unConfirmDel: "Opravdu odinstalovat a smazat všechna data a klíče? Nejde to vrátit.", unConfirm: "Opravdu odinstalovat? Data zůstanou uložená.",
+    unDoneTitle: "Etsy Dashboard je odinstalovaný", unDoneText: "Hlídání je zastavené a po zapnutí Macu se už nespustí.",
+    unDataDeleted: "Data a klíče jsou smazané.", unDataKept: "Data zůstala v ~/Library/Application Support/EtsyDashboard.",
+    unDoneText2: "Aplikaci „Etsy Dashboard“ teď můžeš přetáhnout ze složky Aplikace do koše. Přístup k Etsy úplně zrušíš smazáním aplikace na etsy.com/developers.",
+    removeConfirm: "Odebrat tuto shopu z dashboardu? Stažená data zůstanou.",
+    impNeedShop: "Nejdřív vyplň shopu.", impUploading: "{f}: nahrávám…", impResult: "{kind}: {n} nových z {total}",
+    kinds: { statement: "výpis", payments: "platby", order_items: "položky objednávek", orders: "objednávky" },
+    plural: { order: ["objednávka", "objednávky", "objednávek"], move: ["pohyb", "pohyby", "pohybů"] },
+    errors: {},
+  },
+  en: {
+    locale: "en-US", demo: "DEMO", loading: "Loading…", notifBtn: "🔔 Enable notifications", importBtn: "⬆ Upload Etsy CSV",
+    checkBtn: "↻ Check now", settingsBtn: "⚙ Settings",
+    welcomeTitle: "Welcome! How do I get my Etsy data in?",
+    welcomeCsv: "<b>Right away: upload CSV files from Etsy.</b> In Shop Manager → Settings → Options → Download Data, download <b>Payment Account</b> (monthly statement), optionally also <b>Orders</b> and <b>Order Items</b>, and upload them here.",
+    welcomeApi: "<b>Automatically via the Etsy API</b> (once Etsy approves your app):",
+    welcomeStep1: `Register an app at ${DEVLINK} (free).`,
+    welcomeStep2: "Add <code>https://localhost:3003/etsy</code> to <b>Callback URLs</b>.",
+    welcomeStep3: "Open <b>Settings</b>, paste the Keystring and Shared secret and connect your shops.",
+    openSettings: "Open settings", period: "Period", bannerOk: "Mark as seen",
+    chartTitle: "Revenue by month", chartNote: "last 12 months, from orders",
+    feesTitle: "Where the money goes", feesNote: "statement for the selected period", topTitle: "Best sellers", topNote: "in the selected period",
+    tabOrders: "Orders", tabLedger: "Statement (payments and fees)", searchPh: "Search buyer, product, description…", moreBtn: "Show more",
+    impTitle: "Upload CSV from Etsy",
+    impHint: "On Etsy: Shop Manager → Settings → Options → <b>Download Data</b>. Download the <b>Payment Account</b> CSV (monthly statement) for the months you want to see. For buyer names and exact items, add <b>Orders</b> and <b>Order Items</b> too. Uploading the same file again is fine, nothing gets duplicated.",
+    impShopLabel: "Shop these files belong to", impShopPh: "shop name on Etsy", impFilesLabel: "CSV files",
+    impDrop: `Drop CSV files here, or <label for="impFiles" class="link">choose from your computer</label>`,
+    close: "Close", settingsTitle: "Settings",
+    setHint: "You'll find the keys at etsy.com/developers → Your apps → your app. They are stored only on this computer.",
+    redirectLabel: "Callback URL (must match your Etsy app)", intervalLabel: "Check every (minutes)",
+    ntfyLabel: "Phone notifications via ntfy (optional, topic name)", ntfyPh: "e.g. my-shop-etsy-8f3k2", save: "Save",
+    shopsTitle: "Shops", shopsHint: "Connect each shop separately. For a second shop, sign out of Etsy first or open the link in a private window.",
+    authStart: "+ Connect a shop",
+    authHint: "Approve access on Etsy. The browser will then show a “can't connect” error, that's expected. Copy the full address from the address bar and paste it here:",
+    authFinish: "Finish sign-in", updTitle: "Updates", version: "Version", updAuto: "New versions are installed automatically once a day.",
+    updBtn: "Check for updates", unTitle: "Uninstall",
+    unHint: "Stops background checking and turns off autostart at login. Then just drag Etsy Dashboard from Applications to the Trash.",
+    unDelete: "Also delete downloaded data and keys", unBtn: "Uninstall",
+    lastCheck: "Last check: {t}", never: "not yet", justNow: "just now", minAgo: "{n} min ago", checking: "Checking…",
+    csvOnly: "Data from uploaded CSV files (Etsy API not connected yet)", notRunning: "Is the app running?", error: "Error",
+    pThis: "This month", pLast: "Last month", p30: "Last 30 days", pYear: "This year", pAll: "All time", allShops: "All shops",
+    kRevenue: "Revenue", kOrders: "Orders", kAvg: "Average order", kFees: "Etsy fees", kNet: "Net to account",
+    kPayouts: "Paid out to bank", kBalance: "Etsy balance", kToShip: "To ship",
+    vsPrev: "{sign} {p}% vs. previous period", noneBefore: "none before", feePct: "{p}% of revenue",
+    netSub: "sales minus fees and refunds", payoutsN: "{n}× payout", balSub: "as of the latest transaction",
+    balNone: "not in the CSV statement, needs the Etsy API", shipPending: "paid, not shipped", allShipped: "all shipped",
+    shipUnknown: "needs the Orders CSV or the Etsy API", inCur: "in {cur}", nothing: "Nothing in this period.", noMoves: "No transactions in this period.",
+    types: { transaction: "Transaction fees", processing: "Payment processing fees", listing: "Listing fees",
+      offsite_ads_fee: "Etsy Ads / Offsite Ads", shipping_transaction: "Shipping transaction fees", vat_tax_ep: "VAT on fees",
+      vat: "VAT on fees", etsy_ads: "Etsy Ads", sale: "Sales", payment: "Sales", refund: "Refunds" },
+    payoutGroup: "Payouts to bank", other: "Other",
+    colDate: "Date", colShop: "Shop", colBuyer: "Buyer", colItems: "Items", colTotal: "Total", colStatus: "Status",
+    colDesc: "Description", colType: "Type", colAmount: "Amount", colBalance: "Balance",
+    statuses: { "Odesláno": "Shipped", "Zaplaceno": "Paid", "Vráceno": "Refunded" },
+    bannerTitle: "New since your last visit: {o}, {l} on your account", bannerItem: "{total} from {buyer}", andMore: "… and {n} more",
+    newOrder: "New Etsy order", newOrders: "{n} new Etsy orders",
+    secretSaved: "saved (fill in only to change it)", remove: "Remove", noShops: "No shops yet.", saved: "Saved.",
+    shopConnected: "Shop {shop} is connected. Downloading history, this takes a moment.",
+    updSearching: "Looking for a new version…", updLatest: "You have the latest version ({v}).",
+    updInstalling: "Installing version {v}, the page will reload shortly…", updFailed: "Couldn't check for updates: ",
+    unConfirmDel: "Really uninstall and delete all data and keys? This can't be undone.", unConfirm: "Really uninstall? Your data will be kept.",
+    unDoneTitle: "Etsy Dashboard is uninstalled", unDoneText: "Background checking has stopped and won't start at login anymore.",
+    unDataDeleted: "Data and keys have been deleted.", unDataKept: "Your data is still in ~/Library/Application Support/EtsyDashboard.",
+    unDoneText2: "You can now drag “Etsy Dashboard” from Applications to the Trash. To fully revoke Etsy access, delete your app at etsy.com/developers.",
+    removeConfirm: "Remove this shop from the dashboard? Downloaded data will be kept.",
+    impNeedShop: "Enter the shop first.", impUploading: "{f}: uploading…", impResult: "{kind}: {n} new of {total}",
+    kinds: { statement: "statement", payments: "payments", order_items: "order items", orders: "orders" },
+    plural: { order: ["order", "orders"], move: ["transaction", "transactions"] },
+    errors: { demo: "Nothing can be changed in demo mode.", need_keys: "Enter the Keystring and Shared secret in Settings first.",
+      auth_denied: "Etsy denied access: {detail}", auth_state: "This address doesn't belong to this sign-in. Click “Connect a shop” again.",
+      auth_code: "The address is missing 'code'.", no_shop: "This Etsy account has no shop.",
+      import_shop: "Choose or type the shop the file belongs to.",
+      import_unknown: "{soubor} doesn't look like an Etsy export (statement, Orders, Order Items or Payments)." },
+  },
+  de: {
+    locale: "de-DE", demo: "DEMO", loading: "Lädt…", notifBtn: "🔔 Benachrichtigungen erlauben", importBtn: "⬆ Etsy-CSV hochladen",
+    checkBtn: "↻ Jetzt prüfen", settingsBtn: "⚙ Einstellungen",
+    welcomeTitle: "Willkommen! Wie kommen deine Etsy-Daten hierher?",
+    welcomeCsv: "<b>Sofort: CSV-Dateien von Etsy hochladen.</b> Lade im Shop Manager → Settings → Options → Download Data die Datei <b>Payment Account</b> (Monatsauszug) herunter, optional auch <b>Orders</b> und <b>Order Items</b>, und lade sie hier hoch.",
+    welcomeApi: "<b>Automatisch über die Etsy-API</b> (sobald Etsy deine App freigibt):",
+    welcomeStep1: `Registriere eine App auf ${DEVLINK} (kostenlos).`,
+    welcomeStep2: "Füge <code>https://localhost:3003/etsy</code> unter <b>Callback URLs</b> hinzu.",
+    welcomeStep3: "Öffne die <b>Einstellungen</b>, füge Keystring und Shared secret ein und verbinde deine Shops.",
+    openSettings: "Einstellungen öffnen", period: "Zeitraum", bannerOk: "Als gesehen markieren",
+    chartTitle: "Umsatz pro Monat", chartNote: "letzte 12 Monate, aus Bestellungen",
+    feesTitle: "Wohin das Geld geht", feesNote: "Kontoauszug im gewählten Zeitraum", topTitle: "Bestseller", topNote: "im gewählten Zeitraum",
+    tabOrders: "Bestellungen", tabLedger: "Kontoauszug (Zahlungen und Gebühren)", searchPh: "Kunde, Produkt, Beschreibung suchen…", moreBtn: "Mehr anzeigen",
+    impTitle: "CSV von Etsy hochladen",
+    impHint: "Auf Etsy: Shop Manager → Settings → Options → <b>Download Data</b>. Lade die <b>Payment Account</b>-CSV (Monatsauszug) für die gewünschten Monate herunter. Für Kundennamen und genaue Artikel zusätzlich <b>Orders</b> und <b>Order Items</b>. Dieselbe Datei erneut hochzuladen schadet nicht, nichts wird doppelt gezählt.",
+    impShopLabel: "Shop, zu dem die Dateien gehören", impShopPh: "Shopname auf Etsy", impFilesLabel: "CSV-Dateien",
+    impDrop: `CSV-Dateien hierher ziehen oder <label for="impFiles" class="link">vom Computer auswählen</label>`,
+    close: "Schließen", settingsTitle: "Einstellungen",
+    setHint: "Die Schlüssel findest du unter etsy.com/developers → Your apps → deine App. Sie werden nur auf diesem Computer gespeichert.",
+    redirectLabel: "Callback-URL (muss mit deiner Etsy-App übereinstimmen)", intervalLabel: "Prüfen alle (Minuten)",
+    ntfyLabel: "Handy-Benachrichtigungen über ntfy (optional, Themenname)", ntfyPh: "z. B. mein-shop-etsy-8f3k2", save: "Speichern",
+    shopsTitle: "Shops", shopsHint: "Verbinde jeden Shop einzeln. Für einen zweiten Shop melde dich zuerst bei Etsy ab oder öffne den Link in einem privaten Fenster.",
+    authStart: "+ Shop verbinden",
+    authHint: "Bestätige den Zugriff auf Etsy. Der Browser zeigt danach „Verbindung nicht möglich“, das ist in Ordnung. Kopiere die komplette Adresse aus der Adresszeile und füge sie hier ein:",
+    authFinish: "Anmeldung abschließen", updTitle: "Updates", version: "Version", updAuto: "Neue Versionen werden einmal täglich automatisch installiert.",
+    updBtn: "Nach Updates suchen", unTitle: "Deinstallieren",
+    unHint: "Beendet die Hintergrundprüfung und den Autostart beim Anmelden. Danach Etsy Dashboard einfach aus „Programme“ in den Papierkorb ziehen.",
+    unDelete: "Auch heruntergeladene Daten und Schlüssel löschen", unBtn: "Deinstallieren",
+    lastCheck: "Letzte Prüfung: {t}", never: "noch nie", justNow: "gerade eben", minAgo: "vor {n} Min.", checking: "Prüfe…",
+    csvOnly: "Daten aus hochgeladenen CSV-Dateien (Etsy-API noch nicht verbunden)", notRunning: "Läuft die App?", error: "Fehler",
+    pThis: "Dieser Monat", pLast: "Letzter Monat", p30: "Letzte 30 Tage", pYear: "Dieses Jahr", pAll: "Alles", allShops: "Alle Shops",
+    kRevenue: "Umsatz", kOrders: "Bestellungen", kAvg: "Ø Bestellwert", kFees: "Etsy-Gebühren", kNet: "Netto aufs Konto",
+    kPayouts: "Auf die Bank ausgezahlt", kBalance: "Etsy-Guthaben", kToShip: "Zu versenden",
+    vsPrev: "{sign} {p} % ggü. Vorzeitraum", noneBefore: "vorher keine", feePct: "{p} % vom Umsatz",
+    netSub: "Verkäufe minus Gebühren und Erstattungen", payoutsN: "{n}× Auszahlung", balSub: "laut letzter Buchung",
+    balNone: "nicht im CSV-Auszug, erst mit der Etsy-API", shipPending: "bezahlt, nicht versandt", allShipped: "alles versandt",
+    shipUnknown: "braucht die Orders-CSV oder die Etsy-API", inCur: "in {cur}", nothing: "In diesem Zeitraum nichts.", noMoves: "Keine Buchungen in diesem Zeitraum.",
+    types: { transaction: "Transaktionsgebühren", processing: "Zahlungsabwicklungsgebühren", listing: "Einstellgebühren",
+      offsite_ads_fee: "Etsy Ads / Offsite Ads", shipping_transaction: "Versandtransaktionsgebühren", vat_tax_ep: "USt. auf Gebühren",
+      vat: "USt. auf Gebühren", etsy_ads: "Etsy Ads", sale: "Verkäufe", payment: "Verkäufe", refund: "Erstattungen" },
+    payoutGroup: "Auszahlungen auf die Bank", other: "Sonstiges",
+    colDate: "Datum", colShop: "Shop", colBuyer: "Kunde", colItems: "Artikel", colTotal: "Gesamt", colStatus: "Status",
+    colDesc: "Beschreibung", colType: "Typ", colAmount: "Betrag", colBalance: "Saldo",
+    statuses: { "Odesláno": "Versandt", "Zaplaceno": "Bezahlt", "Vráceno": "Erstattet" },
+    bannerTitle: "Neu seit deinem letzten Besuch: {o}, {l} auf dem Konto", bannerItem: "{total} von {buyer}", andMore: "… und {n} weitere",
+    newOrder: "Neue Etsy-Bestellung", newOrders: "{n} neue Etsy-Bestellungen",
+    secretSaved: "gespeichert (nur zum Ändern ausfüllen)", remove: "Entfernen", noShops: "Noch keine Shops.", saved: "Gespeichert.",
+    shopConnected: "Shop {shop} ist verbunden. Der Verlauf wird geladen, das dauert einen Moment.",
+    updSearching: "Suche nach einer neuen Version…", updLatest: "Du hast die neueste Version ({v}).",
+    updInstalling: "Version {v} wird installiert, die Seite lädt gleich neu…", updFailed: "Update-Prüfung fehlgeschlagen: ",
+    unConfirmDel: "Wirklich deinstallieren und alle Daten und Schlüssel löschen? Das lässt sich nicht rückgängig machen.",
+    unConfirm: "Wirklich deinstallieren? Deine Daten bleiben erhalten.",
+    unDoneTitle: "Etsy Dashboard ist deinstalliert", unDoneText: "Die Hintergrundprüfung ist beendet und startet beim Anmelden nicht mehr.",
+    unDataDeleted: "Daten und Schlüssel wurden gelöscht.", unDataKept: "Deine Daten liegen weiterhin in ~/Library/Application Support/EtsyDashboard.",
+    unDoneText2: "Du kannst „Etsy Dashboard“ jetzt aus „Programme“ in den Papierkorb ziehen. Um den Etsy-Zugriff ganz zu entziehen, lösche deine App auf etsy.com/developers.",
+    removeConfirm: "Diesen Shop aus dem Dashboard entfernen? Geladene Daten bleiben erhalten.",
+    impNeedShop: "Gib zuerst den Shop an.", impUploading: "{f}: wird hochgeladen…", impResult: "{kind}: {n} neu von {total}",
+    kinds: { statement: "Kontoauszug", payments: "Zahlungen", order_items: "Bestellartikel", orders: "Bestellungen" },
+    plural: { order: ["Bestellung", "Bestellungen"], move: ["Buchung", "Buchungen"] },
+    errors: { demo: "Im Demo-Modus kann nichts geändert werden.", need_keys: "Trage zuerst Keystring und Shared secret in den Einstellungen ein.",
+      auth_denied: "Etsy hat den Zugriff verweigert: {detail}", auth_state: "Diese Adresse gehört nicht zu dieser Anmeldung. Klicke erneut auf „Shop verbinden“.",
+      auth_code: "In der Adresse fehlt 'code'.", no_shop: "Dieses Etsy-Konto hat keinen Shop.",
+      import_shop: "Wähle oder tippe den Shop, zu dem die Datei gehört.",
+      import_unknown: "{soubor} sieht nicht wie ein Etsy-Export aus (Kontoauszug, Orders, Order Items oder Payments)." },
+  },
+};
+function detectLang() {
+  const saved = LS.get("lang", null); if (T[saved]) return saved;
+  for (const l of navigator.languages || [navigator.language || ""]) {
+    const p = l.slice(0, 2).toLowerCase();
+    if (p === "cs" || p === "sk") return "cs"; if (p === "de") return "de"; if (p === "en") return "en";
+  }
+  return "en";
+}
+let LANG = detectLang();
+function fill(s, p) { return p ? s.replace(/\{(\w+)\}/g, (m, k) => p[k] ?? m) : s; }
+function t(k, p) { return fill(T[LANG][k] ?? T.cs[k] ?? k, p); }
+function tMap(group, k) { return (T[LANG][group] || {})[k] ?? (T.cs[group] || {})[k]; }
+function pl(n, key) {
+  const f = T[LANG].plural[key];
+  if (f.length === 3) return `${n} ${n === 1 ? f[0] : n >= 2 && n <= 4 ? f[1] : f[2]}`;
+  return `${n} ${n === 1 ? f[0] : f[1]}`;
+}
+function loc() { return T[LANG].locale; }
+function monthName(m, y, short) {
+  const d = new Date(y ?? 2000, m, 1);
+  return short ? d.toLocaleDateString(loc(), { month: "short" }).replace(".", "")
+    : d.toLocaleDateString(loc(), y === undefined ? { month: "long" } : { month: "long", year: "numeric" });
+}
+function applyStatic() {
+  document.documentElement.lang = LANG;
+  $("#lang").value = LANG;
+  document.querySelectorAll("[data-i18n]").forEach(el => el.innerHTML = t(el.dataset.i18n));
+  document.querySelectorAll("[data-i18n-ph]").forEach(el => el.placeholder = t(el.dataset.i18nPh));
+  document.querySelectorAll("[data-i18n-aria]").forEach(el => el.setAttribute("aria-label", t(el.dataset.i18nAria)));
+}
+async function syncServerLang() {  // aby i upozornění na telefon chodila ve zvoleném jazyce
+  if (!S || S.demo || S.nastaveni.jazyk === LANG) return;
+  try { await api("/api/nastaveni", { jazyk: LANG }); S.nastaveni.jazyk = LANG; } catch {}
+}
 
 let S = null, D = { objednavky: [], vypis: [] };
 let shopFilter = LS.get("shop", "all"), tab = "orders", shown = 25;
 let lastSeen = LS.get("lastSeen", 0);
 
 function fmtMoney(v, cur) {
-  try { return new Intl.NumberFormat("cs-CZ", { style: "currency", currency: cur || "USD", maximumFractionDigits: 2 }).format(v); }
+  try { return new Intl.NumberFormat(loc(), { style: "currency", currency: cur || "USD", maximumFractionDigits: 2 }).format(v); }
   catch { return v.toFixed(2) + " " + (cur || ""); }
 }
 function sumByCur(rows, key) {
@@ -273,16 +497,15 @@ function moneyHtml(m) {
 }
 function fmtDate(ts) {
   const d = new Date(ts * 1000);  // z CSV známe jen den (uložen jako poledne)
-  if (d.getHours() === 12 && d.getMinutes() === 0 && d.getSeconds() === 0) return d.toLocaleDateString("cs-CZ");
-  return d.toLocaleDateString("cs-CZ") + " " + d.toLocaleTimeString("cs-CZ", { hour: "2-digit", minute: "2-digit" });
+  if (d.getHours() === 12 && d.getMinutes() === 0 && d.getSeconds() === 0) return d.toLocaleDateString(loc());
+  return d.toLocaleDateString(loc()) + " " + d.toLocaleTimeString(loc(), { hour: "2-digit", minute: "2-digit" });
 }
 function ago(ts) {
-  if (!ts) return "zatím neproběhla";
+  if (!ts) return t("never");
   const s = Math.round(Date.now() / 1000 - ts);
-  if (s < 60) return "právě teď"; if (s < 3600) return `před ${Math.round(s / 60)} min`;
+  if (s < 60) return t("justNow"); if (s < 3600) return t("minAgo", { n: Math.round(s / 60) });
   return fmtDate(ts);
 }
-function pl(n, one, few, many) { return `${n} ${n === 1 ? one : n >= 2 && n <= 4 ? few : many}`; }
 function esc(s) { return String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]); }
 function shopColor(name) {
   const i = (S?.shopy || []).findIndex(s => s.name === name);
@@ -290,19 +513,20 @@ function shopColor(name) {
 }
 async function api(path, body) {
   const r = await fetch(path, body === undefined ? {} : { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-  const j = await r.json(); if (!r.ok) throw new Error(j.chyba || "Chyba"); return j;
+  const j = await r.json();
+  if (!r.ok) { const tr = j.kod && tMap("errors", j.kod); throw new Error(tr ? fill(tr, j.param || {}) : j.chyba || t("error")); }
+  return j;
 }
 
 // ---------- období
 function buildPeriods() {
-  const sel = $("#period"), now = new Date(), opts = [
-    ["this", "Tento měsíc"], ["last", "Minulý měsíc"], ["30", "Posledních 30 dní"], ["year", "Letos"], ["all", "Vše"]];
+  const sel = $("#period"), opts = [
+    ["this", t("pThis")], ["last", t("pLast")], ["30", t("p30")], ["year", t("pYear")], ["all", t("pAll")]];
   const months = new Set(D.objednavky.concat(D.vypis).map(r => { const d = new Date((r.vytvoreno_ts || r.datum_ts) * 1000); return d.getFullYear() * 100 + d.getMonth(); }));
-  [...months].sort((a, b) => b - a).forEach(m => opts.push([`m${m}`, `${MONTHS[m % 100]} ${Math.floor(m / 100)}`]));
+  [...months].sort((a, b) => b - a).forEach(m => opts.push([`m${m}`, monthName(m % 100, Math.floor(m / 100))]));
   const cur = LS.get("period", "this");
-  sel.innerHTML = opts.map(([v, t]) => `<option value="${v}">${t}</option>`).join("");
+  sel.innerHTML = opts.map(([v, txt]) => `<option value="${v}">${esc(txt)}</option>`).join("");
   sel.value = opts.some(o => o[0] === cur) ? cur : "this";
-  void now;
 }
 function periodRange() {
   const v = $("#period").value, now = new Date();
@@ -333,8 +557,8 @@ function filtered() {
 function renderChips() {
   const shops = S.shopy.map(s => s.name);
   if (shopFilter !== "all" && !shops.includes(shopFilter)) shopFilter = "all";
-  $("#shopChips").innerHTML = [["all", "Všechny shopy"]].concat(shops.map(s => [s, s])).map(([v, t]) =>
-    `<button class="chip ${v === shopFilter ? "on" : ""}" data-shop="${esc(v)}">${v === "all" ? "" : `<span class="dot" style="background:${shopColor(v)}"></span>`}${esc(t)}</button>`).join("");
+  $("#shopChips").innerHTML = [["all", t("allShops")]].concat(shops.map(s => [s, s])).map(([v, txt]) =>
+    `<button class="chip ${v === shopFilter ? "on" : ""}" data-shop="${esc(v)}">${v === "all" ? "" : `<span class="dot" style="background:${shopColor(v)}"></span>`}${esc(txt)}</button>`).join("");
 }
 
 function renderKpis(f) {
@@ -354,20 +578,20 @@ function renderKpis(f) {
   const hasBalance = Object.keys(balances).length > 0;
   const avg = {}; Object.entries(revenue).forEach(([c, v]) => avg[c] = v / (f.pOrders.filter(r => r.mena === c).length || 1));
   let diff = "";
-  if (prevN !== null && prevN > 0) { const p = Math.round((n - prevN) / prevN * 100); diff = `${p >= 0 ? "▲" : "▼"} ${Math.abs(p)} % oproti předchozímu období`; }
-  else if (prevN === 0 && n) diff = "předtím žádné";
-  const feePct = (() => { const r = Object.values(revenue).reduce((x, y) => x + y, 0), fe = -fees.reduce((x, y) => x + y.castka, 0); return r ? `${Math.round(fe / r * 100)} % z tržeb` : ""; })();
+  if (prevN !== null && prevN > 0) { const p = Math.round((n - prevN) / prevN * 100); diff = t("vsPrev", { sign: p >= 0 ? "▲" : "▼", p: Math.abs(p) }); }
+  else if (prevN === 0 && n) diff = t("noneBefore");
+  const feePct = (() => { const r = Object.values(revenue).reduce((x, y) => x + y, 0), fe = -fees.reduce((x, y) => x + y.castka, 0); return r ? t("feePct", { p: Math.round(fe / r * 100) }) : ""; })();
   const cards = [
-    ["Tržby", moneyHtml(revenue), pl(n, "objednávka", "objednávky", "objednávek")],
-    ["Objednávky", n, diff],
-    ["Průměrná objednávka", moneyHtml(avg), ""],
-    ["Poplatky Etsy", moneyHtml(sumByCur(fees, "castka")), feePct],
-    ["Čistě na účet", moneyHtml(sumByCur(net, "castka")), "prodeje minus poplatky a refundace"],
-    ["Vyplaceno na banku", moneyHtml(Object.fromEntries(Object.entries(sumByCur(payouts, "castka")).map(([c, v]) => [c, -v]))), `${payouts.length}× výplata`],
-    ["Zůstatek na Etsy", hasBalance ? moneyHtml(balances) : "–", hasBalance ? "podle posledního pohybu" : "v CSV výpisu není, ukáže až Etsy API"],
+    [t("kRevenue"), moneyHtml(revenue), pl(n, "order")],
+    [t("kOrders"), n, diff],
+    [t("kAvg"), moneyHtml(avg), ""],
+    [t("kFees"), moneyHtml(sumByCur(fees, "castka")), feePct],
+    [t("kNet"), moneyHtml(sumByCur(net, "castka")), t("netSub")],
+    [t("kPayouts"), moneyHtml(Object.fromEntries(Object.entries(sumByCur(payouts, "castka")).map(([c, v]) => [c, -v]))), t("payoutsN", { n: payouts.length })],
+    [t("kBalance"), hasBalance ? moneyHtml(balances) : "–", hasBalance ? t("balSub") : t("balNone")],
     f.orders.some(r => r.odeslano !== null)
-      ? ["K odeslání", toShip.length, toShip.length ? "zaplaceno, neodesláno" : "vše odesláno", toShip.length ? "warn" : ""]
-      : ["K odeslání", "–", "ukáže CSV Orders nebo Etsy API"],
+      ? [t("kToShip"), toShip.length, toShip.length ? t("shipPending") : t("allShipped"), toShip.length ? "warn" : ""]
+      : [t("kToShip"), "–", t("shipUnknown")],
   ];
   $("#kpis").innerHTML = cards.map(([l, v, s, cls]) =>
     `<div class="card kpi ${cls || ""}"><div class="label">${l}</div><div class="value">${v}</div><div class="sub">${s || "&nbsp;"}</div></div>`).join("");
@@ -383,49 +607,49 @@ function renderChart(f) {
   }).reduce((a, r) => a + r.celkem, 0)));
   const max = Math.max(1, ...vals.map(v => v.reduce((a, b) => a + b, 0)));
   const step = niceStep(max), top = Math.ceil(max / step) * step;
-  const W = 1100, H = 260, L = 48, B = 26, T = 8, bw = (W - L) / 12;
-  let svg = `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Tržby po měsících">`;
+  const W = 1100, H = 260, L = 48, B = 26, T0 = 8, bw = (W - L) / 12;
+  let svg = `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="${esc(t("chartTitle"))}">`;
   for (let g = 0; g <= top; g += step) {
-    const y = H - B - (g / top) * (H - B - T);
-    svg += `<line x1="${L}" x2="${W}" y1="${y}" y2="${y}" stroke="var(--line)"/><text x="${L - 6}" y="${y + 4}" text-anchor="end">${Math.round(g).toLocaleString("cs-CZ")}</text>`;
+    const y = H - B - (g / top) * (H - B - T0);
+    svg += `<line x1="${L}" x2="${W}" y1="${y}" y2="${y}" stroke="var(--line)"/><text x="${L - 6}" y="${y + 4}" text-anchor="end">${Math.round(g).toLocaleString(loc())}</text>`;
   }
   vals.forEach((v, i) => {
     let y = H - B;
     v.forEach((val, si) => {
-      const h = (val / top) * (H - B - T); if (h <= 0) return; y -= h;
-      svg += `<rect class="bar" x="${L + i * bw + bw * .18}" y="${y}" width="${bw * .64}" height="${h}" rx="3" fill="${shopColor(shops[si])}" data-tip="${esc(shops[si])}: ${esc(fmtMoney(val, cur))} (${MONTHS[months[i][1]]} ${months[i][0]})"/>`;
+      const h = (val / top) * (H - B - T0); if (h <= 0) return; y -= h;
+      svg += `<rect class="bar" x="${L + i * bw + bw * .18}" y="${y}" width="${bw * .64}" height="${h}" rx="3" fill="${shopColor(shops[si])}" data-tip="${esc(shops[si])}: ${esc(fmtMoney(val, cur))} (${esc(monthName(months[i][1], months[i][0]))})"/>`;
     });
-    svg += `<text x="${L + i * bw + bw / 2}" y="${H - 8}" text-anchor="middle">${MONTHS_SHORT[months[i][1]]}</text>`;
+    svg += `<text x="${L + i * bw + bw / 2}" y="${H - 8}" text-anchor="middle">${esc(monthName(months[i][1], undefined, true))}</text>`;
   });
   $("#chart").innerHTML = svg + "</svg>";
-  $("#legend").innerHTML = shops.map(s => `<span><span class="dot" style="background:${shopColor(s)}"></span> ${esc(s)}</span>`).join("") + `<span>v ${cur}</span>`;
+  $("#legend").innerHTML = shops.map(s => `<span><span class="dot" style="background:${shopColor(s)}"></span> ${esc(s)}</span>`).join("") + `<span>${esc(t("inCur", { cur }))}</span>`;
 }
 function niceStep(max) { const raw = max / 4, p = 10 ** Math.floor(Math.log10(raw)); return [1, 2, 2.5, 5, 10].map(x => x * p).find(x => x >= raw); }
 
 function renderTop(f) {
   const m = {};
   f.pOrders.forEach(r => r.polozky.split("; ").forEach(it => {
-    const mt = it.match(/^(\d+)x (.*)$/); const q = mt ? +mt[1] : 1, t = mt ? mt[2] : it;
-    if (!t) return; m[t] = m[t] || { q: 0, shop: r.shop }; m[t].q += q;
+    const mt = it.match(/^(\d+)x (.*)$/); const q = mt ? +mt[1] : 1, name = mt ? mt[2] : it;
+    if (!name) return; m[name] = m[name] || { q: 0, shop: r.shop }; m[name].q += q;
   }));
   const top = Object.entries(m).sort((a, b) => b[1].q - a[1].q).slice(0, 8);
   const max = top.length ? top[0][1].q : 1;
-  $("#top").innerHTML = top.length ? top.map(([t, v]) =>
-    `<li><span>${esc(t)}</span><span class="num">${v.q}×</span><span class="meter"><i style="width:${v.q / max * 100}%;background:${shopColor(v.shop)}"></i></span></li>`).join("")
-    : `<li class="empty">V tomto období nic.</li>`;
+  $("#top").innerHTML = top.length ? top.map(([name, v]) =>
+    `<li><span>${esc(name)}</span><span class="num">${v.q}×</span><span class="meter"><i style="width:${v.q / max * 100}%;background:${shopColor(v.shop)}"></i></span></li>`).join("")
+    : `<li class="empty">${t("nothing")}</li>`;
 }
 
 function renderFees(f) {
   const g = {};
   f.pLedger.forEach(r => {
-    const key = PAYOUT.test(r.typ) ? "Výplaty na banku" : (TYPE_NAMES[r.typ] || TYPE_NAMES[r.typ.toLowerCase()] || r.typ || "Ostatní");
+    const key = PAYOUT.test(r.typ) ? t("payoutGroup") : (tMap("types", r.typ) || tMap("types", r.typ.toLowerCase()) || r.typ || t("other"));
     g[key] = g[key] || {}; g[key][r.mena] = (g[key][r.mena] || 0) + r.castka;
   });
   const rows = Object.entries(g).map(([k, m]) => [k, m, Object.values(m).reduce((a, b) => a + b, 0)]).sort((a, b) => b[2] - a[2]);
   const max = Math.max(1, ...rows.map(r => Math.abs(r[2])));
-  $("#fees").innerHTML = rows.length ? rows.map(([k, m, t]) =>
-    `<li><span>${esc(k)}</span><span class="num ${t < 0 ? "neg" : "pos"}">${moneyHtml(m)}</span><span class="meter"><i style="width:${Math.abs(t) / max * 100}%;background:${t < 0 ? "var(--bad)" : "var(--good)"}"></i></span></li>`).join("")
-    : `<li class="empty">V tomto období žádné pohyby.</li>`;
+  $("#fees").innerHTML = rows.length ? rows.map(([k, m, sum]) =>
+    `<li><span>${esc(k)}</span><span class="num ${sum < 0 ? "neg" : "pos"}">${moneyHtml(m)}</span><span class="meter"><i style="width:${Math.abs(sum) / max * 100}%;background:${sum < 0 ? "var(--bad)" : "var(--good)"}"></i></span></li>`).join("")
+    : `<li class="empty">${t("noMoves")}</li>`;
 }
 
 function renderTable(f) {
@@ -433,32 +657,34 @@ function renderTable(f) {
   const match = r => !q || Object.values(r).some(v => String(v).toLowerCase().includes(q));
   const rows = (tab === "orders" ? f.pOrders : f.pLedger).filter(match);
   const multi = S.shopy.length > 1 && shopFilter === "all";
+  const shopTh = multi ? `<th>${t("colShop")}</th>` : "";
+  const shopTd = r => multi ? `<td class="nw"><span class="dot" style="background:${shopColor(r.shop)}"></span> ${esc(r.shop)}</td>` : "";
   let html;
   if (tab === "orders") {
-    html = `<thead><tr><th>Datum</th>${multi ? "<th>Shopa</th>" : ""}<th>Zákazník</th><th>Položky</th><th class="num">Celkem</th><th>Stav</th></tr></thead><tbody>` +
-      rows.slice(0, shown).map(r => `<tr class="${r.pridano_ts > lastSeen ? "new" : ""}"><td class="nw">${fmtDate(r.vytvoreno_ts)}</td>${multi ? `<td class="nw"><span class="dot" style="background:${shopColor(r.shop)}"></span> ${esc(r.shop)}</td>` : ""}<td>${esc(r.zakaznik)}</td><td class="items">${esc(r.polozky)}</td><td class="num">${fmtMoney(r.celkem, r.mena)}</td><td>${r.zaplaceno && r.odeslano === 0 ? '<span class="pill ship">K odeslání</span>' : `<span class="pill">${esc(r.stav)}</span>`}</td></tr>`).join("");
+    html = `<thead><tr><th>${t("colDate")}</th>${shopTh}<th>${t("colBuyer")}</th><th>${t("colItems")}</th><th class="num">${t("colTotal")}</th><th>${t("colStatus")}</th></tr></thead><tbody>` +
+      rows.slice(0, shown).map(r => `<tr class="${r.pridano_ts > lastSeen ? "new" : ""}"><td class="nw">${fmtDate(r.vytvoreno_ts)}</td>${shopTd(r)}<td>${esc(r.zakaznik)}</td><td class="items">${esc(r.polozky)}</td><td class="num">${fmtMoney(r.celkem, r.mena)}</td><td>${r.zaplaceno && r.odeslano === 0 ? `<span class="pill ship">${t("kToShip")}</span>` : `<span class="pill">${esc(tMap("statuses", r.stav) || r.stav)}</span>`}</td></tr>`).join("");
   } else {
-    html = `<thead><tr><th>Datum</th>${multi ? "<th>Shopa</th>" : ""}<th>Popis</th><th>Typ</th><th class="num">Částka</th><th class="num">Zůstatek</th></tr></thead><tbody>` +
-      rows.slice(0, shown).map(r => `<tr class="${r.pridano_ts > lastSeen ? "new" : ""}"><td class="nw">${fmtDate(r.datum_ts)}</td>${multi ? `<td class="nw"><span class="dot" style="background:${shopColor(r.shop)}"></span> ${esc(r.shop)}</td>` : ""}<td>${esc(r.popis)}</td><td><span class="pill">${esc(r.typ)}</span></td><td class="num ${r.castka < 0 ? "neg" : "pos"}">${fmtMoney(r.castka, r.mena)}</td><td class="num">${fmtMoney(r.zustatek, r.mena)}</td></tr>`).join("");
+    html = `<thead><tr><th>${t("colDate")}</th>${shopTh}<th>${t("colDesc")}</th><th>${t("colType")}</th><th class="num">${t("colAmount")}</th><th class="num">${t("colBalance")}</th></tr></thead><tbody>` +
+      rows.slice(0, shown).map(r => `<tr class="${r.pridano_ts > lastSeen ? "new" : ""}"><td class="nw">${fmtDate(r.datum_ts)}</td>${shopTd(r)}<td>${esc(r.popis)}</td><td><span class="pill">${esc(r.typ)}</span></td><td class="num ${r.castka < 0 ? "neg" : "pos"}">${fmtMoney(r.castka, r.mena)}</td><td class="num">${r.zustatek === null ? "–" : fmtMoney(r.zustatek, r.mena)}</td></tr>`).join("");
   }
-  $("#table").innerHTML = rows.length ? html + "</tbody>" : `<tbody><tr><td class="empty">V tomto období nic.</td></tr></tbody>`;
+  $("#table").innerHTML = rows.length ? html + "</tbody>" : `<tbody><tr><td class="empty">${t("nothing")}</td></tr></tbody>`;
   $("#moreBtn").hidden = rows.length <= shown;
-  $("#exportBtn").href = tab === "orders" ? "/export/objednavky.csv" : "/export/vypis.csv";
+  $("#exportBtn").href = (tab === "orders" ? "/export/objednavky.csv" : "/export/vypis.csv") + "?lang=" + LANG;
 }
 
 function renderBanner() {
   const nO = D.objednavky.filter(r => r.pridano_ts > lastSeen), nL = D.vypis.filter(r => r.pridano_ts > lastSeen);
   if (!nO.length && !nL.length) { $("#banner").style.display = "none"; return; }
   $("#banner").style.display = "block";
-  $("#bannerTitle").textContent = `Novinky od poslední návštěvy: ${pl(nO.length, "objednávka", "objednávky", "objednávek")}, ${pl(nL.length, "pohyb", "pohyby", "pohybů")} na účtu`;
-  $("#bannerList").innerHTML = nO.slice(0, 5).map(r => `<li>🛒 <b>${esc(r.shop)}</b>: ${fmtMoney(r.celkem, r.mena)} od ${esc(r.zakaznik)} (${esc(r.polozky)})</li>`).join("") +
-    (nO.length > 5 ? `<li>… a další (${nO.length - 5})</li>` : "");
+  $("#bannerTitle").textContent = t("bannerTitle", { o: pl(nO.length, "order"), l: pl(nL.length, "move") });
+  $("#bannerList").innerHTML = nO.slice(0, 5).map(r => `<li>🛒 <b>${esc(r.shop)}</b>: ${esc(t("bannerItem", { total: fmtMoney(r.celkem, r.mena), buyer: r.zakaznik }))} (${esc(r.polozky)})</li>`).join("") +
+    (nO.length > 5 ? `<li>${esc(t("andMore", { n: nO.length - 5 }))}</li>` : "");
 }
 
 function renderStatus() {
   const errs = Object.entries(S.chyby || {});
   $("#checkBtn").hidden = !S.nastaveno;
-  $("#status").innerHTML = (S.bezi ? "Kontroluji…" : S.nastaveno ? `Poslední kontrola: ${ago(S.posledni_kontrola)}` : "Data z nahraných CSV (Etsy API zatím není propojené)") +
+  $("#status").innerHTML = esc(S.bezi ? t("checking") : S.nastaveno ? t("lastCheck", { t: ago(S.posledni_kontrola) }) : t("csvOnly")) +
     errs.map(([s, e]) => `<br><span class="err">⚠ ${esc(s)}: ${esc(e)}</span>`).join("");
   $("#demoBadge").hidden = !S.demo;
 }
@@ -482,7 +708,8 @@ async function load() {
     const prev = $("#period").value; buildPeriods(); if (prev) $("#period").value = prev;
     render();
     notifyNew();
-  } catch (e) { $("#status").innerHTML = `<span class="err">Aplikace neběží? ${esc(e.message)}</span>`; }
+    syncServerLang();
+  } catch (e) { $("#status").innerHTML = `<span class="err">${esc(t("notRunning"))} ${esc(e.message)}</span>`; }
 }
 function notifyNew() {
   const newest = Math.max(0, ...D.objednavky.map(r => r.pridano_ts), ...D.vypis.map(r => r.pridano_ts));
@@ -491,7 +718,7 @@ function notifyNew() {
   const nO = D.objednavky.filter(r => r.pridano_ts > notified);
   notified = newest; LS.set("notified", newest);
   if (!nO.length || !("Notification" in window) || Notification.permission !== "granted") return;
-  new Notification(nO.length === 1 ? "Nová objednávka na Etsy" : `${nO.length} nové objednávky na Etsy`,
+  new Notification(nO.length === 1 ? t("newOrder") : t("newOrders", { n: nO.length }),
     { body: nO.slice(0, 3).map(r => `${r.shop}: ${fmtMoney(r.celkem, r.mena)} (${r.polozky})`).join("\n") });
 }
 function setupNotifBtn() {
@@ -506,22 +733,25 @@ const settings = $("#settings");
 function openSettings() {
   const n = S.nastaveni;
   $("#keystring").value = n.keystring || ""; $("#secret").value = "";
-  $("#secret").placeholder = n.ma_secret ? "uloženo (vyplň jen pro změnu)" : "";
+  $("#secret").placeholder = n.ma_secret ? t("secretSaved") : "";
   $("#redirect").value = n.redirect_uri || ""; $("#interval").value = n.interval_minut || 15; $("#ntfy").value = n.ntfy_topic || "";
   $("#verze").textContent = S.verze || "";
   $("#updMsg").textContent = "";
   $("#saveMsg").textContent = ""; $("#authMsg").textContent = ""; $("#authStep").hidden = true;
+  renderShopList();
+  if (!settings.open) settings.showModal();
+}
+function renderShopList() {
   $("#shopList").innerHTML = S.shopy.length ? S.shopy.map(s =>
-    `<div class="shoprow"><span class="dot" style="background:${shopColor(s.name)}"></span><b>${esc(s.name)}</b><div class="spacer"></div><button class="btn" data-remove="${esc(s.id)}">Odebrat</button></div>`).join("")
-    : `<p class="hint">Zatím žádná shopa.</p>`;
-  settings.showModal();
+    `<div class="shoprow"><span class="dot" style="background:${shopColor(s.name)}"></span><b>${esc(s.name)}</b><div class="spacer"></div><button class="btn" data-remove="${esc(s.id)}">${t("remove")}</button></div>`).join("")
+    : `<p class="hint">${t("noShops")}</p>`;
 }
 function msg(el, text, ok) { el.textContent = text; el.className = "msg " + (ok ? "ok" : "err"); }
 $("#saveBtn").onclick = async () => {
   try {
     await api("/api/nastaveni", { keystring: $("#keystring").value, shared_secret: $("#secret").value,
-      redirect_uri: $("#redirect").value, interval_minut: +$("#interval").value, ntfy_topic: $("#ntfy").value });
-    msg($("#saveMsg"), "Uloženo.", true); S = await api("/api/stav"); render();
+      redirect_uri: $("#redirect").value, interval_minut: +$("#interval").value, ntfy_topic: $("#ntfy").value, jazyk: LANG });
+    msg($("#saveMsg"), t("saved"), true); S = await api("/api/stav"); render();
   } catch (e) { msg($("#saveMsg"), e.message); }
 };
 $("#authStart").onclick = async () => {
@@ -530,51 +760,58 @@ $("#authStart").onclick = async () => {
 };
 $("#authFinish").onclick = async () => {
   try { const r = await api("/api/prihlasit/dokoncit", { url: $("#authUrl").value });
-    msg($("#authMsg"), `Shopa ${r.shop} je přihlášená. Stahuji historii, chvíli to potrvá.`, true);
+    msg($("#authMsg"), t("shopConnected", { shop: r.shop }), true);
     $("#authStep").hidden = true; setTimeout(load, 3000); S = await api("/api/stav"); }
   catch (e) { msg($("#authMsg"), e.message); }
 };
 $("#updBtn").onclick = async () => {
-  const b = $("#updBtn"); b.disabled = true; msg($("#updMsg"), "Hledám novou verzi…", true);
+  const b = $("#updBtn"); b.disabled = true; msg($("#updMsg"), t("updSearching"), true);
   try {
     const r = await api("/api/aktualizace", {});
-    if (!r.nova) msg($("#updMsg"), `Máš nejnovější verzi (${r.verze}).`, true);
-    else { msg($("#updMsg"), `Instaluji verzi ${r.verze}, stránka se za chvíli obnoví…`, true); setTimeout(() => location.reload(), 5000); }
-  } catch (e) { msg($("#updMsg"), "Aktualizaci se nepodařilo zkontrolovat: " + e.message); }
+    if (!r.nova) msg($("#updMsg"), t("updLatest", { v: r.verze }), true);
+    else { msg($("#updMsg"), t("updInstalling", { v: r.verze }), true); setTimeout(() => location.reload(), 5000); }
+  } catch (e) { msg($("#updMsg"), t("updFailed") + e.message); }
   b.disabled = false;
 };
 $("#unBtn").onclick = async () => {
   const del = $("#unDelete").checked;
-  if (!confirm(del ? "Opravdu odinstalovat a smazat všechna data a klíče? Nejde to vrátit." : "Opravdu odinstalovat? Data zůstanou uložená.")) return;
+  if (!confirm(del ? t("unConfirmDel") : t("unConfirm"))) return;
   try { await api("/api/odinstalovat", { smazat_data: del }); } catch (e) { alert(e.message); return; }
   settings.close();
-  document.body.innerHTML = `<div class="wrap"><div class="card welcome"><h2>Etsy Dashboard je odinstalovaný</h2>
-    <p>Hlídání je zastavené a po zapnutí Macu se už nespustí.${del ? " Data a klíče jsou smazané." : " Data zůstala v ~/Library/Application Support/EtsyDashboard."}</p>
-    <p>Aplikaci „Etsy Dashboard“ teď můžeš přetáhnout ze složky Aplikace do koše. Přístup k Etsy úplně zrušíš smazáním aplikace na etsy.com/developers.</p></div></div>`;
+  document.body.innerHTML = `<div class="wrap"><div class="card welcome"><h2>${t("unDoneTitle")}</h2>
+    <p>${t("unDoneText")} ${del ? t("unDataDeleted") : t("unDataKept")}</p>
+    <p>${t("unDoneText2")}</p></div></div>`;
 };
 $("#shopList").onclick = async e => {
-  const id = e.target.dataset.remove; if (!id || !confirm("Odebrat tuto shopu z dashboardu? Stažená data zůstanou.")) return;
+  const id = e.target.dataset.remove; if (!id || !confirm(t("removeConfirm"))) return;
   try { await api("/api/odebrat", { id }); S = await api("/api/stav"); openSettings(); render(); } catch (err) { alert(err.message); }
 };
 
 // ---------- ovládání
 $("#settingsBtn").onclick = openSettings;
 $("#checkBtn").onclick = async () => {
-  const b = $("#checkBtn"); b.disabled = true; b.textContent = "Kontroluji…";
+  const b = $("#checkBtn"); b.disabled = true; b.textContent = t("checking");
   try { await api("/api/zkontrolovat", {}); } catch (e) { alert(e.message); }
-  b.disabled = false; b.textContent = "↻ Zkontrolovat teď"; load();
+  b.disabled = false; b.textContent = t("checkBtn"); load();
+};
+$("#lang").onchange = () => {
+  LANG = $("#lang").value; LS.set("lang", LANG); applyStatic();
+  if (!S) return;
+  const prev = $("#period").value; buildPeriods(); $("#period").value = prev;
+  render(); syncServerLang();
+  if (settings.open) { $("#secret").placeholder = S.nastaveni.ma_secret ? t("secretSaved") : ""; renderShopList(); }
 };
 $("#shopChips").onclick = e => { const c = e.target.closest(".chip"); if (!c) return; shopFilter = c.dataset.shop; LS.set("shop", shopFilter); shown = 25; render(); };
 $("#period").onchange = () => { LS.set("period", $("#period").value); shown = 25; render(); };
 $("#search").oninput = () => { shown = 25; renderTable(filtered()); };
 $("#moreBtn").onclick = () => { shown += 50; renderTable(filtered()); };
-document.querySelectorAll(".tab").forEach(t => t.onclick = () => {
-  document.querySelectorAll(".tab").forEach(x => x.classList.toggle("on", x === t)); tab = t.dataset.tab; shown = 25; renderTable(filtered());
+document.querySelectorAll(".tab").forEach(el => el.onclick = () => {
+  document.querySelectorAll(".tab").forEach(x => x.classList.toggle("on", x === el)); tab = el.dataset.tab; shown = 25; renderTable(filtered());
 });
 $("#bannerOk").onclick = () => { lastSeen = Math.floor(Date.now() / 1000); LS.set("lastSeen", lastSeen); render(); };
 const tip = $("#tip");
-$("#chart").onmousemove = e => { const t = e.target.dataset?.tip; if (!t) { tip.style.display = "none"; return; }
-  tip.textContent = t; tip.style.display = "block"; tip.style.left = Math.min(e.clientX + 12, innerWidth - tip.offsetWidth - 8) + "px"; tip.style.top = e.clientY + 12 + "px"; };
+$("#chart").onmousemove = e => { const txt = e.target.dataset?.tip; if (!txt) { tip.style.display = "none"; return; }
+  tip.textContent = txt; tip.style.display = "block"; tip.style.left = Math.min(e.clientX + 12, innerWidth - tip.offsetWidth - 8) + "px"; tip.style.top = e.clientY + 12 + "px"; };
 $("#chart").onmouseleave = () => tip.style.display = "none";
 
 // ---------- import CSV
@@ -587,13 +824,13 @@ function openImport() {
 }
 async function importFiles(files) {
   const shop = $("#impShop").value.trim();
-  if (!shop) { $("#impShop").focus(); $("#impResults").innerHTML = `<li class="msg err">Nejdřív vyplň shopu.</li>`; return; }
+  if (!shop) { $("#impShop").focus(); $("#impResults").innerHTML = `<li class="msg err">${t("impNeedShop")}</li>`; return; }
   LS.set("impShop", shop);
   for (const f of files) {
-    const li = document.createElement("li"); li.textContent = `${f.name}: nahrávám…`; $("#impResults").append(li);
+    const li = document.createElement("li"); li.textContent = t("impUploading", { f: f.name }); $("#impResults").append(li);
     try {
       const r = await api("/api/import", { shop, soubor: f.name, obsah: await f.text() });
-      li.innerHTML = `<span>✓ ${esc(f.name)}</span><span class="num pos">${esc(r.typ)}: ${r.novych} nových z ${r.radku}</span>`;
+      li.innerHTML = `<span>✓ ${esc(f.name)}</span><span class="num pos">${esc(t("impResult", { kind: tMap("kinds", r.druh) || r.druh, n: r.novych, total: r.radku }))}</span>`;
     } catch (e) { li.innerHTML = `<span class="neg">✗ ${esc(f.name)}: ${esc(e.message)}</span>`; }
   }
   load();
@@ -605,6 +842,8 @@ drop.ondragover = e => { e.preventDefault(); drop.classList.add("over"); };
 drop.ondragleave = () => drop.classList.remove("over");
 drop.ondrop = e => { e.preventDefault(); drop.classList.remove("over"); importFiles([...e.dataTransfer.files]); };
 
+applyStatic();
+$("#status").textContent = t("loading");
 setupNotifBtn();
 load();
 setInterval(load, 60000);

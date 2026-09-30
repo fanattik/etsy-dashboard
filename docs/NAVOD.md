@@ -60,6 +60,7 @@ Při prvním propojení se stáhne historie za poslední rok a nahradí data z C
   názvem (např. `moje-shopa-etsy-8f3k2`) a stejný název zadej v Nastavení.
 
 ## Dobré vědět
+- Jazyk (CZ / EN / DE) přepneš vpravo nahoře. Podle něj se píšou i upozornění na mobil a hlavičky CSV exportu.
 - Přihlášení shop vydrží 90 dní od posledního běhu. Když Mac 90 dní nepoběží, přihlas je znovu.
 - Klíče a data jsou v `~/Library/Application Support/EtsyDashboard`. Nikomu je neposílej.
 - Aktualizace se stahují samy jednou denně z tohoto repozitáře (Nastavení → Zkontrolovat aktualizace). Data zůstanou.
