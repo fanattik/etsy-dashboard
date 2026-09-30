@@ -10,11 +10,12 @@ The interface is available in English, Czech and German (switch in *Settings*, w
 
 - Revenue, order count, average order, Etsy fees (incl. VAT), net to account, payouts, balance and orders waiting to ship
 - Monthly revenue chart (12 months), best sellers, fee breakdown
-- Orders and payment-account tables with search and CSV export (Excel-friendly)
+- Orders and payment-account tables with filters, sorting and CSV export (Excel-friendly)
+- Listings page: price, stock, views, favorites, and units sold and revenue per listing in the selected period
 - Several shops side by side, filter by shop and period
 - Show all amounts in one currency of your choice (converted at the daily ECB rate)
 - Two ways to get data:
-  - **CSV import** (works right away): upload the files from *Shop Manager → Settings → Options → Download Data* (Payment Account statements, Orders, Order Items, Payments). Re-uploading the same file never duplicates anything.
+  - **CSV import** (works right away): upload the files from *Shop Manager → Settings → Options → Download Data* (Payment Account statements, Orders, Order Items, Payments, Currently for Sale Listings). Re-uploading the same file never duplicates anything.
   - **Etsy Open API v3** (automatic every 15 minutes) once your Etsy developer app is approved
 - New-order notifications in the browser, optionally on your phone via [ntfy](https://ntfy.sh)
 - Updates itself from this repository once a day

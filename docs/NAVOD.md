@@ -24,6 +24,8 @@ Etsy Dashboard (Launchpad, Dock, Spotlight) nebo záložkou http://127.0.0.1:876
 2. Stáhni **Payment Account** CSV (měsíční výpis) za měsíce, které chceš vidět.
    Pro jména zákazníků, přesné položky a stav odeslání stáhni i **Orders**, **Order Items**
    a případně **Payments** (EtsyDirectCheckoutPayments). Na pořadí nahrávání nezáleží.
+   Pro stránku Listingy stáhni **Currently for Sale Listings** (EtsyListingsDownload.csv).
+   Zobrazení a oblíbené v něm nejsou, ty doplní až Etsy API.
 3. V dashboardu klikni **⬆ Nahrát CSV z Etsy**, vyber shopu a soubory přetáhni do okna.
    Každou shopu nahrávej zvlášť (soubory z Etsy neříkají, ke které shopě patří).
    Nahrát stejný soubor znovu nevadí, nic se nezdvojí.
