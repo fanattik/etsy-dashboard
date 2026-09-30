@@ -5,172 +5,183 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Etsy Dashboard</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='9' fill='%23f1641e'/><path d='M10 22v-5M16 22V11M22 22v-8' stroke='white' stroke-width='3.2' fill='none' stroke-linecap='round'/></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 :root {
-  --bg: #f4f5f7; --panel: #ffffff; --panel-2: #f7f8fa; --side: #ffffff; --text: #111827; --muted: #6b7280; --faint: #9ca3af;
-  --line: #e8eaee; --accent: #f1641e; --accent-2: #ff8a4c; --accent-soft: #fff1ea; --good: #16a34a; --good-soft: #e8f7ee;
-  --bad: #dc2626; --bad-soft: #fdecec; --shop-1: #6366f1; --shop-2: #f1641e; --shop-3: #14b8a6; --shop-4: #eab308;
-  --shadow: 0 1px 2px rgba(16,24,40,.04), 0 1px 3px rgba(16,24,40,.06); --radius: 16px;
+  --bg: #efefef; --panel: #ffffff; --panel-2: #f5f5f5; --side: #ffffff; --text: #171717; --muted: #737373; --faint: #a3a3a3;
+  --line: #ececec; --accent: #171717; --accent-fg: #ffffff; --brand: #45a86b; --brand-soft: #e7f5ec;
+  --good: #2f9e5b; --good-soft: #e3f4e8; --bad: #d64545; --bad-soft: #fbe7e7; --warn: #c77c12; --warn-soft: #fbf0dc;
+  --shop-1: #6b7cf6; --shop-2: #e2a33b; --shop-3: #2bb3a6; --shop-4: #b36bdc;
+  --shadow: none; --radius: 14px; --mono: "DM Mono", ui-monospace, "SF Mono", Menlo, monospace;
 }
 :root[data-theme="dark"] {
-  --bg: #0d0f13; --panel: #161a20; --panel-2: #1c2129; --side: #11151a; --text: #f3f4f6; --muted: #9aa3af; --faint: #6b7280;
-  --line: #262c35; --accent: #ff7a3d; --accent-2: #ff9a66; --accent-soft: #2b1c14; --good: #34d399; --good-soft: #10281f;
-  --bad: #f87171; --bad-soft: #2d1719; --shop-1: #818cf8; --shop-2: #ff7a3d; --shop-3: #2dd4bf; --shadow: none;
+  --bg: #0e0e0e; --panel: #1b1b1b; --panel-2: #242424; --side: #1b1b1b; --text: #f2f2f2; --muted: #9a9a9a; --faint: #666;
+  --line: #2a2a2a; --accent: #f2f2f2; --accent-fg: #111; --brand: #5cc185; --brand-soft: #173222;
+  --good: #5cc185; --good-soft: #173222; --bad: #ef6b6b; --bad-soft: #3a1b1b; --warn: #e5a13a; --warn-soft: #36270f; --shop-1: #8b98fa;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --bg: #0d0f13; --panel: #161a20; --panel-2: #1c2129; --side: #11151a; --text: #f3f4f6; --muted: #9aa3af; --faint: #6b7280;
-    --line: #262c35; --accent: #ff7a3d; --accent-2: #ff9a66; --accent-soft: #2b1c14; --good: #34d399; --good-soft: #10281f;
-    --bad: #f87171; --bad-soft: #2d1719; --shop-1: #818cf8; --shop-2: #ff7a3d; --shop-3: #2dd4bf; --shadow: none;
+    --bg: #0e0e0e; --panel: #1b1b1b; --panel-2: #242424; --side: #1b1b1b; --text: #f2f2f2; --muted: #9a9a9a; --faint: #666;
+    --line: #2a2a2a; --accent: #f2f2f2; --accent-fg: #111; --brand: #5cc185; --brand-soft: #173222;
+    --good: #5cc185; --good-soft: #173222; --bad: #ef6b6b; --bad-soft: #3a1b1b; --warn: #e5a13a; --warn-soft: #36270f; --shop-1: #8b98fa;
   }
 }
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
 html, body { margin: 0; background: var(--bg); color: var(--text); }
-body { font: 14.5px/1.5 "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; -webkit-font-smoothing: antialiased; }
+body { font: 14px/1.5 "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; -webkit-font-smoothing: antialiased; }
 button, select, input, textarea { font: inherit; color: inherit; }
-a { color: var(--accent); }
-svg.i { width: 18px; height: 18px; flex: none; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+a { color: inherit; }
+svg.i { width: 16px; height: 16px; flex: none; stroke: currentColor; fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.mono, .kpi .value, .big, .num { font-family: var(--mono); font-feature-settings: "zero" 0; }
 
-/* rozvržení: boční menu + obsah */
-.app { display: grid; grid-template-columns: 248px 1fr; min-height: 100vh; }
-.side { background: var(--side); border-right: 1px solid var(--line); padding: 20px 14px; display: flex; flex-direction: column; gap: 4px; position: sticky; top: 0; height: 100vh; }
-.brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 16px; padding: 4px 10px 18px; letter-spacing: -.01em; }
-.brand .logo { width: 32px; height: 32px; border-radius: 10px; background: linear-gradient(135deg, var(--accent-2), var(--accent)); display: grid; place-items: center; }
-.brand .logo svg { stroke: #fff; stroke-width: 3; width: 18px; height: 18px; }
-.nav-label { font-size: 11.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--faint); padding: 10px 12px 6px; font-weight: 600; }
-.nav a { display: flex; align-items: center; gap: 11px; padding: 9px 12px; border-radius: 10px; color: var(--muted); text-decoration: none; font-weight: 500; }
-.nav a:hover { background: var(--panel-2); color: var(--text); }
-.nav a.on { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+/* rozvržení: boční menu jako karta + obsah */
+.app { display: grid; grid-template-columns: 232px 1fr; min-height: 100vh; gap: 10px; padding: 10px; }
+.side { background: var(--side); border-radius: var(--radius); padding: 16px 12px; display: flex; flex-direction: column; gap: 2px; position: sticky; top: 10px; height: calc(100vh - 20px); }
+.brand { display: flex; align-items: center; gap: 9px; font-weight: 600; font-size: 14.5px; padding: 4px 8px 20px; }
+.brand .logo { width: 26px; height: 26px; border-radius: 7px; border: 1.5px solid var(--text); display: grid; place-items: center; }
+.brand .logo svg { stroke: var(--text); stroke-width: 2.6; width: 14px; height: 14px; }
+.nav-label { display: none; }
+.nav a { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 9px; color: var(--text); text-decoration: none; font-size: 13.5px; }
+.nav a svg.i { color: var(--muted); }
+.nav a:hover { background: var(--panel-2); }
+.nav a.on { background: var(--panel-2); font-weight: 500; }
+.nav a.on svg.i { color: var(--text); }
 .side .grow { flex: 1; }
-.side-card { background: var(--panel-2); border: 1px solid var(--line); border-radius: 14px; padding: 14px; font-size: 13px; color: var(--muted); }
-.side-card b { color: var(--text); display: block; margin-bottom: 4px; font-size: 13.5px; }
+.side-card { border-top: 1px solid var(--line); padding: 14px 8px 4px; font-size: 12.5px; color: var(--muted); }
+.side-card b { color: var(--text); display: block; margin-bottom: 3px; font-size: 13px; font-weight: 500; }
 .side-card .btn { width: 100%; margin-top: 10px; justify-content: center; }
-.side .ver { font-size: 12px; color: var(--faint); padding: 10px 12px 0; }
-main { min-width: 0; padding: 22px 28px 60px; }
-.top { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; margin-bottom: 20px; }
-.top h1 { font-size: 24px; margin: 0; letter-spacing: -.02em; line-height: 1.2; }
-.top .status { color: var(--muted); font-size: 13px; margin-top: 2px; }
+.side .ver { font-size: 11.5px; color: var(--faint); padding: 10px 8px 0; font-family: var(--mono); }
+main { min-width: 0; padding: 22px 22px 50px; background: var(--bg); }
+.top { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; margin-bottom: 22px; }
+.top h1 { font-size: 28px; margin: 0; letter-spacing: -.03em; line-height: 1.15; font-weight: 500; }
+.top .status { color: var(--muted); font-size: 12.5px; margin-top: 4px; }
 .status .err { color: var(--bad); }
 .spacer { flex: 1; }
-.demo { background: var(--text); color: var(--bg); font-size: 11px; padding: 2px 8px; border-radius: 999px; font-weight: 700; vertical-align: middle; margin-left: 6px; letter-spacing: .03em; }
+.demo { background: var(--panel); border: 1px solid var(--line); color: var(--muted); font-size: 10.5px; padding: 2px 8px; border-radius: 999px; font-weight: 500; vertical-align: middle; margin-left: 8px; letter-spacing: .04em; }
 
 /* ovládací prvky */
-.btn { display: inline-flex; align-items: center; gap: 8px; border: 1px solid var(--line); background: var(--panel); padding: 8px 14px; border-radius: 10px; cursor: pointer; font-weight: 500; text-decoration: none; color: var(--text); box-shadow: var(--shadow); white-space: nowrap; }
-.btn:hover { border-color: var(--faint); }
-.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
-.btn.primary:hover { filter: brightness(1.05); }
-.btn.ghost { box-shadow: none; background: transparent; }
-.btn.danger { color: var(--bad); border-color: color-mix(in srgb, var(--bad) 40%, var(--line)); }
-.btn:disabled { opacity: .55; cursor: default; }
-.btn svg.i { width: 16px; height: 16px; }
-select, input, textarea { border: 1px solid var(--line); background: var(--panel); padding: 8px 12px; border-radius: 10px; }
+.btn { display: inline-flex; align-items: center; gap: 7px; border: 1px solid var(--line); background: var(--panel); padding: 7px 13px; border-radius: 9px; cursor: pointer; font-weight: 500; font-size: 13px; text-decoration: none; color: var(--text); white-space: nowrap; }
+.btn:hover { background: var(--panel-2); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
+.btn.primary:hover { opacity: .88; }
+.btn.ghost { background: transparent; }
+.btn.danger { color: var(--bad); }
+.btn:disabled { opacity: .5; cursor: default; }
+select, input, textarea { border: 1px solid var(--line); background: var(--panel); padding: 7px 12px; border-radius: 9px; font-size: 13.5px; }
+.filters select { font-size: 13px; font-weight: 500; padding: 7px 10px; }
 select { cursor: pointer; }
-input:focus, select:focus, textarea:focus { outline: 2px solid color-mix(in srgb, var(--accent) 35%, transparent); outline-offset: 0; border-color: var(--accent); }
-.seg { display: inline-flex; background: var(--panel); border: 1px solid var(--line); border-radius: 11px; padding: 3px; gap: 2px; flex-wrap: wrap; box-shadow: var(--shadow); }
-.seg button { border: 0; background: none; padding: 6px 12px; border-radius: 8px; cursor: pointer; color: var(--muted); font-weight: 500; display: inline-flex; align-items: center; gap: 7px; }
-.seg button.on { background: var(--panel-2); color: var(--text); box-shadow: 0 0 0 1px var(--line); }
-.dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex: none; }
-.filters { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+input:focus, select:focus, textarea:focus { outline: 2px solid color-mix(in srgb, var(--text) 18%, transparent); outline-offset: 0; }
+.seg { display: inline-flex; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 3px; gap: 2px; flex-wrap: wrap; }
+.seg button { border: 0; background: none; padding: 5px 11px; border-radius: 7px; cursor: pointer; color: var(--muted); font-weight: 500; font-size: 13px; display: inline-flex; align-items: center; gap: 7px; }
+.seg button.on { background: var(--panel-2); color: var(--text); }
+.dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; flex: none; }
+.filters { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 
 /* karty */
-.grid { display: grid; gap: 16px; }
-.card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px 20px; box-shadow: var(--shadow); min-width: 0; }
-.card-h { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
-.card-h h2 { font-size: 15px; margin: 0; font-weight: 600; }
-.card-h .note { color: var(--muted); font-size: 12.5px; }
-.kpis { grid-template-columns: repeat(4, 1fr); margin-bottom: 16px; }
-.kpi { display: flex; flex-direction: column; gap: 6px; }
-.kpi .head { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 13px; font-weight: 500; }
-.kpi .ico { width: 32px; height: 32px; border-radius: 9px; display: grid; place-items: center; background: var(--panel-2); color: var(--muted); }
-.kpi .ico svg.i { width: 17px; height: 17px; }
-.kpi.main .ico { background: var(--accent-soft); color: var(--accent); }
-.kpi .value { font-size: 26px; font-weight: 700; letter-spacing: -.025em; font-variant-numeric: tabular-nums; line-height: 1.2; margin-top: 4px; }
-.kpi .value small { font-size: 15px; font-weight: 600; }
-.kpi .sub { color: var(--muted); font-size: 12.5px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-.kpi.warn .value { color: var(--accent); }
-.trend { display: inline-flex; align-items: center; gap: 2px; font-weight: 600; font-size: 12px; padding: 1px 7px; border-radius: 999px; }
+.grid { display: grid; gap: 10px; }
+.card { background: var(--panel); border-radius: var(--radius); padding: 18px 20px; min-width: 0; }
+.card-h { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
+.card-h h2 { font-size: 14px; margin: 0; font-weight: 400; color: var(--muted); }
+.card-h .note { color: var(--text); font-size: 12.5px; display: block; margin-top: 10px; }
+.kpis { grid-template-columns: repeat(4, 1fr); margin-bottom: 10px; }
+.kpi { display: flex; flex-direction: column; gap: 4px; }
+.kpi .head { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 13.5px; }
+.kpi .value { font-size: 23px; font-weight: 400; letter-spacing: -.02em; line-height: 1.25; margin-top: 12px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.kpi .value small { font-size: 14px; }
+.kpi .sub { color: var(--muted); font-size: 12px; margin-top: 6px; }
+.kpi.warn .value { color: var(--warn); }
+.arrow { width: 15px; height: 15px; border-radius: 50%; display: inline-grid; place-items: center; font-size: 9.5px; font-family: Inter, sans-serif; flex: none; }
+.arrow.up { background: var(--good-soft); color: var(--good); } .arrow.down { background: var(--bad-soft); color: var(--bad); }
+.trend { display: inline-flex; align-items: center; font-weight: 500; font-size: 11.5px; padding: 1px 6px; border-radius: 5px; font-family: var(--mono); }
 .trend.up { color: var(--good); background: var(--good-soft); } .trend.down { color: var(--bad); background: var(--bad-soft); }
-.row2 { grid-template-columns: 1.6fr 1fr; margin-bottom: 16px; }
-.halves { grid-template-columns: 1fr 1fr; margin-bottom: 16px; }
-.big { font-size: 28px; font-weight: 700; letter-spacing: -.025em; font-variant-numeric: tabular-nums; }
-.legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12.5px; color: var(--muted); align-items: center; }
+.kpi .head .trend { margin-left: auto; }
+.row2 { grid-template-columns: 1.6fr 1fr; margin-bottom: 10px; }
+.halves { grid-template-columns: 1fr 1fr; margin-bottom: 10px; }
+.big { font-size: 30px; font-weight: 400; letter-spacing: -.03em; line-height: 1.1; }
+.headline { margin-left: auto; text-align: right; }
+.headline .lbl { font-size: 12px; color: var(--text); display: flex; align-items: center; gap: 6px; justify-content: flex-end; margin-bottom: 4px; }
+.headline .val { display: flex; align-items: center; gap: 8px; justify-content: flex-end; }
+.legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; color: var(--muted); align-items: center; }
 .legend span { display: inline-flex; align-items: center; gap: 6px; }
-svg text { fill: var(--faint); font-size: 11.5px; }
-.bar { transition: opacity .15s; } .bar:hover { opacity: .75; }
-.tip { position: fixed; pointer-events: none; background: var(--text); color: var(--bg); padding: 6px 10px; border-radius: 8px; font-size: 12.5px; display: none; z-index: 20; white-space: nowrap; }
+svg text { fill: var(--faint); font-size: 11px; font-family: Inter, sans-serif; }
+.tip { position: fixed; pointer-events: none; background: var(--panel); color: var(--text); border: 1px solid var(--line); box-shadow: 0 6px 20px rgba(0,0,0,.08); padding: 7px 10px; border-radius: 8px; font-size: 12px; display: none; z-index: 20; white-space: nowrap; }
+.tip .t { color: var(--muted); font-size: 11px; margin-bottom: 2px; }
 .list { list-style: none; margin: 0; padding: 0; }
-.list li { display: grid; grid-template-columns: 1fr auto; gap: 6px 12px; padding: 9px 0; font-size: 14px; }
+.list li { display: grid; grid-template-columns: 1fr auto; gap: 6px 12px; padding: 8px 0; font-size: 13px; }
 .list li + li { border-top: 1px solid var(--line); }
-.list .meter { grid-column: 1 / -1; height: 6px; border-radius: 99px; background: var(--panel-2); overflow: hidden; }
+.list .meter { grid-column: 1 / -1; height: 4px; border-radius: 99px; background: var(--panel-2); overflow: hidden; }
 .list .meter i { display: block; height: 100%; border-radius: 99px; }
 .list .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.num { font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+.num { font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; font-size: 12.5px; }
 .pos { color: var(--good); } .neg { color: var(--bad); }
-.banner { background: var(--accent-soft); border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent); border-radius: var(--radius); padding: 14px 18px; margin-bottom: 16px; display: none; }
-.banner ul { margin: 6px 0 0; padding-left: 18px; }
-.banner .row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.banner { background: var(--panel); border-radius: var(--radius); padding: 14px 20px; margin-bottom: 10px; display: none; border-left: 3px solid var(--brand); }
+.banner ul { margin: 6px 0 0; padding-left: 18px; font-size: 13px; }
+.banner .row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; font-size: 13.5px; }
+.banner b { font-weight: 500; }
 
 /* tabulky */
 .tablewrap { overflow-x: auto; margin: 0 -20px; padding: 0 20px; }
-table { width: 100%; border-collapse: collapse; font-size: 14px; }
-th { text-align: left; color: var(--muted); font-weight: 500; font-size: 12.5px; padding: 10px 12px; background: var(--panel-2); white-space: nowrap; }
-th:first-child { border-radius: 10px 0 0 10px; } th:last-child { border-radius: 0 10px 10px 0; }
-td { padding: 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th { text-align: left; color: var(--muted); font-weight: 400; font-size: 12px; padding: 6px 10px 10px; white-space: nowrap; border-bottom: 1px solid var(--line); }
+th:first-child, td:first-child { padding-left: 0; } th:last-child, td:last-child { padding-right: 0; }
+td { padding: 11px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
 tr:last-child td { border-bottom: 0; }
 td.nw { white-space: nowrap; }
 td.items { max-width: 380px; }
-tr.new td { background: var(--accent-soft); }
-.pill { display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px; border-radius: 999px; font-size: 12px; font-weight: 500; background: var(--panel-2); color: var(--muted); white-space: nowrap; }
-.pill::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; opacity: .7; }
-.pill.ship { background: var(--accent-soft); color: var(--accent); }
+tr.new td { background: var(--brand-soft); }
+.pill { display: inline-flex; align-items: center; gap: 6px; padding: 1px 8px; border-radius: 6px; font-size: 11.5px; font-weight: 500; background: var(--panel-2); color: var(--muted); white-space: nowrap; }
+.pill.ship { background: var(--warn-soft); color: var(--warn); }
 .pill.done { background: var(--good-soft); color: var(--good); }
-.search { min-width: 220px; background: var(--panel-2); }
+.search { min-width: 240px; background: var(--panel-2); border-color: transparent; }
 .more { text-align: center; margin-top: 14px; }
-.empty { color: var(--muted); padding: 28px 0; text-align: center; }
-.linkbtn { background: none; border: 0; color: var(--accent); cursor: pointer; font-weight: 600; padding: 0; text-decoration: none; font-size: 13px; }
+.empty { color: var(--muted); padding: 28px 0; text-align: center; font-size: 13px; }
+.linkbtn { background: none; border: 0; color: var(--text); cursor: pointer; font-weight: 500; padding: 0; text-decoration: none; font-size: 12.5px; }
+.linkbtn:hover { text-decoration: underline; }
 
 /* nastavení */
 .settings { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
-.settings .card h2 { font-size: 16px; margin: 0 0 2px; }
-.settings .card > .hint:first-of-type { margin-top: 0; }
+.settings .card h2 { font-size: 15px; margin: 0 0 2px; font-weight: 500; }
 .field { margin-top: 14px; }
-.field label, .flabel { display: block; font-size: 13px; color: var(--muted); margin-bottom: 6px; font-weight: 500; }
-.field input, .field select, .field textarea { width: 100%; background: var(--panel-2); }
-.hint { font-size: 13px; color: var(--muted); margin: 6px 0 0; }
+.field label, .flabel { display: block; font-size: 12.5px; color: var(--muted); margin-bottom: 6px; }
+.field input, .field select, .field textarea { width: 100%; background: var(--panel-2); border-color: transparent; }
+.hint { font-size: 12.5px; color: var(--muted); margin: 6px 0 0; }
 .actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; flex-wrap: wrap; align-items: center; }
 .actions.left { justify-content: flex-start; }
-.shoprow { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; margin-top: 8px; }
-.msg { font-size: 13.5px; margin-top: 8px; }
+.shoprow { display: flex; align-items: center; gap: 10px; padding: 9px 12px; background: var(--panel-2); border-radius: 10px; margin-top: 8px; font-size: 13.5px; }
+.shoprow b { font-weight: 500; }
+.msg { font-size: 13px; margin-top: 8px; }
 .msg.err { color: var(--bad); } .msg.ok { color: var(--good); }
-.danger-zone { border-color: color-mix(in srgb, var(--bad) 30%, var(--line)); }
-.check { display: flex; gap: 8px; align-items: center; margin-top: 12px; }
+.danger-zone h2 { color: var(--bad); }
+.check { display: flex; gap: 8px; align-items: center; margin-top: 12px; font-size: 13.5px; }
 
 /* import a uvítání */
-dialog { border: 1px solid var(--line); border-radius: 20px; background: var(--panel); color: var(--text); width: min(600px, calc(100vw - 32px)); padding: 0; }
-dialog::backdrop { background: rgba(10,12,16,.45); }
+dialog { border: 0; border-radius: 18px; background: var(--panel); color: var(--text); width: min(580px, calc(100vw - 32px)); padding: 0; }
+dialog::backdrop { background: rgba(0,0,0,.4); }
 .dlg { padding: 22px 24px; }
-.dlg h3 { margin: 0 0 4px; font-size: 18px; }
-.drop { border: 2px dashed var(--line); border-radius: 14px; padding: 28px 16px; text-align: center; color: var(--muted); background: var(--panel-2); }
-.drop.over { border-color: var(--accent); background: var(--accent-soft); }
-.drop .link { display: inline; color: var(--accent); cursor: pointer; text-decoration: underline; margin: 0; font-size: inherit; font-weight: 600; }
+.dlg h3 { margin: 0 0 4px; font-size: 18px; font-weight: 500; letter-spacing: -.01em; }
+.drop { border: 1.5px dashed var(--faint); border-radius: 12px; padding: 28px 16px; text-align: center; color: var(--muted); background: var(--panel-2); font-size: 13.5px; }
+.drop.over { border-color: var(--brand); background: var(--brand-soft); }
+.drop .link { display: inline; color: var(--text); cursor: pointer; text-decoration: underline; margin: 0; font-size: inherit; font-weight: 500; }
 #impResults li { grid-template-columns: 1fr auto; }
 .welcome { max-width: 680px; }
-.welcome h2 { font-size: 20px; margin: 0 0 8px; letter-spacing: -.01em; }
+.welcome h2 { font-size: 20px; margin: 0 0 8px; letter-spacing: -.02em; font-weight: 500; }
 .welcome ol { padding-left: 20px; } .welcome li { margin: 6px 0; }
+.welcome a { text-decoration: underline; }
 .page[hidden] { display: none; }
 
 @media (max-width: 1100px) { .kpis { grid-template-columns: repeat(2, 1fr); } .row2 { grid-template-columns: 1fr; } }
 @media (max-width: 900px) {
-  .app { grid-template-columns: 1fr; }
-  .side { position: sticky; z-index: 10; height: auto; flex-direction: row; align-items: center; padding: 10px 16px; border-right: 0; border-bottom: 1px solid var(--line); overflow-x: auto; gap: 6px; }
-  .brand { padding: 0 8px 0 0; } .brand span { display: none; }
+  .app { grid-template-columns: 1fr; padding: 0; gap: 0; }
+  .side { position: sticky; top: 0; z-index: 10; height: auto; flex-direction: row; align-items: center; padding: 8px 12px; border-radius: 0; border-bottom: 1px solid var(--line); overflow-x: auto; gap: 4px; }
+  .brand { padding: 0 6px 0 0; } .brand span { display: none; }
   .nav { display: flex; gap: 2px; } .nav a { padding: 7px 10px; white-space: nowrap; }
-  .nav-label, .side .grow, .side-card, .side .ver { display: none; }
-  main { padding: 18px 16px 50px; }
+  .side .grow, .side-card, .side .ver { display: none; }
+  main { padding: 18px 12px 50px; }
   .halves, .settings { grid-template-columns: 1fr; }
 }
-@media (max-width: 520px) { .kpis { grid-template-columns: 1fr 1fr; gap: 10px; } .kpi .value { font-size: 20px; } .card { padding: 14px 16px; } .search { min-width: 0; flex: 1; } .nav a span { display: none; } }
+@media (max-width: 520px) { .kpis { grid-template-columns: 1fr 1fr; gap: 8px; } .kpi .value { font-size: 18px; } .card { padding: 14px 14px; } .tablewrap { margin: 0 -14px; padding: 0 14px; } .search { min-width: 0; flex: 1; } .nav a span { display: none; } .top h1 { font-size: 24px; } }
 </style>
 </head>
 <body>
@@ -222,12 +233,12 @@ dialog::backdrop { background: rgba(10,12,16,.45); }
         <div class="grid kpis" id="kpis"></div>
         <div class="grid row2">
           <div class="card">
-            <div class="card-h"><h2 data-i18n="chartTitle"></h2><span class="note" data-i18n="chartNote"></span><div class="spacer"></div><div class="legend" id="legend"></div></div>
-            <div class="big" id="chartTotal"></div>
+            <div class="card-h"><div><h2 data-i18n="chartTitle"></h2><span class="note" id="chartNote"></span></div><div class="headline" id="chartHead"></div></div>
             <div id="chart"></div>
+            <div class="legend" id="legend"></div>
           </div>
           <div class="card">
-            <div class="card-h"><h2 data-i18n="topTitle"></h2><span class="note" data-i18n="topNote"></span></div>
+            <div class="card-h"><div><h2 data-i18n="topTitle"></h2><span class="note" data-i18n="topNote"></span></div></div>
             <ul class="list" id="top"></ul>
           </div>
         </div>
@@ -237,7 +248,7 @@ dialog::backdrop { background: rgba(10,12,16,.45); }
             <div class="tablewrap"><table id="recent"></table></div>
           </div>
           <div class="card">
-            <div class="card-h"><h2 data-i18n="feesTitle"></h2><span class="note" data-i18n="feesNote"></span></div>
+            <div class="card-h"><div><h2 data-i18n="feesTitle"></h2><span class="note" data-i18n="feesNote"></span></div></div>
             <ul class="list" id="fees"></ul>
           </div>
         </div>
@@ -566,7 +577,7 @@ const T2 = {
     secData: "Data", dataHint: "Nahraj CSV z Etsy (Shop Manager → Settings → Options → Download Data) nebo si stáhni data pro Excel.",
     secNotify: "Upozornění", notifyHint: "Když je dashboard otevřený v prohlížeči, může ukázat upozornění na novou objednávku. Na mobil fungují přes aplikaci ntfy.",
     browserNotif: "Povolit upozornění v prohlížeči", notifOn: "Upozornění v prohlížeči jsou zapnutá.", notifBlocked: "Prohlížeč upozornění blokuje, povol je v nastavení prohlížeče.",
-    vsPrevShort: "oproti předchozímu období", chartTotalNote: "za posledních 12 měsíců", ledgerTitle: "Výpis (platby a poplatky)",
+    vsPrevShort: "oproti předchozímu období", vsPrevN: "{n} v předchozím období", chartTotalNote: "za posledních 12 měsíců", ledgerTitle: "Výpis (platby a poplatky)",
   },
   en: {
     navMenu: "Menu", navOverview: "Overview", navLedger: "Statement", uploadCsv: "Upload CSV", checkShort: "Check now",
@@ -576,7 +587,7 @@ const T2 = {
     secData: "Data", dataHint: "Upload CSV files from Etsy (Shop Manager → Settings → Options → Download Data) or download your data for Excel.",
     secNotify: "Notifications", notifyHint: "While the dashboard is open in the browser it can notify you about new orders. On your phone they work through the ntfy app.",
     browserNotif: "Enable browser notifications", notifOn: "Browser notifications are on.", notifBlocked: "The browser blocks notifications, allow them in its settings.",
-    vsPrevShort: "vs. previous period", chartTotalNote: "in the last 12 months", ledgerTitle: "Statement (payments and fees)",
+    vsPrevShort: "vs. previous period", vsPrevN: "{n} in the previous period", chartTotalNote: "in the last 12 months", ledgerTitle: "Statement (payments and fees)",
   },
   de: {
     navMenu: "Menü", navOverview: "Übersicht", navLedger: "Kontoauszug", uploadCsv: "CSV hochladen", checkShort: "Jetzt prüfen",
@@ -586,7 +597,7 @@ const T2 = {
     secData: "Daten", dataHint: "Lade CSV-Dateien von Etsy hoch (Shop Manager → Settings → Options → Download Data) oder lade deine Daten für Excel herunter.",
     secNotify: "Benachrichtigungen", notifyHint: "Solange das Dashboard im Browser offen ist, meldet es neue Bestellungen. Aufs Handy kommen sie über die App ntfy.",
     browserNotif: "Browser-Benachrichtigungen erlauben", notifOn: "Browser-Benachrichtigungen sind aktiv.", notifBlocked: "Der Browser blockiert Benachrichtigungen, erlaube sie in seinen Einstellungen.",
-    vsPrevShort: "ggü. Vorzeitraum", chartTotalNote: "in den letzten 12 Monaten", ledgerTitle: "Kontoauszug (Zahlungen und Gebühren)",
+    vsPrevShort: "ggü. Vorzeitraum", vsPrevN: "{n} im Vorzeitraum", chartTotalNote: "in den letzten 12 Monaten", ledgerTitle: "Kontoauszug (Zahlungen und Gebühren)",
   },
 };
 for (const l in T2) Object.assign(T[l], T2[l]);
@@ -771,11 +782,12 @@ function renderChips() {
     `<button class="${v === shopFilter ? "on" : ""}" data-shop="${esc(v)}">${v === "all" ? "" : `<span class="dot" style="background:${shopColor(v)}"></span>`}${esc(txt)}</button>`).join("");
 }
 
-function trendHtml(cur, prev) {
-  if (prev === null || !isFinite(prev)) return "";
-  if (!prev) return cur ? t("noneBefore") : "";
-  const p = Math.round((cur - prev) / Math.abs(prev) * 100);
-  return `<span class="trend ${p >= 0 ? "up" : "down"}">${p >= 0 ? "↑" : "↓"} ${Math.abs(p)} %</span> ${esc(t("vsPrevShort"))}`;
+function trend(cur, prev) {  // štítek s procentem a šipka k hodnotě
+  if (prev === null || prev === undefined || !isFinite(prev) || !prev) return null;
+  const p = Math.round((cur - prev) / Math.abs(prev) * 100), up = p >= 0;
+  if (Math.abs(p) > 999) return null;  // srovnání s téměř prázdným obdobím nic neříká
+  return { p, up, pill: `<span class="trend ${up ? "up" : "down"}">${up ? "+" : "−"}${Math.abs(p)}%</span>`,
+    arrow: `<span class="arrow ${up ? "up" : "down"}">${up ? "↑" : "↓"}</span>` };
 }
 
 function renderKpis(f) {
@@ -798,10 +810,10 @@ function renderKpis(f) {
   const avg = {}; Object.entries(revenue).forEach(([c, v]) => avg[c] = v / (f.pOrders.filter(r => r.mena === c).length || 1));
   const feePct = (() => { const r = Object.values(revenue).reduce((x, y) => x + y, 0), fe = -fees.reduce((x, y) => x + y.castka, 0); return r ? t("feePct", { p: Math.round(fe / r * 100) }) : ""; })();
   const cards = [
-    ["revenue", t("kRevenue"), moneyHtml(revenue), prevOrders && oneCur ? trendHtml(total(f.pOrders), total(prevOrders)) || pl(n, "order") : pl(n, "order"), "main"],
-    ["orders", t("kOrders"), n, prevOrders ? trendHtml(n, prevOrders.length) : "", "main"],
-    ["avg", t("kAvg"), moneyHtml(avg), "", "main"],
-    ["fees", t("kFees"), moneyHtml(sumByCur(fees, "castka")), feePct, "main"],
+    ["revenue", t("kRevenue"), moneyHtml(revenue), pl(n, "order"), "", prevOrders && oneCur ? trend(total(f.pOrders), total(prevOrders)) : null],
+    ["orders", t("kOrders"), n, prevOrders ? (prevOrders.length ? t("vsPrevN", { n: prevOrders.length }) : t("noneBefore")) : "", "", prevOrders ? trend(n, prevOrders.length) : null],
+    ["avg", t("kAvg"), moneyHtml(avg), ""],
+    ["fees", t("kFees"), moneyHtml(sumByCur(fees, "castka")), feePct],
     ["net", t("kNet"), moneyHtml(sumByCur(net, "castka")), t("netSub")],
     ["payout", t("kPayouts"), moneyHtml(Object.fromEntries(Object.entries(sumByCur(payouts, "castka")).map(([c, v]) => [c, -v]))), t("payoutsN", { n: payouts.length })],
     ["balance", t("kBalance"), hasBalance ? moneyHtml(balances) : "–", hasBalance ? t("balSub") : t("balNone")],
@@ -809,40 +821,55 @@ function renderKpis(f) {
       ? ["ship", t("kToShip"), toShip.length, toShip.length ? t("shipPending") : t("allShipped"), toShip.length ? "warn" : ""]
       : ["ship", t("kToShip"), "–", t("shipUnknown")],
   ];
-  $("#kpis").innerHTML = cards.map(([ic, l, v, s, cls]) =>
-    `<div class="card kpi ${cls || ""}"><div class="head"><span class="ico">${icon(ic)}</span>${l}</div><div class="value">${v}</div><div class="sub">${s || "&nbsp;"}</div></div>`).join("");
+  $("#kpis").innerHTML = cards.map(([ic, l, v, s, cls, tr]) =>
+    `<div class="card kpi ${cls || ""}"><div class="head">${l}${tr ? tr.pill : ""}</div><div class="value">${v}${tr ? tr.arrow : ""}</div><div class="sub">${s || "&nbsp;"}</div></div>`).join("");
 }
 
+let CH = null;  // data grafu pro tooltip
+function smooth(pts) {  // hladká křivka přes body (Catmull-Rom → Bézier)
+  if (pts.length < 2) return "";
+  let d = `M${pts[0][0]},${pts[0][1]}`;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[i - 1] || pts[i], p1 = pts[i], p2 = pts[i + 1], p3 = pts[i + 2] || p2;
+    const c1 = [p1[0] + (p2[0] - p0[0]) / 6, p1[1] + (p2[1] - p0[1]) / 6], c2 = [p2[0] - (p3[0] - p1[0]) / 6, p2[1] - (p3[1] - p1[1]) / 6];
+    d += ` C${c1[0]},${c1[1]} ${c2[0]},${c2[1]} ${p2[0]},${p2[1]}`;
+  }
+  return d;
+}
 function renderChart(f) {
   const now = new Date(), months = [];
-  for (let i = 11; i >= 0; i--) { const d = new Date(now.getFullYear(), now.getMonth() - i, 1); months.push([d.getFullYear(), d.getMonth()]); }
+  for (let i = 23; i >= 0; i--) { const d = new Date(now.getFullYear(), now.getMonth() - i, 1); months.push([d.getFullYear(), d.getMonth()]); }
   const shops = S.shopy.map(s => s.name).filter(s => shopFilter === "all" || s === shopFilter);
   const cur = (f.orders[0] || {}).mena || "USD";
-  const vals = months.map(([y, m]) => shops.map(s => f.orders.filter(r => {
+  const all = months.map(([y, m]) => shops.map(s => f.orders.filter(r => {
     const d = new Date(r.vytvoreno_ts * 1000); return r.shop === s && r.mena === cur && d.getFullYear() === y && d.getMonth() === m;
   }).reduce((a, r) => a + r.celkem, 0)));
-  const sum12 = vals.reduce((a, v) => a + v.reduce((x, y) => x + y, 0), 0);
-  $("#chartTotal").innerHTML = `${esc(fmtMoney(sum12, cur))} <span class="note" style="font-size:13px;font-weight:400;color:var(--muted);letter-spacing:0">${esc(t("chartTotalNote"))}</span>`;
-  const max = Math.max(1, ...vals.map(v => v.reduce((a, b) => a + b, 0)));
+  const vals = all.slice(12), ms = months.slice(12);
+  const sumOf = arr => arr.reduce((a, v) => a + v.reduce((x, y) => x + y, 0), 0);
+  const sum12 = sumOf(vals), prev12 = sumOf(all.slice(0, 12)), tr = trend(sum12, prev12);
+  $("#chartNote").textContent = t("chartNote");
+  $("#chartHead").innerHTML = `<div class="lbl"><span class="dot" style="background:var(--brand)"></span>${esc(t("chartTotalNote"))}</div><div class="val"><span class="big">${esc(fmtMoney(sum12, cur))}</span>${tr ? tr.pill : ""}</div>`;
+  const totals = vals.map(v => v.reduce((a, b) => a + b, 0));
+  const series = [totals].concat(shops.length > 1 ? shops.map((s, si) => vals.map(v => v[si])) : []);
+  const max = Math.max(1, ...series.flat());
   const step = niceStep(max), top = Math.ceil(max / step) * step;
-  const W = Math.max(300, $("#chart").clientWidth || 800), H = 240, L = 48, B = 28, T0 = 14, bw = (W - L) / 12;
-  let svg = `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" style="display:block;max-width:100%" role="img" aria-label="${esc(t("chartTitle"))}">`;
-  for (let g = 0; g <= top; g += step) {
-    const y = H - B - (g / top) * (H - B - T0);
-    svg += `<line x1="${L}" x2="${W}" y1="${y}" y2="${y}" stroke="var(--line)" stroke-dasharray="${g ? "3 4" : ""}"/><text x="${L - 10}" y="${y + 4}" text-anchor="end">${Math.round(g).toLocaleString(loc())}</text>`;
-  }
-  vals.forEach((v, i) => {
-    let y = H - B; const last = v.reduce((k, val, si) => val > 0 ? si : k, -1);
-    v.forEach((val, si) => {
-      const h = (val / top) * (H - B - T0); if (h <= 0) return; y -= h;
-      const x = L + i * bw + bw * .22, w = bw * .56, r = si === last ? Math.min(6, h) : 0;
-      const d = `M${x},${y + h} V${y + r} Q${x},${y} ${x + r},${y} H${x + w - r} Q${x + w},${y} ${x + w},${y + r} V${y + h} Z`;
-      svg += `<path class="bar" d="${d}" fill="${shopColor(shops[si])}" data-tip="${esc(shops[si])}: ${esc(fmtMoney(val, cur))} (${esc(monthName(months[i][1], months[i][0]))})"/>`;
-    });
-    svg += `<text x="${L + i * bw + bw / 2}" y="${H - 8}" text-anchor="middle">${esc(monthName(months[i][1], undefined, true))}</text>`;
+  const W = Math.max(300, $("#chart").clientWidth || 800), H = 270, L = 46, R = 8, B = 30, T0 = 10;
+  const x = i => L + (W - L - R) * (i / 11), y = v => H - B - (v / top) * (H - B - T0);
+  let svg = `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" style="display:block;max-width:100%" role="img" aria-label="${esc(t("chartTitle"))}">
+    <defs><linearGradient id="ga" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--brand)" stop-opacity=".22"/><stop offset="1" stop-color="var(--brand)" stop-opacity="0"/></linearGradient></defs>`;
+  for (let g = 0; g <= top; g += step)
+    svg += `<line x1="${L}" x2="${W - R}" y1="${y(g)}" y2="${y(g)}" stroke="var(--line)" stroke-dasharray="${g ? "2 4" : ""}"/><text x="${L - 10}" y="${y(g) + 4}" text-anchor="end">${Math.round(g).toLocaleString(loc())}</text>`;
+  series.forEach((ser, si) => {
+    const pts = ser.map((v, i) => [x(i), y(v)]), d = smooth(pts);
+    const col = si ? shopColor(shops[si - 1]) : "var(--brand)";
+    if (si === 0) svg += `<path d="${d} L${x(11)},${y(0)} L${x(0)},${y(0)} Z" fill="url(#ga)"/>`;
+    svg += `<path d="${d}" fill="none" stroke="${col}" stroke-width="${si === 0 ? 2.2 : 1.4}" ${si ? 'stroke-dasharray="4 3" opacity=".85"' : ""} stroke-linejoin="round" stroke-linecap="round"/>`;
   });
+  svg += `<g id="hover" style="display:none"><line id="hl" y1="${T0}" y2="${H - B}" stroke="var(--faint)" stroke-dasharray="3 3"/>${series.map((_, si) => `<circle id="hc${si}" r="${si ? 3.5 : 4.5}" fill="var(--panel)" stroke="${si ? shopColor(shops[si - 1]) : "var(--brand)"}" stroke-width="2"/>`).join("")}</g>`;
+  ms.forEach(([yy, m], i) => svg += `<text x="${x(i)}" y="${H - 8}" text-anchor="${i === 0 ? "start" : i === 11 ? "end" : "middle"}">${esc(monthName(m, undefined, true))}</text>`);
   $("#chart").innerHTML = svg + "</svg>";
-  $("#legend").innerHTML = (shops.length > 1 ? shops.map(s => `<span><span class="dot" style="background:${shopColor(s)}"></span>${esc(s)}</span>`).join("") : "") + `<span>${esc(t("inCur", { cur }))}</span>`;
+  CH = { W, L, R, x, y, series, shops, ms, cur, vals, totals };
+  $("#legend").innerHTML = (shops.length > 1 ? `<span><span class="dot" style="background:var(--brand)"></span>${esc(t("allShops"))}</span>` + shops.map(s => `<span><span class="dot" style="background:${shopColor(s)}"></span>${esc(s)}</span>`).join("") : "") + `<span>${esc(t("inCur", { cur }))}</span>`;
 }
 function niceStep(max) { const raw = max / 4, p = 10 ** Math.floor(Math.log10(raw)); return [1, 2, 2.5, 5, 10].map(x => x * p).find(x => x >= raw); }
 
@@ -1056,9 +1083,19 @@ $("#moreBtn").onclick = () => { shown += 50; renderTable(filtered()); };
 $("#bannerOk").onclick = () => { lastSeen = Math.floor(Date.now() / 1000); LS.set("lastSeen", lastSeen); render(); };
 let resizeT; window.addEventListener("resize", () => { clearTimeout(resizeT); resizeT = setTimeout(() => { if (S && page === "prehled" && S.shopy.length) renderChart(filtered()); }, 150); });
 const tip = $("#tip");
-$("#chart").onmousemove = e => { const txt = e.target.dataset?.tip; if (!txt) { tip.style.display = "none"; return; }
-  tip.textContent = txt; tip.style.display = "block"; tip.style.left = Math.min(e.clientX + 12, innerWidth - tip.offsetWidth - 8) + "px"; tip.style.top = e.clientY + 12 + "px"; };
-$("#chart").onmouseleave = () => tip.style.display = "none";
+$("#chart").onmousemove = e => {
+  const svg = $("#chart svg"); if (!CH || !svg) return;
+  const r = svg.getBoundingClientRect(), px = (e.clientX - r.left) * CH.W / r.width;
+  const i = Math.max(0, Math.min(11, Math.round((px - CH.L) / ((CH.W - CH.L - CH.R) / 11))));
+  const hx = CH.x(i); $("#hover").style.display = ""; $("#hl").setAttribute("x1", hx); $("#hl").setAttribute("x2", hx);
+  CH.series.forEach((ser, si) => { const c = $("#hc" + si); c.setAttribute("cx", hx); c.setAttribute("cy", CH.y(ser[i])); });
+  const [yy, m] = CH.ms[i];
+  tip.innerHTML = `<div class="t">${esc(monthName(m, yy))}</div>` + (CH.shops.length > 1
+    ? CH.shops.map((s, si) => `<div><span class="dot" style="background:${shopColor(s)}"></span> ${esc(s)}: <b class="mono">${esc(fmtMoney(CH.vals[i][si], CH.cur))}</b></div>`).join("") : "")
+    + `<div><b class="mono">${esc(fmtMoney(CH.totals[i], CH.cur))}</b></div>`;
+  tip.style.display = "block"; tip.style.left = Math.min(e.clientX + 14, innerWidth - tip.offsetWidth - 8) + "px"; tip.style.top = e.clientY + 14 + "px";
+};
+$("#chart").onmouseleave = () => { tip.style.display = "none"; const h = $("#hover"); if (h) h.style.display = "none"; };
 
 // ---------- import CSV
 function openImport() {
