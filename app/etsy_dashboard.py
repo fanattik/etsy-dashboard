@@ -41,7 +41,7 @@ AUTH_URL = "https://www.etsy.com/oauth/connect"
 TOKEN_URL = "https://api.etsy.com/v3/public/oauth/token"
 SCOPES = "transactions_r shops_r profile_r listings_r"
 PORT = 8765
-VERSION = "1.10"
+VERSION = "1.11"
 UPDATE_BASE = os.environ.get("ETSY_DASHBOARD_UPDATE_URL") or "https://raw.githubusercontent.com/fanattik/etsy-dashboard/main/app/"
 UPDATE_EVERY = 24 * 3600
 RATES_URL = os.environ.get("ETSY_DASHBOARD_RATES_URL") or "https://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml"
@@ -274,7 +274,9 @@ def db(path=None):
     con.execute("""CREATE TABLE IF NOT EXISTS listingy (
         shop TEXT, listing_id INTEGER PRIMARY KEY, nazev TEXT, stav TEXT, cena REAL, mena TEXT,
         mnozstvi INTEGER, zobrazeni INTEGER, oblibene INTEGER, stitky TEXT, obrazek TEXT, url TEXT,
-        sku TEXT, vytvoreno_ts INTEGER, zmeneno_ts INTEGER, pridano_ts INTEGER)""")
+        sku TEXT, vytvoreno_ts INTEGER, zmeneno_ts INTEGER, pridano_ts INTEGER, popis TEXT)""")
+    if "popis" not in {r[1] for r in con.execute("PRAGMA table_info(listingy)")}:  # tabulka z verze 1.10
+        con.execute("ALTER TABLE listingy ADD COLUMN popis TEXT")
     con.execute("""CREATE TABLE IF NOT EXISTS csv_polozky (
         receipt_id INTEGER PRIMARY KEY, polozky TEXT)""")
     con.execute("""CREATE TABLE IF NOT EXISTS stav (
@@ -382,12 +384,13 @@ def sync_listings(cfg, tokens, con, shop_id, name, now):
         price, cur = money(l.get("price"))
         images = l.get("images") or []
         old = con.execute("SELECT pridano_ts FROM listingy WHERE listing_id=?", (l["listing_id"],)).fetchone()
-        con.execute("INSERT OR REPLACE INTO listingy VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)", (
+        con.execute("INSERT OR REPLACE INTO listingy VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)", (
             name, l["listing_id"], html.unescape(l.get("title") or ""), l.get("state", ""), price, cur,
             l.get("quantity"), l.get("views"), l.get("num_favorers"), ", ".join(l.get("tags") or []),
-            images[0].get("url_170x135", "") if images else "", l.get("url", ""),
+            (images[0].get("url_570xN") or images[0].get("url_170x135", "")) if images else "", l.get("url", ""),
             ", ".join(l.get("skus") or []), l.get("created_timestamp") or l.get("creation_timestamp") or 0,
-            l.get("last_modified_timestamp") or l.get("updated_timestamp") or 0, old[0] if old else 0))
+            l.get("last_modified_timestamp") or l.get("updated_timestamp") or 0, old[0] if old else 0,
+            html.unescape(l.get("description") or "")))
         seen.add(l["listing_id"])
     con.execute("DELETE FROM listingy WHERE shop=? AND listing_id<0", (name,))  # API nahradí data z CSV
     if complete:  # smazané listingy
@@ -613,13 +616,14 @@ def make_demo_db(path):
             lid += 1
             digital = shop == "DemoPrintables"
             state = "draft" if p == "Wedding Checklist" else "sold_out" if p == "Scented Candle" else "active"
-            con.execute("INSERT INTO listingy VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)", (
+            con.execute("INSERT INTO listingy VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)", (
                 shop, lid, p, state, rnd.choice([3.49, 4.99, 6.99, 8.99]) if digital else rnd.choice([12.9, 18.5, 24.0, 35.0]),
                 "USD", 999 if digital else (0 if state == "sold_out" else rnd.randint(1, 25)),
                 0 if state == "draft" else rnd.randint(150, 4200), 0 if state == "draft" else rnd.randint(5, 380),
                 ", ".join(rnd.sample(["printable", "gift", "planner", "minimalist", "handmade", "custom", "home decor", "for her"], 3)),
                 "", f"https://www.etsy.com/listing/{lid}", f"{shop[4:7].upper()}-{i + 1:03d}",
-                int((now - timedelta(days=rnd.randint(60, 700))).timestamp()), int(time.time()), 0))
+                int((now - timedelta(days=rnd.randint(60, 700))).timestamp()), int(time.time()), 0,
+                f"{p} from {shop}.\n\nThis is demo listing text. The real description comes from the Etsy API or the listings CSV."))
     for shop, products in shops.items():
         digital = shop == "DemoPrintables"
         balance = 0.0
@@ -879,10 +883,11 @@ def import_listings(con, shop, rows):
         if not title or title in api_titles:
             continue
         qty = pick(r, "QUANTITY", "Quantity").strip()
-        con.execute("INSERT OR REPLACE INTO listingy VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)", (
+        con.execute("INSERT OR REPLACE INTO listingy VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)", (
             shop, csv_id(shop, "listing", title), title, "active", parse_money(pick(r, "PRICE", "Price")),
             pick(r, "CURRENCY_CODE", "Currency"), int(qty) if qty.isdigit() else None, None, None,
-            pick(r, "TAGS", "Tags").replace(",", ", "), pick(r, "IMAGE1"), "", pick(r, "SKU"), 0, now, 0))
+            pick(r, "TAGS", "Tags").replace(",", ", "), pick(r, "IMAGE1"), "", pick(r, "SKU"), 0, now, 0,
+            html.unescape(pick(r, "DESCRIPTION", "Description"))))
         n += 1
     return n
 

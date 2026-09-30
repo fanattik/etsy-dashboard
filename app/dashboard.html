@@ -151,6 +151,25 @@ th.sortable { cursor: pointer; user-select: none; }
 .lcell a.t { color: var(--text); text-decoration: none; } .lcell a.t:hover { text-decoration: underline; }
 .lcell .tags { color: var(--muted); font-size: 12px; margin-top: 2px; }
 .tfilters .grow { flex: 1; }
+tr.click { cursor: pointer; } tr.click:hover td { background: var(--panel-2); }
+#ldetail { width: min(720px, calc(100vw - 32px)); max-height: calc(100vh - 48px); }
+#ldetail .dlg { max-height: calc(100vh - 48px); overflow-y: auto; box-sizing: border-box; position: relative; }
+.dclose { position: absolute; top: 14px; right: 14px; }
+.dhead { display: flex; gap: 18px; align-items: flex-start; padding-right: 40px; }
+.dimg { width: 150px; height: 150px; border-radius: 12px; object-fit: cover; flex: none; background: var(--panel-2); }
+span.dimg { font-size: 42px; }
+.dtitle { display: flex; flex-direction: column; gap: 10px; align-items: flex-start; min-width: 0; }
+.dtitle h3 { margin: 0; font-size: 18px; line-height: 1.35; font-weight: 500; }
+.dmeta { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 13px; }
+.dstats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 20px; }
+.dstat { background: var(--panel-2); border-radius: 10px; padding: 10px 12px; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.dstat span { color: var(--muted); font-size: 12px; } .dstat b { text-align: left; font-weight: 500; font-size: 14px; overflow-wrap: anywhere; }
+#ldetail h4 { margin: 22px 0 10px; font-size: 13px; font-weight: 500; color: var(--muted); }
+#ldetail h4 small { font-family: var(--mono); color: var(--faint); margin-left: 4px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { background: var(--panel-2); border-radius: 999px; padding: 4px 11px; font-size: 12.5px; }
+.ddesc { white-space: pre-wrap; font-size: 13px; line-height: 1.55; max-height: 220px; overflow-y: auto; background: var(--panel-2); border-radius: 10px; padding: 12px 14px; }
+@media (max-width: 600px) { .dhead { flex-direction: column; } .dimg { width: 100%; height: 200px; } .dstats { grid-template-columns: 1fr 1fr; } }
 th.sortable:hover, th.sorted { color: var(--text); }
 .empty { color: var(--muted); padding: 28px 0; text-align: center; font-size: 13px; }
 .linkbtn { background: none; border: 0; color: var(--text); cursor: pointer; font-weight: 500; padding: 0; text-decoration: none; font-size: 12.5px; }
@@ -390,6 +409,9 @@ dialog::backdrop { background: rgba(0,0,0,.4); }
 
 <div class="tip" id="tip"></div>
 
+<dialog id="ldetail">
+  <div class="dlg" tabindex="-1" style="outline:none"><button class="btn dclose" onclick="$('#ldetail').close()" data-i18n-aria="close">✕</button><div id="ldBody"></div></div>
+</dialog>
 <dialog id="import">
   <div class="dlg">
     <h3 data-i18n="impTitle"></h3>
@@ -634,7 +656,9 @@ const T2 = {
     s_qty_desc: "Množství: od nejvíc kusů", s_qty_asc: "Množství: od nejméně kusů", s_state_asc: "Stav: k odeslání první", s_state_desc: "Stav: k odeslání poslední",
     s_type_asc: "Typ: A–Z", s_type_desc: "Typ: Z–A",
     tsumOrders: "{n}, {q} ks, celkem {sum}", tsumLedger: "{n}, součet {sum}", nothingF: "Filtrům nic neodpovídá.",
-    navListings: "Listingy", lEmptyTitle: "Zatím žádné listingy", lSearchPh: "Hledat název, štítek, SKU…",
+    navListings: "Listingy", ldOpen: "Otevřít na Etsy", ldSoldPeriod: "Prodáno v období", ldRevPeriod: "Tržby v období", ldSoldAll: "Prodáno celkem", ldRevAll: "Tržby celkem",
+    ldCreated: "Vytvořeno", ldTags: "Štítky", ldNoTags: "Bez štítků.", ldDesc: "Popis", ldOrders: "Poslední objednávky", ldNoOrders: "Zatím žádná objednávka.",
+    lEmptyTitle: "Zatím žádné listingy", lSearchPh: "Hledat název, štítek, SKU…",
     lEmptyText: "Listingy se stáhnou přes Etsy API při kontrole. Bez API je nahraj z Etsy: Shop Manager → Settings → Options → Download Data → Currently for Sale Listings (CSV).",
     lkActive: "Aktivní listingy", lkActiveSub: "z {n} celkem, vyprodáno {s}, koncepty {d}", lkViews: "Zobrazení", lkFavs: "Oblíbené",
     lkAllTime: "celkem od zveřejnění", lkApiOnly: "ukáže jen Etsy API, CSV je nemá", lkSold: "Prodáno kusů", lkSoldSub: "ve zvoleném období",
@@ -662,7 +686,9 @@ const T2 = {
     s_qty_desc: "Quantity: most first", s_qty_asc: "Quantity: fewest first", s_state_asc: "Status: to ship first", s_state_desc: "Status: to ship last",
     s_type_asc: "Type: A–Z", s_type_desc: "Type: Z–A",
     tsumOrders: "{n}, {q} pcs, total {sum}", tsumLedger: "{n}, sum {sum}", nothingF: "Nothing matches the filters.",
-    navListings: "Listings", lEmptyTitle: "No listings yet", lSearchPh: "Search title, tag, SKU…",
+    navListings: "Listings", ldOpen: "Open on Etsy", ldSoldPeriod: "Sold in period", ldRevPeriod: "Revenue in period", ldSoldAll: "Sold all time", ldRevAll: "Revenue all time",
+    ldCreated: "Created", ldTags: "Tags", ldNoTags: "No tags.", ldDesc: "Description", ldOrders: "Recent orders", ldNoOrders: "No orders yet.",
+    lEmptyTitle: "No listings yet", lSearchPh: "Search title, tag, SKU…",
     lEmptyText: "Listings are downloaded through the Etsy API when the dashboard checks your shop. Without the API, upload them from Etsy: Shop Manager → Settings → Options → Download Data → Currently for Sale Listings (CSV).",
     lkActive: "Active listings", lkActiveSub: "of {n} total, {s} sold out, {d} drafts", lkViews: "Views", lkFavs: "Favorites",
     lkAllTime: "all time", lkApiOnly: "only the Etsy API provides these, the CSV doesn't", lkSold: "Units sold", lkSoldSub: "in the selected period",
@@ -690,7 +716,9 @@ const T2 = {
     s_qty_desc: "Menge: meiste zuerst", s_qty_asc: "Menge: wenigste zuerst", s_state_asc: "Status: zu versenden zuerst", s_state_desc: "Status: zu versenden zuletzt",
     s_type_asc: "Art: A–Z", s_type_desc: "Art: Z–A",
     tsumOrders: "{n}, {q} Stk., gesamt {sum}", tsumLedger: "{n}, Summe {sum}", nothingF: "Nichts entspricht den Filtern.",
-    navListings: "Angebote", lEmptyTitle: "Noch keine Angebote", lSearchPh: "Titel, Tag, SKU suchen…",
+    navListings: "Angebote", ldOpen: "Auf Etsy öffnen", ldSoldPeriod: "Verkauft im Zeitraum", ldRevPeriod: "Umsatz im Zeitraum", ldSoldAll: "Verkauft gesamt", ldRevAll: "Umsatz gesamt",
+    ldCreated: "Erstellt", ldTags: "Tags", ldNoTags: "Keine Tags.", ldDesc: "Beschreibung", ldOrders: "Neueste Bestellungen", ldNoOrders: "Noch keine Bestellungen.",
+    lEmptyTitle: "Noch keine Angebote", lSearchPh: "Titel, Tag, SKU suchen…",
     lEmptyText: "Angebote werden bei der Prüfung über die Etsy-API geladen. Ohne API lade sie von Etsy hoch: Shop Manager → Settings → Options → Download Data → Currently for Sale Listings (CSV).",
     lkActive: "Aktive Angebote", lkActiveSub: "von {n} insgesamt, {s} ausverkauft, {d} Entwürfe", lkViews: "Aufrufe", lkFavs: "Favoriten",
     lkAllTime: "seit Veröffentlichung", lkApiOnly: "nur über die Etsy-API, die CSV enthält sie nicht", lkSold: "Verkaufte Stück", lkSoldSub: "im gewählten Zeitraum",
@@ -1120,7 +1148,7 @@ function renderTable(f) {
 // ---------- listingy
 function listingSales(f, listings) {  // prodané kusy a tržby za období podle názvu položky v objednávkách
   const by = {}, m = new Map();
-  listings.forEach(l => { (by[l.shop] = by[l.shop] || []).push(l); m.set(l, { q: 0, rev: {} }); });
+  listings.forEach(l => { (by[l.shop] = by[l.shop] || []).push(l); m.set(l, { q: 0, rev: {}, orders: [] }); });
   const find = (shop, name) => {
     const ls = by[shop] || [], cut = name.replace(/…$/, "");
     return ls.find(l => l.nazev === name) || (cut.length > 8 && ls.find(l => l.nazev.startsWith(cut)));
@@ -1131,7 +1159,7 @@ function listingSales(f, listings) {  // prodané kusy a tržby za období podle
     const total = items.reduce((a, [q]) => a + q, 0);
     items.forEach(([q, n]) => {
       const l = find(r.shop, n); if (!l) return;
-      const s = m.get(l); s.q += q; s.rev[r.mena] = (s.rev[r.mena] || 0) + r.celkem * q / total;
+      const s = m.get(l); s.q += q; s.rev[r.mena] = (s.rev[r.mena] || 0) + r.celkem * q / total; s.orders.push([r, q]);
     });
   });
   return m;
@@ -1181,14 +1209,53 @@ function renderListings(f) {
   const multi = S.shopy.length > 1 && shopFilter === "all";
   const num = v => v === null || v === undefined ? "–" : nf(v);
   $("#ltable").innerHTML = rows.length ? `<thead><tr>${sortTh("name", t("colListing"))}${multi ? `<th>${t("colShop")}</th>` : ""}<th>${t("colStatus")}</th>${sortTh("price", t("colPrice"), "num")}${sortTh("stock", t("colStock"), "num")}${sortTh("views", t("colViews"), "num")}${sortTh("favs", t("colFavs"), "num")}${sortTh("sold", t("colSold"), "num")}${sortTh("revenue", t("colRevenue"), "num")}</tr></thead><tbody>` +
-    rows.map(l => {
+    rows.map((l, i) => {
       const s = sales.get(l), r = Object.entries(s.rev);
-      const title = l.url ? `<a class="t" href="${esc(l.url)}" target="_blank" rel="noopener">${esc(l.nazev)}</a>` : `<span class="t">${esc(l.nazev)}</span>`;
+      const title = `<span class="t">${esc(l.nazev)}</span>`;
       const img = l.obrazek ? `<img class="thumb" src="${esc(l.obrazek)}" alt="" loading="lazy">` : `<span class="thumb">${esc((l.nazev || "?").trim()[0] || "?")}</span>`;
-      const meta = [l.sku, l.stitky].filter(Boolean).join(" · ");
-      return `<tr><td><div class="lcell">${img}<div>${title}${meta ? `<div class="tags">${esc(meta)}</div>` : ""}</div></div></td>${multi ? `<td class="nw"><span class="dot" style="background:${shopColor(l.shop)}"></span> ${esc(l.shop)}</td>` : ""}<td>${listingPill(l.stav)}</td><td class="num"${origTitle(l)}>${l.cena === null ? "–" : fmtMoney(l.cena, l.mena)}</td><td class="num">${num(l.mnozstvi)}</td><td class="num">${num(l.zobrazeni)}</td><td class="num">${num(l.oblibene)}</td><td class="num">${s.q || "–"}</td><td class="num">${r.length ? r.map(([c, v]) => fmtMoney(v, c)).join("<br>") : "–"}</td></tr>`;
+      const meta = l.sku || "";
+      return `<tr class="click" data-i="${i}"><td><div class="lcell">${img}<div>${title}${meta ? `<div class="tags">${esc(meta)}</div>` : ""}</div></div></td>${multi ? `<td class="nw"><span class="dot" style="background:${shopColor(l.shop)}"></span> ${esc(l.shop)}</td>` : ""}<td>${listingPill(l.stav)}</td><td class="num"${origTitle(l)}>${l.cena === null ? "–" : fmtMoney(l.cena, l.mena)}</td><td class="num">${num(l.mnozstvi)}</td><td class="num">${num(l.zobrazeni)}</td><td class="num">${num(l.oblibene)}</td><td class="num">${s.q || "–"}</td><td class="num">${r.length ? r.map(([c, v]) => fmtMoney(v, c)).join("<br>") : "–"}</td></tr>`;
     }).join("") + "</tbody>" : `<tbody><tr><td class="empty">${t("nothingF")}</td></tr></tbody>`;
   $("#lExport").href = "/export/listingy.csv?lang=" + LANG;
+  LROWS = rows;
+}
+let LROWS = [];
+
+function openListing(l) {
+  const f = filtered(), per = listingSales(f, [l]).get(l), all = listingSales({ pOrders: f.orders }, [l]).get(l);
+  const nf = n => n === null || n === undefined ? "–" : n.toLocaleString(loc());
+  const money = o => Object.entries(o).map(([c, v]) => fmtMoney(v, c)).join(" + ") || "–";
+  const stat = (k, v, cls) => `<div class="dstat"><span>${esc(k)}</span><b class="${cls || ""}">${v}</b></div>`;
+  const tags = (l.stitky || "").split(",").map(x => x.trim()).filter(Boolean);
+  const recent = all.orders.slice().sort((a, b) => b[0].vytvoreno_ts - a[0].vytvoreno_ts).slice(0, 6);
+  $("#ldBody").innerHTML = `
+    <div class="dhead">
+      ${l.obrazek ? `<img class="dimg" src="${esc(l.obrazek)}" alt="">` : `<span class="dimg thumb">${esc((l.nazev || "?").trim()[0] || "?")}</span>`}
+      <div class="dtitle">
+        <h3>${esc(l.nazev)}</h3>
+        <div class="dmeta"><span class="dot" style="background:${shopColor(l.shop)}"></span> ${esc(l.shop)} ${listingPill(l.stav)}</div>
+        ${l.url ? `<a class="btn" href="${esc(l.url)}" target="_blank" rel="noopener">${esc(t("ldOpen"))} ↗</a>` : ""}
+      </div>
+    </div>
+    <div class="dstats">
+      ${stat(t("colPrice"), l.cena === null ? "–" : fmtMoney(l.cena, l.mena), "num")}
+      ${stat(t("colStock"), nf(l.mnozstvi), "num")}
+      ${stat(t("colViews"), nf(l.zobrazeni), "num")}
+      ${stat(t("colFavs"), nf(l.oblibene), "num")}
+      ${stat(t("ldSoldPeriod"), nf(per.q), "num")}
+      ${stat(t("ldRevPeriod"), money(per.rev), "num")}
+      ${stat(t("ldSoldAll"), nf(all.q), "num")}
+      ${stat(t("ldRevAll"), money(all.rev), "num")}
+      ${l.sku ? stat("SKU", esc(l.sku), "num") : ""}
+      ${l.vytvoreno_ts ? stat(t("ldCreated"), new Date(l.vytvoreno_ts * 1000).toLocaleDateString(loc())) : ""}
+    </div>
+    <h4>${esc(t("ldTags"))} <small>${tags.length}/13</small></h4>
+    <div class="chips">${tags.length ? tags.map(x => `<span class="chip">${esc(x)}</span>`).join("") : `<span class="hint">${esc(t("ldNoTags"))}</span>`}</div>
+    ${l.popis ? `<h4>${esc(t("ldDesc"))}</h4><div class="ddesc">${esc(l.popis)}</div>` : ""}
+    <h4>${esc(t("ldOrders"))}</h4>
+    ${recent.length ? `<div class="tablewrap"><table><tbody>${recent.map(([r, q]) => `<tr><td class="nw">${fmtDate(r.vytvoreno_ts)}</td><td>${esc(r.zakaznik) || "–"}</td><td class="num">${q}×</td><td class="num"${origTitle(r)}>${fmtMoney(r.celkem, r.mena)}</td><td>${statusPill(r)}</td></tr>`).join("")}</tbody></table></div>` : `<p class="hint">${esc(t("ldNoOrders"))}</p>`}`;
+  $("#ldetail").showModal();
+  $("#ldetail .dlg").scrollTop = 0; $("#ldetail .dlg").focus();
 }
 const LSTATE_ORDER = ["active", "sold_out", "inactive", "draft", "expired"];
 
@@ -1350,6 +1417,11 @@ $("#fWhat").onchange = e => tfSet("what", e.target.value);
 $("#fState").onchange = e => tfSet("state", e.target.value);
 $("#fSort").onchange = e => tfSet("sort", e.target.value);
 $("#fReset").onclick = () => { TF[page] = { ...TF_DEF }; $("#search").value = ""; saveTF(); shown = 25; renderTable(filtered()); };
+$("#ltable").addEventListener("click", e => {
+  if (e.target.closest("th, a")) return;
+  const tr = e.target.closest("tr[data-i]"); if (tr) openListing(LROWS[+tr.dataset.i]);
+});
+$("#ldetail").onclick = e => { if (e.target.id === "ldetail") e.target.close(); };  // klik mimo kartu
 $("#table").onclick = $("#ltable").onclick = e => {
   const th = e.target.closest("th[data-sort]"); if (!th) return;
   const k = th.dataset.sort, [ck, cd] = TF[page].sort.split("-");
