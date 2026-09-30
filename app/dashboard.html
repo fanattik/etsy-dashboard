@@ -43,6 +43,7 @@ svg.i { width: 16px; height: 16px; flex: none; stroke: currentColor; fill: none;
 .brand .logo { width: 26px; height: 26px; border-radius: 7px; border: 1.5px solid var(--text); display: grid; place-items: center; }
 .brand .logo svg { stroke: var(--text); stroke-width: 2.6; width: 14px; height: 14px; }
 .nav-label { display: none; }
+.nav { display: flex; flex-direction: column; gap: 4px; }
 .nav a { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 9px; color: var(--text); text-decoration: none; font-size: 13.5px; }
 .nav a svg.i { color: var(--muted); }
 .nav a:hover { background: var(--panel-2); }
@@ -134,8 +135,17 @@ tr.new td { background: var(--brand-soft); }
 .pill { display: inline-flex; align-items: center; gap: 6px; padding: 1px 8px; border-radius: 6px; font-size: 11.5px; font-weight: 500; background: var(--panel-2); color: var(--muted); white-space: nowrap; }
 .pill.ship { background: var(--warn-soft); color: var(--warn); }
 .pill.done { background: var(--good-soft); color: var(--good); }
-.search { min-width: 240px; background: var(--panel-2); border-color: transparent; }
+.search { min-width: 200px; flex: 1 1 240px; max-width: 420px; background: var(--panel-2); border-color: transparent; }
 .more { text-align: center; margin-top: 14px; }
+.tfilters { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; margin: -4px 0 14px; }
+.tfilters label { display: flex; flex-direction: column; gap: 5px; font-size: 12px; color: var(--muted); }
+.tfilters input, .tfilters select, .tfilters .btn { height: 34px; box-sizing: border-box; }
+.tfilters input, .tfilters select { background: var(--panel-2); border-color: transparent; font-size: 13px; padding: 0 10px; color: var(--text); }
+.tfilters select { max-width: 240px; }
+.tsum { font-size: 12.5px; color: var(--muted); margin: 0 0 10px; }
+.tsum b { color: var(--text); font-weight: 500; font-family: var(--mono); }
+th.sortable { cursor: pointer; user-select: none; }
+th.sortable:hover, th.sorted { color: var(--text); }
 .empty { color: var(--muted); padding: 28px 0; text-align: center; font-size: 13px; }
 .linkbtn { background: none; border: 0; color: var(--text); cursor: pointer; font-weight: 500; padding: 0; text-decoration: none; font-size: 12.5px; }
 .linkbtn:hover { text-decoration: underline; }
@@ -176,12 +186,12 @@ dialog::backdrop { background: rgba(0,0,0,.4); }
   .app { grid-template-columns: 1fr; padding: 0; gap: 0; }
   .side { position: sticky; top: 0; z-index: 10; height: auto; flex-direction: row; align-items: center; padding: 8px 12px; border-radius: 0; border-bottom: 1px solid var(--line); overflow-x: auto; gap: 4px; }
   .brand { padding: 0 6px 0 0; } .brand span { display: none; }
-  .nav { display: flex; gap: 2px; } .nav a { padding: 7px 10px; white-space: nowrap; }
+  .nav { flex-direction: row; gap: 4px; } .nav a { padding: 7px 10px; white-space: nowrap; }
   .side .grow, .side-card, .side .ver { display: none; }
   main { padding: 18px 12px 50px; }
   .halves, .settings { grid-template-columns: 1fr; }
 }
-@media (max-width: 520px) { .kpis { grid-template-columns: 1fr 1fr; gap: 8px; } .kpi .value { font-size: 18px; } .card { padding: 14px 14px; } .tablewrap { margin: 0 -14px; padding: 0 14px; } .search { min-width: 0; flex: 1; } .nav a span { display: none; } .top h1 { font-size: 24px; } }
+@media (max-width: 520px) { .kpis { grid-template-columns: 1fr 1fr; gap: 8px; } .kpi .value { font-size: 18px; } .card { padding: 14px 14px; } .tablewrap { margin: 0 -14px; padding: 0 14px; } .search { min-width: 0; flex: 1; } .tfilters label { flex: 1 1 40%; } .tfilters select { max-width: none; } .nav a span { display: none; } .top h1 { font-size: 24px; } }
 </style>
 </head>
 <body>
@@ -263,6 +273,15 @@ dialog::backdrop { background: rgba(0,0,0,.4); }
           <div class="spacer"></div>
           <a class="btn" id="exportBtn" href="/export/objednavky.csv"><svg class="i" viewBox="0 0 24 24"><path d="M12 4v12M7 11l5 5 5-5M4 20h16"/></svg><span data-i18n="exportCsv"></span></a>
         </div>
+        <div class="tfilters">
+          <label><span data-i18n="fFrom"></span><input type="date" id="fFrom"></label>
+          <label><span data-i18n="fTo"></span><input type="date" id="fTo"></label>
+          <label><span id="fWhatL"></span><select id="fWhat"></select></label>
+          <label><span id="fStateL"></span><select id="fState"></select></label>
+          <label><span data-i18n="fSort"></span><select id="fSort"></select></label>
+          <button class="btn" id="fReset" data-i18n="fReset"></button>
+        </div>
+        <p class="tsum" id="tsum"></p>
         <div class="tablewrap"><table id="table"></table></div>
         <div class="more"><button class="btn" id="moreBtn" data-i18n="moreBtn" hidden></button></div>
       </div>
@@ -412,7 +431,7 @@ const T = {
     payoutGroup: "Výplaty na banku", other: "Ostatní",
     colDate: "Datum", colShop: "Shopa", colBuyer: "Zákazník", colItems: "Položky", colTotal: "Celkem", colStatus: "Stav",
     colDesc: "Popis", colType: "Typ", colAmount: "Částka", colBalance: "Zůstatek",
-    statuses: {},
+    statuses: { "Completed": "Dokončeno", "Paid": "Zaplaceno" },
     bannerTitle: "Novinky od poslední návštěvy: {o}, {l} na účtu", bannerItem: "{total} od {buyer}", andMore: "… a další ({n})",
     newOrder: "Nová objednávka na Etsy", newOrders: "{n} nové objednávky na Etsy",
     secretSaved: "uloženo (vyplň jen pro změnu)", remove: "Odebrat", noShops: "Zatím žádná shopa.", saved: "Uloženo.",
@@ -476,7 +495,7 @@ const T = {
     payoutGroup: "Payouts to bank", other: "Other",
     colDate: "Date", colShop: "Shop", colBuyer: "Buyer", colItems: "Items", colTotal: "Total", colStatus: "Status",
     colDesc: "Description", colType: "Type", colAmount: "Amount", colBalance: "Balance",
-    statuses: { "Odesláno": "Shipped", "Zaplaceno": "Paid", "Vráceno": "Refunded" },
+    statuses: { "Odesláno": "Shipped", "Zaplaceno": "Paid", "Vráceno": "Refunded", "Completed": "Completed", "Paid": "Paid" },
     bannerTitle: "New since your last visit: {o}, {l} on your account", bannerItem: "{total} from {buyer}", andMore: "… and {n} more",
     newOrder: "New Etsy order", newOrders: "{n} new Etsy orders",
     secretSaved: "saved (fill in only to change it)", remove: "Remove", noShops: "No shops yet.", saved: "Saved.",
@@ -544,7 +563,7 @@ const T = {
     payoutGroup: "Auszahlungen auf die Bank", other: "Sonstiges",
     colDate: "Datum", colShop: "Shop", colBuyer: "Kunde", colItems: "Artikel", colTotal: "Gesamt", colStatus: "Status",
     colDesc: "Beschreibung", colType: "Typ", colAmount: "Betrag", colBalance: "Saldo",
-    statuses: { "Odesláno": "Versandt", "Zaplaceno": "Bezahlt", "Vráceno": "Erstattet" },
+    statuses: { "Odesláno": "Versandt", "Zaplaceno": "Bezahlt", "Vráceno": "Erstattet", "Completed": "Abgeschlossen", "Paid": "Bezahlt" },
     bannerTitle: "Neu seit deinem letzten Besuch: {o}, {l} auf dem Konto", bannerItem: "{total} von {buyer}", andMore: "… und {n} weitere",
     newOrder: "Neue Etsy-Bestellung", newOrders: "{n} neue Etsy-Bestellungen",
     secretSaved: "gespeichert (nur zum Ändern ausfüllen)", remove: "Entfernen", noShops: "Noch keine Shops.", saved: "Gespeichert.",
@@ -578,6 +597,13 @@ const T2 = {
     secNotify: "Upozornění", notifyHint: "Když je dashboard otevřený v prohlížeči, může ukázat upozornění na novou objednávku. Na mobil fungují přes aplikaci ntfy.",
     browserNotif: "Povolit upozornění v prohlížeči", notifOn: "Upozornění v prohlížeči jsou zapnutá.", notifBlocked: "Prohlížeč upozornění blokuje, povol je v nastavení prohlížeče.",
     vsPrevShort: "oproti předchozímu období", vsPrevN: "{n} v předchozím období", chartTotalNote: "za posledních 12 měsíců", ledgerTitle: "Výpis (platby a poplatky)",
+
+    colQty: "Ks", fFrom: "Od", fTo: "Do", fItem: "Položka", fAllItems: "Všechny položky", fAllStates: "Všechny stavy", fAllTypes: "Všechny typy",
+    fDir: "Směr", fAllDirs: "Příjmy i výdaje", fIn: "Jen příjmy", fOut: "Jen výdaje", fSort: "Řadit", fReset: "Zrušit filtry",
+    s_date_desc: "Datum: od nejnovějších", s_date_asc: "Datum: od nejstarších", s_amount_desc: "Částka: od nejvyšší", s_amount_asc: "Částka: od nejnižší",
+    s_qty_desc: "Množství: od nejvíc kusů", s_qty_asc: "Množství: od nejméně kusů", s_state_asc: "Stav: k odeslání první", s_state_desc: "Stav: k odeslání poslední",
+    s_type_asc: "Typ: A–Z", s_type_desc: "Typ: Z–A",
+    tsumOrders: "{n}, {q} ks, celkem {sum}", tsumLedger: "{n}, součet {sum}", nothingF: "Filtrům nic neodpovídá.",
   },
   en: {
     navMenu: "Menu", navOverview: "Overview", navLedger: "Statement", uploadCsv: "Upload CSV", checkShort: "Check now",
@@ -588,6 +614,13 @@ const T2 = {
     secNotify: "Notifications", notifyHint: "While the dashboard is open in the browser it can notify you about new orders. On your phone they work through the ntfy app.",
     browserNotif: "Enable browser notifications", notifOn: "Browser notifications are on.", notifBlocked: "The browser blocks notifications, allow them in its settings.",
     vsPrevShort: "vs. previous period", vsPrevN: "{n} in the previous period", chartTotalNote: "in the last 12 months", ledgerTitle: "Statement (payments and fees)",
+
+    colQty: "Qty", fFrom: "From", fTo: "To", fItem: "Item", fAllItems: "All items", fAllStates: "All statuses", fAllTypes: "All types",
+    fDir: "Direction", fAllDirs: "Money in and out", fIn: "Money in", fOut: "Money out", fSort: "Sort by", fReset: "Clear filters",
+    s_date_desc: "Date: newest first", s_date_asc: "Date: oldest first", s_amount_desc: "Amount: highest first", s_amount_asc: "Amount: lowest first",
+    s_qty_desc: "Quantity: most first", s_qty_asc: "Quantity: fewest first", s_state_asc: "Status: to ship first", s_state_desc: "Status: to ship last",
+    s_type_asc: "Type: A–Z", s_type_desc: "Type: Z–A",
+    tsumOrders: "{n}, {q} pcs, total {sum}", tsumLedger: "{n}, sum {sum}", nothingF: "Nothing matches the filters.",
   },
   de: {
     navMenu: "Menü", navOverview: "Übersicht", navLedger: "Kontoauszug", uploadCsv: "CSV hochladen", checkShort: "Jetzt prüfen",
@@ -598,6 +631,13 @@ const T2 = {
     secNotify: "Benachrichtigungen", notifyHint: "Solange das Dashboard im Browser offen ist, meldet es neue Bestellungen. Aufs Handy kommen sie über die App ntfy.",
     browserNotif: "Browser-Benachrichtigungen erlauben", notifOn: "Browser-Benachrichtigungen sind aktiv.", notifBlocked: "Der Browser blockiert Benachrichtigungen, erlaube sie in seinen Einstellungen.",
     vsPrevShort: "ggü. Vorzeitraum", vsPrevN: "{n} im Vorzeitraum", chartTotalNote: "in den letzten 12 Monaten", ledgerTitle: "Kontoauszug (Zahlungen und Gebühren)",
+
+    colQty: "Menge", fFrom: "Von", fTo: "Bis", fItem: "Artikel", fAllItems: "Alle Artikel", fAllStates: "Alle Status", fAllTypes: "Alle Arten",
+    fDir: "Richtung", fAllDirs: "Ein- und Ausgänge", fIn: "Nur Eingänge", fOut: "Nur Ausgänge", fSort: "Sortieren", fReset: "Filter zurücksetzen",
+    s_date_desc: "Datum: neueste zuerst", s_date_asc: "Datum: älteste zuerst", s_amount_desc: "Betrag: höchster zuerst", s_amount_asc: "Betrag: niedrigster zuerst",
+    s_qty_desc: "Menge: meiste zuerst", s_qty_asc: "Menge: wenigste zuerst", s_state_asc: "Status: zu versenden zuerst", s_state_desc: "Status: zu versenden zuletzt",
+    s_type_asc: "Art: A–Z", s_type_desc: "Art: Z–A",
+    tsumOrders: "{n}, {q} Stk., gesamt {sum}", tsumLedger: "{n}, Summe {sum}", nothingF: "Nichts entspricht den Filtern.",
   },
 };
 for (const l in T2) Object.assign(T[l], T2[l]);
@@ -731,6 +771,8 @@ function route() {
   $("#page-tabulka").hidden = page !== "objednavky" && page !== "vypis";
   $("#page-nastaveni").hidden = page !== "nastaveni";
   $("#filters").style.display = page === "nastaveni" || (S && !S.shopy.length) ? "none" : "";
+  $("#period").hidden = page === "objednavky" || page === "vypis";
+  $("#search").value = "";
   $("#pageTitle").textContent = t(PAGES[page]);
   shown = 25;
   if (page === "nastaveni" && S) fillSettings();
@@ -903,10 +945,16 @@ function statusPill(r) {
   if (r.zaplaceno && r.odeslano === 0) return `<span class="pill ship">${t("kToShip")}</span>`;
   return `<span class="pill ${r.odeslano ? "done" : ""}">${esc(tMap("statuses", r.stav) || r.stav)}</span>`;
 }
+function sortTh(key, label, cls) {  // hlavička sloupce, kliknutím řadí
+  if (!key) return `<th${cls ? ` class="${cls}"` : ""}>${label}</th>`;
+  const [k, dir] = TF[page].sort.split("-"), on = k === key;
+  return `<th class="sortable${on ? " sorted" : ""}${cls ? " " + cls : ""}" data-sort="${key}">${label}${on ? (dir === "asc" ? " ↑" : " ↓") : ""}</th>`;
+}
 function orderRows(rows, multi, compact) {
   const shopTd = r => multi ? `<td class="nw"><span class="dot" style="background:${shopColor(r.shop)}"></span> ${esc(r.shop)}</td>` : "";
-  return `<thead><tr><th>${t("colDate")}</th>${multi && !compact ? `<th>${t("colShop")}</th>` : ""}<th>${t("colBuyer")}</th>${compact ? "" : `<th>${t("colItems")}</th>`}<th class="num">${t("colTotal")}</th><th>${t("colStatus")}</th></tr></thead><tbody>` +
-    rows.map(r => `<tr class="${r.pridano_ts > lastSeen ? "new" : ""}"><td class="nw">${fmtDate(r.vytvoreno_ts)}</td>${compact ? "" : shopTd(r)}<td>${esc(r.zakaznik) || "–"}${compact ? `<div class="hint" style="margin:0">${esc(r.polozky)}</div>` : ""}</td>${compact ? "" : `<td class="items">${esc(r.polozky)}</td>`}<td class="num"${origTitle(r)}>${fmtMoney(r.celkem, r.mena)}</td><td>${statusPill(r)}</td></tr>`).join("") + "</tbody>";
+  const sk = k => compact ? "" : k;
+  return `<thead><tr>${sortTh(sk("date"), t("colDate"))}${multi && !compact ? `<th>${t("colShop")}</th>` : ""}<th>${t("colBuyer")}</th>${compact ? "" : `<th>${t("colItems")}</th>${sortTh("qty", t("colQty"), "num")}`}${sortTh(sk("amount"), t("colTotal"), "num")}${sortTh(sk("state"), t("colStatus"))}</tr></thead><tbody>` +
+    rows.map(r => `<tr class="${r.pridano_ts > lastSeen ? "new" : ""}"><td class="nw">${fmtDate(r.vytvoreno_ts)}</td>${compact ? "" : shopTd(r)}<td>${esc(r.zakaznik) || "–"}${compact ? `<div class="hint" style="margin:0">${esc(r.polozky)}</div>` : ""}</td>${compact ? "" : `<td class="items">${esc(r.polozky)}</td><td class="num">${qtyOf(r)}</td>`}<td class="num"${origTitle(r)}>${fmtMoney(r.celkem, r.mena)}</td><td>${statusPill(r)}</td></tr>`).join("") + "</tbody>";
 }
 
 function renderRecent(f) {
@@ -914,20 +962,82 @@ function renderRecent(f) {
   $("#recent").innerHTML = rows.length ? orderRows(rows, S.shopy.length > 1 && shopFilter === "all", true) : `<tbody><tr><td class="empty">${t("nothing")}</td></tr></tbody>`;
 }
 
+// ---------- filtry a řazení Objednávek a Výpisu
+const TF_DEF = { from: "", to: "", what: "", state: "", sort: "date-desc" };
+const TF = { objednavky: { ...TF_DEF, ...LS.get("tf_objednavky", {}) }, vypis: { ...TF_DEF, ...LS.get("tf_vypis", {}) } };
+const SORT_KEYS = { objednavky: ["date", "amount", "qty", "state"], vypis: ["date", "amount", "type"] };
+const SORT_ASC_FIRST = { state: 1, type: 1 };  // text se řadí od A, čísla od největšího
+function qtyOf(r) { return (r.polozky || "").split("; ").reduce((n, it) => { const m = it.match(/^(\d+)(x | ks$)/); return n + (m ? +m[1] : it ? 1 : 0); }, 0); }
+function itemNames(r) { return (r.polozky || "").split("; ").map(it => it.replace(/^\d+x /, "")).filter(it => it && !/^\d+ ks$/.test(it)); }
+function orderState(r) { return r.zaplaceno && r.odeslano === 0 ? "_ship" : r.stav || ""; }
+function stateLabel(k) { return k === "_ship" ? t("kToShip") : tMap("statuses", k) || k || "–"; }
+function typeLabel(k) { return tMap("types", k) || tMap("types", (k || "").toLowerCase()) || k || "–"; }
+function dayTs(v, end) { return v ? new Date(v + "T00:00:00").getTime() / 1000 + (end ? 86400 : 0) : null; }
+function saveTF() { LS.set("tf_" + page, TF[page]); }
+
+function fillTableFilters(base, orders, st) {
+  const opts = (sel, all, list, cur) => {
+    sel.innerHTML = `<option value="">${esc(all)}</option>` + list.map(([v, txt]) => `<option value="${esc(v)}">${esc(txt)}</option>`).join("");
+    sel.value = list.some(o => o[0] === cur) ? cur : "";
+    return sel.value;
+  };
+  const coll = new Intl.Collator(loc());
+  $("#fWhatL").textContent = orders ? t("fItem") : t("colType");
+  $("#fStateL").textContent = orders ? t("colStatus") : t("fDir");
+  if (orders) {
+    const names = [...new Set(base.flatMap(itemNames))].sort(coll.compare);
+    st.what = opts($("#fWhat"), t("fAllItems"), names.map(n => [n, n]), st.what);
+    const states = [...new Set(base.map(orderState))].sort((a, b) => (a === "_ship" ? -1 : b === "_ship" ? 1 : coll.compare(stateLabel(a), stateLabel(b))));
+    st.state = opts($("#fState"), t("fAllStates"), states.map(k => [k, stateLabel(k)]), st.state);
+  } else {
+    const types = [...new Set(base.map(r => r.typ))].map(k => [k, typeLabel(k)]).sort((a, b) => coll.compare(a[1], b[1]));
+    st.what = opts($("#fWhat"), t("fAllTypes"), types, st.what);
+    st.state = opts($("#fState"), t("fAllDirs"), [["in", t("fIn")], ["out", t("fOut")]], st.state);
+  }
+  const keys = SORT_KEYS[page];
+  if (!keys.includes(st.sort.split("-")[0])) st.sort = "date-desc";
+  $("#fSort").innerHTML = keys.flatMap(k => SORT_ASC_FIRST[k] ? [`${k}-asc`, `${k}-desc`] : [`${k}-desc`, `${k}-asc`])
+    .map(v => `<option value="${v}">${esc(t("s_" + v.replace("-", "_")))}</option>`).join("");
+  $("#fSort").value = st.sort;
+  $("#fFrom").value = st.from; $("#fTo").value = st.to;
+  $("#fReset").hidden = !st.from && !st.to && !st.what && !st.state && st.sort === "date-desc" && !$("#search").value;
+}
+
 function renderTable(f) {
+  const orders = page === "objednavky", st = TF[page];
+  const base = orders ? f.orders : f.ledger;  // období tu určuje filtr od–do
+  fillTableFilters(base, orders, st);
+  const ts = r => orders ? r.vytvoreno_ts : r.datum_ts, amt = r => orders ? r.celkem : r.castka;
+  const a = dayTs(st.from) ?? -Infinity, b = dayTs(st.to, true) ?? Infinity;
   const q = $("#search").value.trim().toLowerCase();
   const match = r => !q || Object.values(r).some(v => String(v).toLowerCase().includes(q));
-  const orders = page === "objednavky";
-  const rows = (orders ? f.pOrders : f.pLedger).filter(match);
+  let rows = base.filter(r => ts(r) >= a && ts(r) < b && match(r));
+  if (orders) {
+    if (st.what) rows = rows.filter(r => itemNames(r).includes(st.what));
+    if (st.state) rows = rows.filter(r => orderState(r) === st.state);
+  } else {
+    if (st.what) rows = rows.filter(r => r.typ === st.what);
+    if (st.state) rows = rows.filter(r => st.state === "in" ? r.castka > 0 : r.castka < 0);
+  }
+  const [key, dir] = st.sort.split("-"), sgn = dir === "asc" ? 1 : -1, coll = new Intl.Collator(loc());
+  const val = { date: ts, amount: amt, qty: qtyOf,
+    state: r => { const k = orderState(r); return (k === "_ship" ? "0" : "1") + stateLabel(k); }, type: r => typeLabel(r.typ) }[key] || ts;
+  rows.sort((x, y) => { const p = val(x), o = val(y); return (typeof p === "string" ? coll.compare(p, o) : p - o) * sgn || ts(y) - ts(x); });
+
+  const sum = Object.entries(sumByCur(rows, orders ? "celkem" : "castka")).map(([c, v]) => fmtMoney(v, c)).join(" + ") || "–";
+  $("#tsum").innerHTML = rows.length ? (orders
+    ? t("tsumOrders", { n: pl(rows.length, "order"), q: rows.reduce((n, r) => n + qtyOf(r), 0), sum: `<b>${sum}</b>` })
+    : t("tsumLedger", { n: pl(rows.length, "move"), sum: `<b>${sum}</b>` })) : "";
+
   const multi = S.shopy.length > 1 && shopFilter === "all";
   let html;
   if (orders) html = orderRows(rows.slice(0, shown), multi, false);
   else {
     const shopTd = r => multi ? `<td class="nw"><span class="dot" style="background:${shopColor(r.shop)}"></span> ${esc(r.shop)}</td>` : "";
-    html = `<thead><tr><th>${t("colDate")}</th>${multi ? `<th>${t("colShop")}</th>` : ""}<th>${t("colDesc")}</th><th>${t("colType")}</th><th class="num">${t("colAmount")}</th><th class="num">${t("colBalance")}</th></tr></thead><tbody>` +
-      rows.slice(0, shown).map(r => `<tr class="${r.pridano_ts > lastSeen ? "new" : ""}"><td class="nw">${fmtDate(r.datum_ts)}</td>${shopTd(r)}<td>${esc(r.popis)}</td><td><span class="pill">${esc(tMap("types", r.typ) || r.typ)}</span></td><td class="num ${r.castka < 0 ? "neg" : "pos"}"${origTitle(r)}>${fmtMoney(r.castka, r.mena)}</td><td class="num">${r.zustatek === null ? "–" : fmtMoney(r.zustatek, r.mena)}</td></tr>`).join("") + "</tbody>";
+    html = `<thead><tr>${sortTh("date", t("colDate"))}${multi ? `<th>${t("colShop")}</th>` : ""}<th>${t("colDesc")}</th>${sortTh("type", t("colType"))}${sortTh("amount", t("colAmount"), "num")}<th class="num">${t("colBalance")}</th></tr></thead><tbody>` +
+      rows.slice(0, shown).map(r => `<tr class="${r.pridano_ts > lastSeen ? "new" : ""}"><td class="nw">${fmtDate(r.datum_ts)}</td>${shopTd(r)}<td>${esc(r.popis)}</td><td><span class="pill">${esc(typeLabel(r.typ))}</span></td><td class="num ${r.castka < 0 ? "neg" : "pos"}"${origTitle(r)}>${fmtMoney(r.castka, r.mena)}</td><td class="num">${r.zustatek === null ? "–" : fmtMoney(r.zustatek, r.mena)}</td></tr>`).join("") + "</tbody>";
   }
-  $("#table").innerHTML = rows.length ? html : `<tbody><tr><td class="empty">${t("nothing")}</td></tr></tbody>`;
+  $("#table").innerHTML = rows.length ? html : `<tbody><tr><td class="empty">${t("nothingF")}</td></tr></tbody>`;
   $("#moreBtn").hidden = rows.length <= shown;
   $("#exportBtn").href = (orders ? "/export/objednavky.csv" : "/export/vypis.csv") + "?lang=" + LANG;
 }
@@ -1079,6 +1189,18 @@ $("#checkBtn").onclick = async () => {
 $("#shopChips").onclick = e => { const c = e.target.closest("button"); if (!c) return; shopFilter = c.dataset.shop; LS.set("shop", shopFilter); shown = 25; render(); };
 $("#period").onchange = () => { LS.set("period", $("#period").value); shown = 25; render(); };
 $("#search").oninput = () => { shown = 25; renderTable(filtered()); };
+const tfSet = (k, v) => { TF[page][k] = v; saveTF(); shown = 25; renderTable(filtered()); };
+$("#fFrom").onchange = e => tfSet("from", e.target.value);
+$("#fTo").onchange = e => tfSet("to", e.target.value);
+$("#fWhat").onchange = e => tfSet("what", e.target.value);
+$("#fState").onchange = e => tfSet("state", e.target.value);
+$("#fSort").onchange = e => tfSet("sort", e.target.value);
+$("#fReset").onclick = () => { TF[page] = { ...TF_DEF }; $("#search").value = ""; saveTF(); shown = 25; renderTable(filtered()); };
+$("#table").onclick = e => {
+  const th = e.target.closest("th[data-sort]"); if (!th) return;
+  const k = th.dataset.sort, [ck, cd] = TF[page].sort.split("-");
+  tfSet("sort", k === ck ? `${k}-${cd === "asc" ? "desc" : "asc"}` : `${k}-${SORT_ASC_FIRST[k] ? "asc" : "desc"}`);
+};
 $("#moreBtn").onclick = () => { shown += 50; renderTable(filtered()); };
 $("#bannerOk").onclick = () => { lastSeen = Math.floor(Date.now() / 1000); LS.set("lastSeen", lastSeen); render(); };
 let resizeT; window.addEventListener("resize", () => { clearTimeout(resizeT); resizeT = setTimeout(() => { if (S && page === "prehled" && S.shopy.length) renderChart(filtered()); }, 150); });
