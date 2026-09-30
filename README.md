@@ -4,7 +4,7 @@ A small local dashboard for Etsy sellers: orders, revenue, Etsy fees, payouts an
 
 ![Dashboard](docs/screenshot.png)
 
-The interface is available in English, Czech and German (switch in *Settings*; it follows your browser language by default). A step-by-step guide in Czech is in [docs/NAVOD.md](docs/NAVOD.md).
+The interface is available in English, Czech and German (switch in *Settings*, which also has currency and light or dark theme; it follows your browser language by default). A step-by-step guide in Czech is in [docs/NAVOD.md](docs/NAVOD.md).
 
 ## Features
 

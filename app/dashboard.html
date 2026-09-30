@@ -4,178 +4,339 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Etsy Dashboard</title>
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%23e8743b'/><path d='M9 22V10h14M9 16h10' stroke='white' stroke-width='3' fill='none' stroke-linecap='round'/></svg>">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='9' fill='%23f1641e'/><path d='M10 22v-5M16 22V11M22 22v-8' stroke='white' stroke-width='3.2' fill='none' stroke-linecap='round'/></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 :root {
-  --bg: #f6f4f0; --panel: #ffffff; --panel-2: #faf8f5; --text: #22201c; --muted: #6f6a62;
-  --line: #e7e2da; --accent: #e8743b; --accent-soft: #fdeee5; --good: #2f8f5b; --bad: #c2412d;
-  --shop-1: #3d8c86; --shop-2: #e8743b; --shop-3: #7a64c7; --shop-4: #c9a227;
-  --shadow: 0 1px 2px rgba(0,0,0,.04), 0 4px 16px rgba(0,0,0,.04);
+  --bg: #efefef; --panel: #ffffff; --panel-2: #f5f5f5; --side: #ffffff; --text: #171717; --muted: #737373; --faint: #a3a3a3;
+  --line: #ececec; --accent: #171717; --accent-fg: #ffffff; --brand: #45a86b; --brand-soft: #e7f5ec;
+  --good: #2f9e5b; --good-soft: #e3f4e8; --bad: #d64545; --bad-soft: #fbe7e7; --warn: #c77c12; --warn-soft: #fbf0dc;
+  --shop-1: #6b7cf6; --shop-2: #e2a33b; --shop-3: #2bb3a6; --shop-4: #b36bdc;
+  --shadow: none; --radius: 14px; --mono: "DM Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+:root[data-theme="dark"] {
+  --bg: #0e0e0e; --panel: #1b1b1b; --panel-2: #242424; --side: #1b1b1b; --text: #f2f2f2; --muted: #9a9a9a; --faint: #666;
+  --line: #2a2a2a; --accent: #f2f2f2; --accent-fg: #111; --brand: #5cc185; --brand-soft: #173222;
+  --good: #5cc185; --good-soft: #173222; --bad: #ef6b6b; --bad-soft: #3a1b1b; --warn: #e5a13a; --warn-soft: #36270f; --shop-1: #8b98fa;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --bg: #161513; --panel: #201f1c; --panel-2: #272521; --text: #f1eee9; --muted: #a39d93;
-    --line: #34312c; --accent: #f08a55; --accent-soft: #3a2a20; --good: #5cc28a; --bad: #ef7a64;
-    --shop-1: #5fb3ac; --shop-2: #f08a55; --shadow: none;
+    --bg: #0e0e0e; --panel: #1b1b1b; --panel-2: #242424; --side: #1b1b1b; --text: #f2f2f2; --muted: #9a9a9a; --faint: #666;
+    --line: #2a2a2a; --accent: #f2f2f2; --accent-fg: #111; --brand: #5cc185; --brand-soft: #173222;
+    --good: #5cc185; --good-soft: #173222; --bad: #ef6b6b; --bad-soft: #3a1b1b; --warn: #e5a13a; --warn-soft: #36270f; --shop-1: #8b98fa;
   }
 }
 * { box-sizing: border-box; }
-body { margin: 0; background: var(--bg); color: var(--text);
-  font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
-.wrap { max-width: 1240px; margin: 0 auto; padding: 20px 16px 60px; }
-header { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; margin-bottom: 18px; }
-h1 { font-size: 22px; margin: 0; letter-spacing: -.01em; display: flex; align-items: center; gap: 10px; }
-h1 .logo { width: 30px; height: 30px; border-radius: 8px; background: var(--accent); display: grid; place-items: center; }
-.status { color: var(--muted); font-size: 13px; }
+[hidden] { display: none !important; }
+html, body { margin: 0; background: var(--bg); color: var(--text); }
+body { font: 14px/1.5 "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; -webkit-font-smoothing: antialiased; }
+button, select, input, textarea { font: inherit; color: inherit; }
+a { color: inherit; }
+svg.i { width: 16px; height: 16px; flex: none; stroke: currentColor; fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.mono, .kpi .value, .big, .num { font-family: var(--mono); font-feature-settings: "zero" 0; }
+
+/* rozvržení: boční menu jako karta + obsah */
+.app { display: grid; grid-template-columns: 232px 1fr; min-height: 100vh; gap: 10px; padding: 10px; }
+.side { background: var(--side); border-radius: var(--radius); padding: 16px 12px; display: flex; flex-direction: column; gap: 2px; position: sticky; top: 10px; height: calc(100vh - 20px); }
+.brand { display: flex; align-items: center; gap: 9px; font-weight: 600; font-size: 14.5px; padding: 4px 8px 20px; }
+.brand .logo { width: 26px; height: 26px; border-radius: 7px; border: 1.5px solid var(--text); display: grid; place-items: center; }
+.brand .logo svg { stroke: var(--text); stroke-width: 2.6; width: 14px; height: 14px; }
+.nav-label { display: none; }
+.nav a { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 9px; color: var(--text); text-decoration: none; font-size: 13.5px; }
+.nav a svg.i { color: var(--muted); }
+.nav a:hover { background: var(--panel-2); }
+.nav a.on { background: var(--panel-2); font-weight: 500; }
+.nav a.on svg.i { color: var(--text); }
+.side .grow { flex: 1; }
+.side-card { border-top: 1px solid var(--line); padding: 14px 8px 4px; font-size: 12.5px; color: var(--muted); }
+.side-card b { color: var(--text); display: block; margin-bottom: 3px; font-size: 13px; font-weight: 500; }
+.side-card .btn { width: 100%; margin-top: 10px; justify-content: center; }
+.side .ver { font-size: 11.5px; color: var(--faint); padding: 10px 8px 0; font-family: var(--mono); }
+main { min-width: 0; padding: 22px 22px 50px; background: var(--bg); }
+.top { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; margin-bottom: 22px; }
+.top h1 { font-size: 28px; margin: 0; letter-spacing: -.03em; line-height: 1.15; font-weight: 500; }
+.top .status { color: var(--muted); font-size: 12.5px; margin-top: 4px; }
 .status .err { color: var(--bad); }
 .spacer { flex: 1; }
-button, select, input, textarea { font: inherit; color: inherit; }
-a.btn { text-decoration: none; display: inline-block; }
-.btn { border: 1px solid var(--line); background: var(--panel); padding: 8px 14px; border-radius: 10px; cursor: pointer; }
-.btn:hover { border-color: var(--muted); }
-.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
-.btn:disabled { opacity: .55; cursor: default; }
-.filters { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 18px; }
-.chips { display: flex; gap: 6px; flex-wrap: wrap; }
-.chip { border: 1px solid var(--line); background: var(--panel); padding: 6px 12px; border-radius: 999px; cursor: pointer; display: inline-flex; align-items: center; gap: 7px; }
-.chip.on { border-color: var(--text); background: var(--text); color: var(--bg); }
-.dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
-select { border: 1px solid var(--line); background: var(--panel); padding: 7px 10px; border-radius: 10px; }
-.banner { background: var(--accent-soft); border: 1px solid var(--accent); border-radius: 14px; padding: 12px 16px; margin-bottom: 18px; display: none; }
-.banner ul { margin: 6px 0 0; padding-left: 18px; }
-.banner .row { display: flex; align-items: center; gap: 12px; }
-.grid { display: grid; gap: 14px; }
-.kpis { grid-template-columns: repeat(4, 1fr); margin-bottom: 14px; }
-@media (max-width: 860px) { .kpis { grid-template-columns: repeat(2, 1fr); } }
-.full { margin-bottom: 14px; }
-.halves { grid-template-columns: 1fr 1fr; margin-bottom: 14px; }
-@media (max-width: 860px) { .halves { grid-template-columns: 1fr; } }
-.card { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 16px 18px; box-shadow: var(--shadow); min-width: 0; }
-.kpi .label { color: var(--muted); font-size: 13px; }
-.kpi .value { font-size: 24px; font-weight: 700; margin-top: 4px; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
-.kpi .value small { font-size: 15px; font-weight: 600; }
-.kpi .sub { color: var(--muted); font-size: 12.5px; margin-top: 2px; }
-.kpi.warn .value { color: var(--accent); }
-.two { grid-template-columns: 2fr 1fr; margin-bottom: 14px; }
-@media (max-width: 860px) { .two { grid-template-columns: 1fr; } }
-.card h2 { font-size: 15px; margin: 0 0 12px; display: flex; align-items: center; gap: 10px; }
-.card h2 .note { color: var(--muted); font-weight: 400; font-size: 12.5px; }
-.legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 13px; color: var(--muted); margin-bottom: 6px; }
-svg text { fill: var(--muted); font-size: 11px; }
-.bar:hover { opacity: .8; }
-.tip { position: fixed; pointer-events: none; background: var(--text); color: var(--bg); padding: 6px 9px; border-radius: 8px; font-size: 12.5px; display: none; z-index: 9; white-space: nowrap; }
+.demo { background: var(--panel); border: 1px solid var(--line); color: var(--muted); font-size: 10.5px; padding: 2px 8px; border-radius: 999px; font-weight: 500; vertical-align: middle; margin-left: 8px; letter-spacing: .04em; }
+
+/* ovládací prvky */
+.btn { display: inline-flex; align-items: center; gap: 7px; border: 1px solid var(--line); background: var(--panel); padding: 7px 13px; border-radius: 9px; cursor: pointer; font-weight: 500; font-size: 13px; text-decoration: none; color: var(--text); white-space: nowrap; }
+.btn:hover { background: var(--panel-2); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
+.btn.primary:hover { opacity: .88; }
+.btn.ghost { background: transparent; }
+.btn.danger { color: var(--bad); }
+.btn:disabled { opacity: .5; cursor: default; }
+select, input, textarea { border: 1px solid var(--line); background: var(--panel); padding: 7px 12px; border-radius: 9px; font-size: 13.5px; }
+.filters select { font-size: 13px; font-weight: 500; padding: 7px 10px; }
+select { cursor: pointer; }
+input:focus, select:focus, textarea:focus { outline: 2px solid color-mix(in srgb, var(--text) 18%, transparent); outline-offset: 0; }
+.seg { display: inline-flex; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 3px; gap: 2px; flex-wrap: wrap; }
+.seg button { border: 0; background: none; padding: 5px 11px; border-radius: 7px; cursor: pointer; color: var(--muted); font-weight: 500; font-size: 13px; display: inline-flex; align-items: center; gap: 7px; }
+.seg button.on { background: var(--panel-2); color: var(--text); }
+.dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; flex: none; }
+.filters { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+
+/* karty */
+.grid { display: grid; gap: 10px; }
+.card { background: var(--panel); border-radius: var(--radius); padding: 18px 20px; min-width: 0; }
+.card-h { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
+.card-h h2 { font-size: 14px; margin: 0; font-weight: 400; color: var(--muted); }
+.card-h .note { color: var(--text); font-size: 12.5px; display: block; margin-top: 10px; }
+.kpis { grid-template-columns: repeat(4, 1fr); margin-bottom: 10px; }
+.kpi { display: flex; flex-direction: column; gap: 4px; }
+.kpi .head { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 13.5px; }
+.kpi .value { font-size: 23px; font-weight: 400; letter-spacing: -.02em; line-height: 1.25; margin-top: 12px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.kpi .value small { font-size: 14px; }
+.kpi .sub { color: var(--muted); font-size: 12px; margin-top: 6px; }
+.kpi.warn .value { color: var(--warn); }
+.arrow { width: 15px; height: 15px; border-radius: 50%; display: inline-grid; place-items: center; font-size: 9.5px; font-family: Inter, sans-serif; flex: none; }
+.arrow.up { background: var(--good-soft); color: var(--good); } .arrow.down { background: var(--bad-soft); color: var(--bad); }
+.trend { display: inline-flex; align-items: center; font-weight: 500; font-size: 11.5px; padding: 1px 6px; border-radius: 5px; font-family: var(--mono); }
+.trend.up { color: var(--good); background: var(--good-soft); } .trend.down { color: var(--bad); background: var(--bad-soft); }
+.kpi .head .trend { margin-left: auto; }
+.row2 { grid-template-columns: 1.6fr 1fr; margin-bottom: 10px; }
+.halves { grid-template-columns: 1fr 1fr; margin-bottom: 10px; }
+.big { font-size: 30px; font-weight: 400; letter-spacing: -.03em; line-height: 1.1; }
+.headline { margin-left: auto; text-align: right; }
+.headline .lbl { font-size: 12px; color: var(--text); display: flex; align-items: center; gap: 6px; justify-content: flex-end; margin-bottom: 4px; }
+.headline .val { display: flex; align-items: center; gap: 8px; justify-content: flex-end; }
+.legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; color: var(--muted); align-items: center; }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+svg text { fill: var(--faint); font-size: 11px; font-family: Inter, sans-serif; }
+.tip { position: fixed; pointer-events: none; background: var(--panel); color: var(--text); border: 1px solid var(--line); box-shadow: 0 6px 20px rgba(0,0,0,.08); padding: 7px 10px; border-radius: 8px; font-size: 12px; display: none; z-index: 20; white-space: nowrap; }
+.tip .t { color: var(--muted); font-size: 11px; margin-bottom: 2px; }
 .list { list-style: none; margin: 0; padding: 0; }
-.list li { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; padding: 8px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
-.list li:last-child { border-bottom: 0; }
-.list .meter { grid-column: 1 / -1; height: 5px; border-radius: 3px; background: var(--panel-2); overflow: hidden; }
-.list .meter i { display: block; height: 100%; background: var(--accent); border-radius: 3px; }
-.num { font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
-.tabs { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
-.tab { border: 0; background: none; padding: 6px 4px; margin-right: 12px; cursor: pointer; color: var(--muted); font-weight: 600; border-bottom: 2px solid transparent; }
-.tab.on { color: var(--text); border-color: var(--accent); }
-.search { border: 1px solid var(--line); background: var(--panel-2); padding: 7px 12px; border-radius: 10px; min-width: 200px; }
-.tablewrap { overflow-x: auto; }
-table { width: 100%; border-collapse: collapse; font-size: 14px; }
-th { text-align: left; color: var(--muted); font-weight: 600; font-size: 12.5px; padding: 8px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
-td.nw { white-space: nowrap; }
-td { padding: 9px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
-tr.new td { background: var(--accent-soft); }
-td.items { max-width: 380px; }
-.pill { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 12px; background: var(--panel-2); border: 1px solid var(--line); white-space: nowrap; }
-.pill.ship { background: var(--accent-soft); border-color: var(--accent); }
+.list li { display: grid; grid-template-columns: 1fr auto; gap: 6px 12px; padding: 8px 0; font-size: 13px; }
+.list li + li { border-top: 1px solid var(--line); }
+.list .meter { grid-column: 1 / -1; height: 4px; border-radius: 99px; background: var(--panel-2); overflow: hidden; }
+.list .meter i { display: block; height: 100%; border-radius: 99px; }
+.list .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.num { font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; font-size: 12.5px; }
 .pos { color: var(--good); } .neg { color: var(--bad); }
-.more { text-align: center; margin-top: 12px; }
-.empty { color: var(--muted); padding: 30px 0; text-align: center; }
-dialog { border: 1px solid var(--line); border-radius: 18px; background: var(--panel); color: var(--text); width: min(620px, calc(100vw - 32px)); padding: 0; }
-dialog::backdrop { background: rgba(0,0,0,.35); }
-.dlg { padding: 20px 22px; }
-.dlg h3 { margin: 0 0 4px; }
-.dlg section { border-top: 1px solid var(--line); padding-top: 14px; margin-top: 14px; }
-.dlg label { display: block; font-size: 13px; color: var(--muted); margin: 10px 0 4px; }
-.dlg input, .dlg textarea, .dlg select { width: 100%; border: 1px solid var(--line); background: var(--panel-2); padding: 8px 10px; border-radius: 10px; }
-.dlg .hint { font-size: 13px; color: var(--muted); margin: 6px 0 0; }
-.btn.danger { color: var(--bad); border-color: var(--bad); }
-.dlg .actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; flex-wrap: wrap; }
-.shoprow { display: flex; align-items: center; gap: 10px; padding: 6px 0; }
-.msg { font-size: 13.5px; margin-top: 8px; }
+.banner { background: var(--panel); border-radius: var(--radius); padding: 14px 20px; margin-bottom: 10px; display: none; border-left: 3px solid var(--brand); }
+.banner ul { margin: 6px 0 0; padding-left: 18px; font-size: 13px; }
+.banner .row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; font-size: 13.5px; }
+.banner b { font-weight: 500; }
+
+/* tabulky */
+.tablewrap { overflow-x: auto; margin: 0 -20px; padding: 0 20px; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th { text-align: left; color: var(--muted); font-weight: 400; font-size: 12px; padding: 6px 10px 10px; white-space: nowrap; border-bottom: 1px solid var(--line); }
+th:first-child, td:first-child { padding-left: 0; } th:last-child, td:last-child { padding-right: 0; }
+td { padding: 11px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+tr:last-child td { border-bottom: 0; }
+td.nw { white-space: nowrap; }
+td.items { max-width: 380px; }
+tr.new td { background: var(--brand-soft); }
+.pill { display: inline-flex; align-items: center; gap: 6px; padding: 1px 8px; border-radius: 6px; font-size: 11.5px; font-weight: 500; background: var(--panel-2); color: var(--muted); white-space: nowrap; }
+.pill.ship { background: var(--warn-soft); color: var(--warn); }
+.pill.done { background: var(--good-soft); color: var(--good); }
+.search { min-width: 240px; background: var(--panel-2); border-color: transparent; }
+.more { text-align: center; margin-top: 14px; }
+.empty { color: var(--muted); padding: 28px 0; text-align: center; font-size: 13px; }
+.linkbtn { background: none; border: 0; color: var(--text); cursor: pointer; font-weight: 500; padding: 0; text-decoration: none; font-size: 12.5px; }
+.linkbtn:hover { text-decoration: underline; }
+
+/* nastavení */
+.settings { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
+.settings .card h2 { font-size: 15px; margin: 0 0 2px; font-weight: 500; }
+.field { margin-top: 14px; }
+.field label, .flabel { display: block; font-size: 12.5px; color: var(--muted); margin-bottom: 6px; }
+.field input, .field select, .field textarea { width: 100%; background: var(--panel-2); border-color: transparent; }
+.hint { font-size: 12.5px; color: var(--muted); margin: 6px 0 0; }
+.actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; flex-wrap: wrap; align-items: center; }
+.actions.left { justify-content: flex-start; }
+.shoprow { display: flex; align-items: center; gap: 10px; padding: 9px 12px; background: var(--panel-2); border-radius: 10px; margin-top: 8px; font-size: 13.5px; }
+.shoprow b { font-weight: 500; }
+.msg { font-size: 13px; margin-top: 8px; }
 .msg.err { color: var(--bad); } .msg.ok { color: var(--good); }
-.demo { background: var(--text); color: var(--bg); font-size: 12px; padding: 3px 9px; border-radius: 999px; font-weight: 600; }
-.welcome { max-width: 640px; margin: 40px auto; }
-.drop { border: 2px dashed var(--line); border-radius: 14px; padding: 26px 16px; text-align: center; color: var(--muted); }
-.drop.over { border-color: var(--accent); background: var(--accent-soft); }
-.drop .link { display: inline; color: var(--accent); cursor: pointer; text-decoration: underline; margin: 0; font-size: inherit; }
+.danger-zone h2 { color: var(--bad); }
+.check { display: flex; gap: 8px; align-items: center; margin-top: 12px; font-size: 13.5px; }
+
+/* import a uvítání */
+dialog { border: 0; border-radius: 18px; background: var(--panel); color: var(--text); width: min(580px, calc(100vw - 32px)); padding: 0; }
+dialog::backdrop { background: rgba(0,0,0,.4); }
+.dlg { padding: 22px 24px; }
+.dlg h3 { margin: 0 0 4px; font-size: 18px; font-weight: 500; letter-spacing: -.01em; }
+.drop { border: 1.5px dashed var(--faint); border-radius: 12px; padding: 28px 16px; text-align: center; color: var(--muted); background: var(--panel-2); font-size: 13.5px; }
+.drop.over { border-color: var(--brand); background: var(--brand-soft); }
+.drop .link { display: inline; color: var(--text); cursor: pointer; text-decoration: underline; margin: 0; font-size: inherit; font-weight: 500; }
 #impResults li { grid-template-columns: 1fr auto; }
+.welcome { max-width: 680px; }
+.welcome h2 { font-size: 20px; margin: 0 0 8px; letter-spacing: -.02em; font-weight: 500; }
 .welcome ol { padding-left: 20px; } .welcome li { margin: 6px 0; }
+.welcome a { text-decoration: underline; }
+.page[hidden] { display: none; }
+
+@media (max-width: 1100px) { .kpis { grid-template-columns: repeat(2, 1fr); } .row2 { grid-template-columns: 1fr; } }
+@media (max-width: 900px) {
+  .app { grid-template-columns: 1fr; padding: 0; gap: 0; }
+  .side { position: sticky; top: 0; z-index: 10; height: auto; flex-direction: row; align-items: center; padding: 8px 12px; border-radius: 0; border-bottom: 1px solid var(--line); overflow-x: auto; gap: 4px; }
+  .brand { padding: 0 6px 0 0; } .brand span { display: none; }
+  .nav { display: flex; gap: 2px; } .nav a { padding: 7px 10px; white-space: nowrap; }
+  .side .grow, .side-card, .side .ver { display: none; }
+  main { padding: 18px 12px 50px; }
+  .halves, .settings { grid-template-columns: 1fr; }
+}
+@media (max-width: 520px) { .kpis { grid-template-columns: 1fr 1fr; gap: 8px; } .kpi .value { font-size: 18px; } .card { padding: 14px 14px; } .tablewrap { margin: 0 -14px; padding: 0 14px; } .search { min-width: 0; flex: 1; } .nav a span { display: none; } .top h1 { font-size: 24px; } }
 </style>
 </head>
 <body>
-<div class="wrap">
-  <header>
-    <h1><span class="logo"><svg width="18" height="18" viewBox="0 0 32 32"><path d="M9 24V8h14M9 16h10" stroke="white" stroke-width="4" fill="none" stroke-linecap="round"/></svg></span>Etsy Dashboard <span id="demoBadge" class="demo" data-i18n="demo" hidden></span></h1>
-    <div class="status" id="status"></div>
-    <div class="spacer"></div>
-    <button class="btn" id="notifBtn" data-i18n="notifBtn" hidden></button>
-    <button class="btn" id="importBtn" data-i18n="importBtn"></button>
-    <button class="btn" id="checkBtn" data-i18n="checkBtn"></button>
-    <button class="btn" id="settingsBtn" data-i18n="settingsBtn"></button>
-  </header>
+<div class="app">
+  <aside class="side">
+    <div class="brand"><span class="logo"><svg class="i" viewBox="0 0 24 24"><path d="M6 18v-4M12 18V7M18 18v-7"/></svg></span><span>Etsy Dashboard</span></div>
+    <div class="nav-label" data-i18n="navMenu"></div>
+    <nav class="nav">
+      <a href="#prehled" data-page="prehled"><svg class="i" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg><span data-i18n="navOverview"></span></a>
+      <a href="#objednavky" data-page="objednavky"><svg class="i" viewBox="0 0 24 24"><path d="M6 7h12l-1 13H7L6 7z"/><path d="M9 7a3 3 0 0 1 6 0"/></svg><span data-i18n="tabOrders"></span></a>
+      <a href="#vypis" data-page="vypis"><svg class="i" viewBox="0 0 24 24"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2V3z"/><path d="M9 8h6M9 12h6"/></svg><span data-i18n="navLedger"></span></a>
+      <a href="#nastaveni" data-page="nastaveni"><svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg><span data-i18n="settingsTitle"></span></a>
+    </nav>
+    <div class="grow"></div>
+    <div class="side-card"><b data-i18n="sideImportTitle"></b><span data-i18n="sideImportText"></span>
+      <button class="btn primary" onclick="openImport()"><svg class="i" viewBox="0 0 24 24"><path d="M12 16V4M7 9l5-5 5 5M4 20h16"/></svg><span data-i18n="uploadCsv"></span></button></div>
+    <div class="ver">v<span id="sideVer"></span></div>
+  </aside>
 
-  <div id="welcome" class="card welcome" hidden>
-    <h2 data-i18n="welcomeTitle"></h2>
-    <p data-i18n="welcomeCsv"></p>
-    <button class="btn primary" onclick="openImport()" data-i18n="importBtn"></button>
-    <p style="margin-top:22px" data-i18n="welcomeApi"></p>
-    <ol>
-      <li data-i18n="welcomeStep1"></li>
-      <li data-i18n="welcomeStep2"></li>
-      <li data-i18n="welcomeStep3"></li>
-    </ol>
-    <button class="btn" onclick="openSettings()" data-i18n="openSettings"></button>
-  </div>
-
-  <div id="main" hidden>
-    <div class="filters">
-      <div class="chips" id="shopChips"></div>
+  <main>
+    <div class="top">
+      <div>
+        <h1><span id="pageTitle"></span><span id="demoBadge" class="demo" data-i18n="demo" hidden></span></h1>
+        <div class="status" id="status"></div>
+      </div>
       <div class="spacer"></div>
-      <select id="period" data-i18n-aria="period"></select>
-    </div>
-
-    <div class="banner" id="banner">
-      <div class="row"><b id="bannerTitle"></b><div class="spacer"></div><button class="btn" id="bannerOk" data-i18n="bannerOk"></button></div>
-      <ul id="bannerList"></ul>
-    </div>
-
-    <div class="grid kpis" id="kpis"></div>
-
-    <div class="card full">
-      <h2><span data-i18n="chartTitle"></span> <span class="note" data-i18n="chartNote"></span></h2>
-      <div class="legend" id="legend"></div>
-      <div id="chart"></div>
-    </div>
-
-    <div class="grid halves">
-      <div class="card">
-        <h2><span data-i18n="feesTitle"></span> <span class="note" data-i18n="feesNote"></span></h2>
-        <ul class="list" id="fees"></ul>
-      </div>
-      <div class="card">
-        <h2><span data-i18n="topTitle"></span> <span class="note" data-i18n="topNote"></span></h2>
-        <ul class="list" id="top"></ul>
+      <div class="filters" id="filters">
+        <div class="seg" id="shopChips"></div>
+        <select id="period" data-i18n-aria="period"></select>
+        <button class="btn" id="checkBtn"><svg class="i" viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 5v6h-6"/></svg><span data-i18n="checkShort"></span></button>
       </div>
     </div>
 
-      <div class="card full">
-        <div class="tabs">
-          <button class="tab on" data-tab="orders" data-i18n="tabOrders"></button>
-          <button class="tab" data-tab="ledger" data-i18n="tabLedger"></button>
-          <div class="spacer"></div>
+    <!-- přehled -->
+    <section class="page" id="page-prehled">
+      <div id="welcome" class="card welcome" hidden>
+        <h2 data-i18n="welcomeTitle"></h2>
+        <p data-i18n="welcomeCsv"></p>
+        <button class="btn primary" onclick="openImport()"><svg class="i" viewBox="0 0 24 24"><path d="M12 16V4M7 9l5-5 5 5M4 20h16"/></svg><span data-i18n="uploadCsv"></span></button>
+        <p style="margin-top:22px" data-i18n="welcomeApi"></p>
+        <ol><li data-i18n="welcomeStep1"></li><li data-i18n="welcomeStep2"></li><li data-i18n="welcomeStep3"></li></ol>
+        <a class="btn" href="#nastaveni" data-i18n="openSettings"></a>
+      </div>
+      <div id="overview" hidden>
+        <div class="banner" id="banner">
+          <div class="row"><b id="bannerTitle"></b><div class="spacer"></div><button class="btn" id="bannerOk" data-i18n="bannerOk"></button></div>
+          <ul id="bannerList"></ul>
+        </div>
+        <div class="grid kpis" id="kpis"></div>
+        <div class="grid row2">
+          <div class="card">
+            <div class="card-h"><div><h2 data-i18n="chartTitle"></h2><span class="note" id="chartNote"></span></div><div class="headline" id="chartHead"></div></div>
+            <div id="chart"></div>
+            <div class="legend" id="legend"></div>
+          </div>
+          <div class="card">
+            <div class="card-h"><div><h2 data-i18n="topTitle"></h2><span class="note" data-i18n="topNote"></span></div></div>
+            <ul class="list" id="top"></ul>
+          </div>
+        </div>
+        <div class="grid row2">
+          <div class="card">
+            <div class="card-h"><h2 data-i18n="recentOrders"></h2><div class="spacer"></div><a class="linkbtn" href="#objednavky" data-i18n="viewAll"></a></div>
+            <div class="tablewrap"><table id="recent"></table></div>
+          </div>
+          <div class="card">
+            <div class="card-h"><div><h2 data-i18n="feesTitle"></h2><span class="note" data-i18n="feesNote"></span></div></div>
+            <ul class="list" id="fees"></ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- objednávky a výpis -->
+    <section class="page" id="page-tabulka" hidden>
+      <div class="card">
+        <div class="card-h">
           <input class="search" id="search" data-i18n-ph="searchPh">
-          <a class="btn" id="exportBtn" href="/export/objednavky.csv">⬇ CSV</a>
+          <div class="spacer"></div>
+          <a class="btn" id="exportBtn" href="/export/objednavky.csv"><svg class="i" viewBox="0 0 24 24"><path d="M12 4v12M7 11l5 5 5-5M4 20h16"/></svg><span data-i18n="exportCsv"></span></a>
         </div>
         <div class="tablewrap"><table id="table"></table></div>
         <div class="more"><button class="btn" id="moreBtn" data-i18n="moreBtn" hidden></button></div>
       </div>
-  </div>
+    </section>
+
+    <!-- nastavení -->
+    <section class="page" id="page-nastaveni" hidden>
+      <div class="grid settings">
+        <div class="grid" style="gap:16px">
+          <div class="card">
+            <h2 data-i18n="secDisplay"></h2>
+            <div class="field"><label for="lang" data-i18n="langLabel"></label>
+              <select id="lang"><option value="cs">Čeština</option><option value="en">English</option><option value="de">Deutsch</option></select></div>
+            <div class="field"><label for="currency" data-i18n="curLabel"></label><select id="currency"></select><p class="hint" id="curHint"></p></div>
+            <div class="field"><span class="flabel" data-i18n="theme"></span>
+              <div class="seg" id="themeSeg"><button data-theme="auto" data-i18n="themeAuto"></button><button data-theme="light" data-i18n="themeLight"></button><button data-theme="dark" data-i18n="themeDark"></button></div></div>
+          </div>
+          <div class="card">
+            <h2 data-i18n="secData"></h2>
+            <p class="hint" data-i18n="dataHint"></p>
+            <div class="actions left">
+              <button class="btn primary" onclick="openImport()"><svg class="i" viewBox="0 0 24 24"><path d="M12 16V4M7 9l5-5 5 5M4 20h16"/></svg><span data-i18n="uploadCsv"></span></button>
+              <a class="btn" id="expOrders" href="/export/objednavky.csv"><svg class="i" viewBox="0 0 24 24"><path d="M12 4v12M7 11l5 5 5-5M4 20h16"/></svg><span data-i18n="tabOrders"></span></a>
+              <a class="btn" id="expLedger" href="/export/vypis.csv"><svg class="i" viewBox="0 0 24 24"><path d="M12 4v12M7 11l5 5 5-5M4 20h16"/></svg><span data-i18n="navLedger"></span></a>
+            </div>
+          </div>
+          <div class="card">
+            <h2 data-i18n="secNotify"></h2>
+            <p class="hint" data-i18n="notifyHint"></p>
+            <div class="actions left"><button class="btn" id="notifBtn" data-i18n="browserNotif"></button><span class="hint" id="notifState"></span></div>
+            <div class="field"><label for="ntfy" data-i18n="ntfyLabel"></label><input id="ntfy" data-i18n-ph="ntfyPh"></div>
+            <div class="actions"><button class="btn primary" id="ntfySave" data-i18n="save"></button></div>
+            <div class="msg" id="ntfyMsg"></div>
+          </div>
+          <div class="card">
+            <h2 data-i18n="updTitle"></h2>
+            <p class="hint"><span data-i18n="version"></span> <b id="verze"></b>. <span data-i18n="updAuto"></span></p>
+            <div class="actions left"><button class="btn" id="updBtn" data-i18n="updBtn"></button></div>
+            <div class="msg" id="updMsg"></div>
+          </div>
+        </div>
+        <div class="grid" style="gap:16px">
+          <div class="card">
+            <h2 data-i18n="apiTitle"></h2>
+            <p class="hint" data-i18n="setHint"></p>
+            <div class="field"><label for="keystring">Keystring</label><input id="keystring" autocomplete="off"></div>
+            <div class="field"><label for="secret">Shared secret</label><input id="secret" type="password" autocomplete="off"></div>
+            <div class="field"><label for="redirect" data-i18n="redirectLabel"></label><input id="redirect"></div>
+            <div class="field"><label for="interval" data-i18n="intervalLabel"></label><input id="interval" type="number" min="5" step="5"></div>
+            <div class="actions"><button class="btn primary" id="saveBtn" data-i18n="save"></button></div>
+            <div class="msg" id="saveMsg"></div>
+          </div>
+          <div class="card">
+            <h2 data-i18n="shopsTitle"></h2>
+            <div id="shopList"></div>
+            <p class="hint" data-i18n="shopsHint"></p>
+            <div class="actions left"><button class="btn" id="authStart" data-i18n="authStart"></button></div>
+            <div id="authStep" hidden>
+              <p class="hint" data-i18n="authHint"></p>
+              <div class="field"><textarea id="authUrl" rows="3" placeholder="https://localhost:3003/etsy?code=…&state=…"></textarea></div>
+              <div class="actions"><button class="btn primary" id="authFinish" data-i18n="authFinish"></button></div>
+            </div>
+            <div class="msg" id="authMsg"></div>
+          </div>
+          <div class="card danger-zone">
+            <h2 data-i18n="unTitle"></h2>
+            <p class="hint" data-i18n="unHint"></p>
+            <label class="check"><input type="checkbox" id="unDelete"> <span data-i18n="unDelete"></span></label>
+            <div class="actions left"><button class="btn danger" id="unBtn" data-i18n="unBtn"></button></div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
 </div>
 
 <div class="tip" id="tip"></div>
@@ -184,70 +345,12 @@ dialog::backdrop { background: rgba(0,0,0,.35); }
   <div class="dlg">
     <h3 data-i18n="impTitle"></h3>
     <p class="hint" data-i18n="impHint"></p>
-    <label for="impShop" data-i18n="impShopLabel"></label>
-    <input id="impShop" list="shopNames" data-i18n-ph="impShopPh">
-    <datalist id="shopNames"></datalist>
-    <label data-i18n="impFilesLabel"></label>
-    <div id="drop" class="drop"><span data-i18n="impDrop"></span>
-      <input id="impFiles" type="file" accept=".csv,text/csv" multiple hidden></div>
+    <div class="field"><label for="impShop" data-i18n="impShopLabel"></label>
+      <input id="impShop" list="shopNames" data-i18n-ph="impShopPh" style="width:100%"><datalist id="shopNames"></datalist></div>
+    <div class="field"><span class="flabel" data-i18n="impFilesLabel"></span>
+      <div id="drop" class="drop"><span data-i18n="impDrop"></span><input id="impFiles" type="file" accept=".csv,text/csv" multiple hidden></div></div>
     <ul class="list" id="impResults"></ul>
     <div class="actions"><button class="btn" onclick="$('#import').close()" data-i18n="close"></button></div>
-  </div>
-</dialog>
-
-<dialog id="settings">
-  <div class="dlg">
-    <h3 data-i18n="settingsTitle"></h3>
-    <label for="lang" data-i18n="langLabel"></label>
-    <select id="lang">
-      <option value="cs">Čeština</option><option value="en">English</option><option value="de">Deutsch</option>
-    </select>
-    <label for="currency" data-i18n="curLabel"></label>
-    <select id="currency"></select>
-    <p class="hint" id="curHint"></p>
-
-    <section>
-    <h3 data-i18n="apiTitle"></h3>
-    <p class="hint" data-i18n="setHint"></p>
-    <label for="keystring">Keystring</label>
-    <input id="keystring" autocomplete="off">
-    <label for="secret">Shared secret</label>
-    <input id="secret" type="password" autocomplete="off" placeholder="">
-    <label for="redirect" data-i18n="redirectLabel"></label>
-    <input id="redirect">
-    <label for="interval" data-i18n="intervalLabel"></label>
-    <input id="interval" type="number" min="5" step="5">
-    <label for="ntfy" data-i18n="ntfyLabel"></label>
-    <input id="ntfy" data-i18n-ph="ntfyPh">
-    <div class="actions"><button class="btn primary" id="saveBtn" data-i18n="save"></button></div>
-    <div class="msg" id="saveMsg"></div>
-    </section>
-
-    <section>
-      <h3 data-i18n="shopsTitle"></h3>
-      <div id="shopList"></div>
-      <p class="hint" data-i18n="shopsHint"></p>
-      <div class="actions" style="justify-content:flex-start"><button class="btn" id="authStart" data-i18n="authStart"></button></div>
-      <div id="authStep" hidden>
-        <p class="hint" data-i18n="authHint"></p>
-        <textarea id="authUrl" rows="3" placeholder="https://localhost:3003/etsy?code=…&state=…"></textarea>
-        <div class="actions"><button class="btn primary" id="authFinish" data-i18n="authFinish"></button></div>
-      </div>
-      <div class="msg" id="authMsg"></div>
-    </section>
-    <section>
-      <h3 data-i18n="updTitle"></h3>
-      <p class="hint"><span data-i18n="version"></span> <b id="verze"></b>. <span data-i18n="updAuto"></span></p>
-      <div class="actions" style="justify-content:flex-start"><button class="btn" id="updBtn" data-i18n="updBtn"></button></div>
-      <div class="msg" id="updMsg"></div>
-    </section>
-    <section>
-      <h3 data-i18n="unTitle"></h3>
-      <p class="hint" data-i18n="unHint"></p>
-      <label style="display:flex;gap:8px;align-items:center;color:var(--text)"><input type="checkbox" id="unDelete" style="width:auto"> <span data-i18n="unDelete"></span></label>
-      <div class="actions" style="justify-content:flex-start"><button class="btn danger" id="unBtn" data-i18n="unBtn"></button></div>
-    </section>
-    <div class="actions"><button class="btn" onclick="settings.close()" data-i18n="close"></button></div>
   </div>
 </dialog>
 
@@ -257,7 +360,7 @@ const LS = {
   get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch { return d; } },
   set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
 };
-const PAYOUT = /disburse|deposit|payout/i, REFUND = /refund/i, SALE = /^(sale|payment)$|payment for|^PAYMENT/i;
+const PAYOUT = /disburse|deposit|payout/i, REFUND = /refund/i;
 
 // ---------- překlady (cs = výchozí, chybějící klíč se vezme z češtiny)
 const DEVLINK = `<a href="https://www.etsy.com/developers/register" target="_blank" rel="noopener">etsy.com/developers</a>`;
@@ -464,6 +567,41 @@ const T = {
       import_unknown: "{soubor} sieht nicht wie ein Etsy-Export aus (Kontoauszug, Orders, Order Items oder Payments)." },
   },
 };
+// doplňky překladů pro rozvržení s bočním menu a stránkou nastavení
+const T2 = {
+  cs: {
+    navMenu: "Menu", navOverview: "Přehled", navLedger: "Výpis", uploadCsv: "Nahrát CSV", checkShort: "Zkontrolovat",
+    sideImportTitle: "Nová data z Etsy", sideImportText: "Nahraj měsíční výpis nebo objednávky z Download Data.",
+    recentOrders: "Poslední objednávky", viewAll: "Zobrazit vše →", exportCsv: "Export CSV",
+    secDisplay: "Zobrazení", theme: "Motiv", themeAuto: "Podle systému", themeLight: "Světlý", themeDark: "Tmavý",
+    secData: "Data", dataHint: "Nahraj CSV z Etsy (Shop Manager → Settings → Options → Download Data) nebo si stáhni data pro Excel.",
+    secNotify: "Upozornění", notifyHint: "Když je dashboard otevřený v prohlížeči, může ukázat upozornění na novou objednávku. Na mobil fungují přes aplikaci ntfy.",
+    browserNotif: "Povolit upozornění v prohlížeči", notifOn: "Upozornění v prohlížeči jsou zapnutá.", notifBlocked: "Prohlížeč upozornění blokuje, povol je v nastavení prohlížeče.",
+    vsPrevShort: "oproti předchozímu období", vsPrevN: "{n} v předchozím období", chartTotalNote: "za posledních 12 měsíců", ledgerTitle: "Výpis (platby a poplatky)",
+  },
+  en: {
+    navMenu: "Menu", navOverview: "Overview", navLedger: "Statement", uploadCsv: "Upload CSV", checkShort: "Check now",
+    sideImportTitle: "New data from Etsy", sideImportText: "Upload your monthly statement or orders from Download Data.",
+    recentOrders: "Recent orders", viewAll: "View all →", exportCsv: "Export CSV",
+    secDisplay: "Display", theme: "Theme", themeAuto: "System", themeLight: "Light", themeDark: "Dark",
+    secData: "Data", dataHint: "Upload CSV files from Etsy (Shop Manager → Settings → Options → Download Data) or download your data for Excel.",
+    secNotify: "Notifications", notifyHint: "While the dashboard is open in the browser it can notify you about new orders. On your phone they work through the ntfy app.",
+    browserNotif: "Enable browser notifications", notifOn: "Browser notifications are on.", notifBlocked: "The browser blocks notifications, allow them in its settings.",
+    vsPrevShort: "vs. previous period", vsPrevN: "{n} in the previous period", chartTotalNote: "in the last 12 months", ledgerTitle: "Statement (payments and fees)",
+  },
+  de: {
+    navMenu: "Menü", navOverview: "Übersicht", navLedger: "Kontoauszug", uploadCsv: "CSV hochladen", checkShort: "Jetzt prüfen",
+    sideImportTitle: "Neue Daten von Etsy", sideImportText: "Lade den Monatsauszug oder Bestellungen aus Download Data hoch.",
+    recentOrders: "Neueste Bestellungen", viewAll: "Alle anzeigen →", exportCsv: "CSV exportieren",
+    secDisplay: "Anzeige", theme: "Design", themeAuto: "System", themeLight: "Hell", themeDark: "Dunkel",
+    secData: "Daten", dataHint: "Lade CSV-Dateien von Etsy hoch (Shop Manager → Settings → Options → Download Data) oder lade deine Daten für Excel herunter.",
+    secNotify: "Benachrichtigungen", notifyHint: "Solange das Dashboard im Browser offen ist, meldet es neue Bestellungen. Aufs Handy kommen sie über die App ntfy.",
+    browserNotif: "Browser-Benachrichtigungen erlauben", notifOn: "Browser-Benachrichtigungen sind aktiv.", notifBlocked: "Der Browser blockiert Benachrichtigungen, erlaube sie in seinen Einstellungen.",
+    vsPrevShort: "ggü. Vorzeitraum", vsPrevN: "{n} im Vorzeitraum", chartTotalNote: "in den letzten 12 Monaten", ledgerTitle: "Kontoauszug (Zahlungen und Gebühren)",
+  },
+};
+for (const l in T2) Object.assign(T[l], T2[l]);
+
 function detectLang() {
   const saved = LS.get("lang", null); if (T[saved]) return saved;
   for (const l of navigator.languages || [navigator.language || ""]) {
@@ -493,15 +631,28 @@ function applyStatic() {
   document.querySelectorAll("[data-i18n]").forEach(el => el.innerHTML = t(el.dataset.i18n));
   document.querySelectorAll("[data-i18n-ph]").forEach(el => el.placeholder = t(el.dataset.i18nPh));
   document.querySelectorAll("[data-i18n-aria]").forEach(el => el.setAttribute("aria-label", t(el.dataset.i18nAria)));
+  ["#expOrders", "#expLedger"].forEach((s, i) => $(s).href = (i ? "/export/vypis.csv" : "/export/objednavky.csv") + "?lang=" + LANG);
 }
 async function syncServerLang() {  // aby i upozornění na telefon chodila ve zvoleném jazyce
   if (!S || S.demo || S.nastaveni.jazyk === LANG) return;
   try { await api("/api/nastaveni", { jazyk: LANG }); S.nastaveni.jazyk = LANG; } catch {}
 }
 
+// ---------- motiv
+let THEME = LS.get("theme", "auto");
+function applyTheme() {
+  if (THEME === "auto") document.documentElement.removeAttribute("data-theme");
+  else document.documentElement.dataset.theme = THEME;
+  document.querySelectorAll("#themeSeg button").forEach(b => b.classList.toggle("on", b.dataset.theme === THEME));
+}
+applyTheme();
+
 let S = null, D = { objednavky: [], vypis: [] }, RAW = D, RATES = null;
+let shopFilter = LS.get("shop", "all"), shown = 25;
+let lastSeen = LS.get("lastSeen", 0);
 let CUR = LS.get("currency", "");
 const COMMON_CUR = ["CZK", "EUR", "USD", "GBP", "PLN", "CHF", "CAD", "AUD", "HUF", "SEK", "DKK", "NOK", "JPY"];
+
 // přepočet všech částek do zvolené měny (kurzy ECB: 1 EUR = x měny)
 function convertData() {
   const k = RATES?.kurzy;
@@ -522,8 +673,6 @@ function buildCurrency() {
   $("#currency").value = CUR;
   $("#curHint").textContent = !CUR ? "" : k ? t("curHint", { d: RATES.datum ? new Date(RATES.datum + "T12:00").toLocaleDateString(loc()) : "?" }) : t("curNoRates");
 }
-let shopFilter = LS.get("shop", "all"), tab = "orders", shown = 25;
-let lastSeen = LS.get("lastSeen", 0);
 
 function fmtMoney(v, cur) {
   try { return new Intl.NumberFormat(loc(), { style: "currency", currency: cur || "USD", maximumFractionDigits: 2 }).format(v); }
@@ -559,6 +708,36 @@ async function api(path, body) {
   if (!r.ok) { const tr = j.kod && tMap("errors", j.kod); throw new Error(tr ? fill(tr, j.param || {}) : j.chyba || t("error")); }
   return j;
 }
+const ICON = {
+  revenue: '<path d="M12 3v18M17 7H9.5a3 3 0 0 0 0 6h5a3 3 0 0 1 0 6H6"/>',
+  orders: '<path d="M6 7h12l-1 13H7L6 7z"/><path d="M9 7a3 3 0 0 1 6 0"/>',
+  avg: '<path d="M4 19h16M7 15l4-4 3 3 5-6"/>',
+  fees: '<path d="M19 5 5 19"/><circle cx="7" cy="7" r="2.5"/><circle cx="17" cy="17" r="2.5"/>',
+  net: '<rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18M16 15h2"/>',
+  payout: '<path d="M3 10 12 4l9 6M5 10v8M19 10v8M9 10v8M15 10v8M3 20h18"/>',
+  balance: '<path d="M20 7H5a2 2 0 0 1 0-4h13v4M4 5v13a2 2 0 0 0 2 2h14V7M16 13.5h.01"/>',
+  ship: '<path d="M3 7h11v9H3zM14 10h4l3 3v3h-7"/><circle cx="7" cy="18" r="1.8"/><circle cx="17" cy="18" r="1.8"/>',
+};
+const icon = k => `<svg class="i" viewBox="0 0 24 24">${ICON[k]}</svg>`;
+
+// ---------- stránky
+const PAGES = { prehled: "navOverview", objednavky: "tabOrders", vypis: "ledgerTitle", nastaveni: "settingsTitle" };
+let page = "prehled";
+function route() {
+  const h = location.hash.slice(1);
+  page = PAGES[h] ? h : "prehled";
+  document.querySelectorAll(".nav a").forEach(a => a.classList.toggle("on", a.dataset.page === page));
+  $("#page-prehled").hidden = page !== "prehled";
+  $("#page-tabulka").hidden = page !== "objednavky" && page !== "vypis";
+  $("#page-nastaveni").hidden = page !== "nastaveni";
+  $("#filters").style.display = page === "nastaveni" || (S && !S.shopy.length) ? "none" : "";
+  $("#pageTitle").textContent = t(PAGES[page]);
+  shown = 25;
+  if (page === "nastaveni" && S) fillSettings();
+  if (S) render();
+  window.scrollTo(0, 0);
+}
+window.addEventListener("hashchange", route);
 
 // ---------- období
 function buildPeriods() {
@@ -600,16 +779,26 @@ function renderChips() {
   const shops = S.shopy.map(s => s.name);
   if (shopFilter !== "all" && !shops.includes(shopFilter)) shopFilter = "all";
   $("#shopChips").innerHTML = [["all", t("allShops")]].concat(shops.map(s => [s, s])).map(([v, txt]) =>
-    `<button class="chip ${v === shopFilter ? "on" : ""}" data-shop="${esc(v)}">${v === "all" ? "" : `<span class="dot" style="background:${shopColor(v)}"></span>`}${esc(txt)}</button>`).join("");
+    `<button class="${v === shopFilter ? "on" : ""}" data-shop="${esc(v)}">${v === "all" ? "" : `<span class="dot" style="background:${shopColor(v)}"></span>`}${esc(txt)}</button>`).join("");
+}
+
+function trend(cur, prev) {  // štítek s procentem a šipka k hodnotě
+  if (prev === null || prev === undefined || !isFinite(prev) || !prev) return null;
+  const p = Math.round((cur - prev) / Math.abs(prev) * 100), up = p >= 0;
+  if (Math.abs(p) > 999) return null;  // srovnání s téměř prázdným obdobím nic neříká
+  return { p, up, pill: `<span class="trend ${up ? "up" : "down"}">${up ? "+" : "−"}${Math.abs(p)}%</span>`,
+    arrow: `<span class="arrow ${up ? "up" : "down"}">${up ? "↑" : "↓"}</span>` };
 }
 
 function renderKpis(f) {
   const [a, b] = f.range;
   const revenue = sumByCur(f.pOrders, "celkem");
   const n = f.pOrders.length;
-  // stejné období o krok dříve pro srovnání počtu objednávek
-  const len = periodLen(a, b), prevN = isFinite(len) && a > 0
-    ? f.orders.filter(r => r.vytvoreno_ts >= a - len && r.vytvoreno_ts < a).length : null;
+  // stejné období o krok dříve pro srovnání
+  const len = periodLen(a, b), hasPrev = isFinite(len) && a > 0;
+  const prevOrders = hasPrev ? f.orders.filter(r => r.vytvoreno_ts >= a - len && r.vytvoreno_ts < a) : null;
+  const total = rows => rows.reduce((x, r) => x + r.celkem, 0);
+  const oneCur = Object.keys(revenue).length <= 1;
   const fees = f.pLedger.filter(r => r.castka < 0 && !PAYOUT.test(r.typ) && !REFUND.test(r.typ + r.popis));
   const net = f.pLedger.filter(r => !PAYOUT.test(r.typ));
   const payouts = f.pLedger.filter(r => PAYOUT.test(r.typ));
@@ -619,52 +808,68 @@ function renderKpis(f) {
     const last = D.vypis.find(r => r.shop === s.name && r.zustatek !== null); if (last) balances[last.mena] = (balances[last.mena] || 0) + last.zustatek; });
   const hasBalance = Object.keys(balances).length > 0;
   const avg = {}; Object.entries(revenue).forEach(([c, v]) => avg[c] = v / (f.pOrders.filter(r => r.mena === c).length || 1));
-  let diff = "";
-  if (prevN !== null && prevN > 0) { const p = Math.round((n - prevN) / prevN * 100); diff = t("vsPrev", { sign: p >= 0 ? "▲" : "▼", p: Math.abs(p) }); }
-  else if (prevN === 0 && n) diff = t("noneBefore");
   const feePct = (() => { const r = Object.values(revenue).reduce((x, y) => x + y, 0), fe = -fees.reduce((x, y) => x + y.castka, 0); return r ? t("feePct", { p: Math.round(fe / r * 100) }) : ""; })();
   const cards = [
-    [t("kRevenue"), moneyHtml(revenue), pl(n, "order")],
-    [t("kOrders"), n, diff],
-    [t("kAvg"), moneyHtml(avg), ""],
-    [t("kFees"), moneyHtml(sumByCur(fees, "castka")), feePct],
-    [t("kNet"), moneyHtml(sumByCur(net, "castka")), t("netSub")],
-    [t("kPayouts"), moneyHtml(Object.fromEntries(Object.entries(sumByCur(payouts, "castka")).map(([c, v]) => [c, -v]))), t("payoutsN", { n: payouts.length })],
-    [t("kBalance"), hasBalance ? moneyHtml(balances) : "–", hasBalance ? t("balSub") : t("balNone")],
+    ["revenue", t("kRevenue"), moneyHtml(revenue), pl(n, "order"), "", prevOrders && oneCur ? trend(total(f.pOrders), total(prevOrders)) : null],
+    ["orders", t("kOrders"), n, prevOrders ? (prevOrders.length ? t("vsPrevN", { n: prevOrders.length }) : t("noneBefore")) : "", "", prevOrders ? trend(n, prevOrders.length) : null],
+    ["avg", t("kAvg"), moneyHtml(avg), ""],
+    ["fees", t("kFees"), moneyHtml(sumByCur(fees, "castka")), feePct],
+    ["net", t("kNet"), moneyHtml(sumByCur(net, "castka")), t("netSub")],
+    ["payout", t("kPayouts"), moneyHtml(Object.fromEntries(Object.entries(sumByCur(payouts, "castka")).map(([c, v]) => [c, -v]))), t("payoutsN", { n: payouts.length })],
+    ["balance", t("kBalance"), hasBalance ? moneyHtml(balances) : "–", hasBalance ? t("balSub") : t("balNone")],
     f.orders.some(r => r.odeslano !== null)
-      ? [t("kToShip"), toShip.length, toShip.length ? t("shipPending") : t("allShipped"), toShip.length ? "warn" : ""]
-      : [t("kToShip"), "–", t("shipUnknown")],
+      ? ["ship", t("kToShip"), toShip.length, toShip.length ? t("shipPending") : t("allShipped"), toShip.length ? "warn" : ""]
+      : ["ship", t("kToShip"), "–", t("shipUnknown")],
   ];
-  $("#kpis").innerHTML = cards.map(([l, v, s, cls]) =>
-    `<div class="card kpi ${cls || ""}"><div class="label">${l}</div><div class="value">${v}</div><div class="sub">${s || "&nbsp;"}</div></div>`).join("");
+  $("#kpis").innerHTML = cards.map(([ic, l, v, s, cls, tr]) =>
+    `<div class="card kpi ${cls || ""}"><div class="head">${l}${tr ? tr.pill : ""}</div><div class="value">${v}${tr ? tr.arrow : ""}</div><div class="sub">${s || "&nbsp;"}</div></div>`).join("");
 }
 
+let CH = null;  // data grafu pro tooltip
+function smooth(pts) {  // hladká křivka přes body (Catmull-Rom → Bézier)
+  if (pts.length < 2) return "";
+  let d = `M${pts[0][0]},${pts[0][1]}`;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[i - 1] || pts[i], p1 = pts[i], p2 = pts[i + 1], p3 = pts[i + 2] || p2;
+    const c1 = [p1[0] + (p2[0] - p0[0]) / 6, p1[1] + (p2[1] - p0[1]) / 6], c2 = [p2[0] - (p3[0] - p1[0]) / 6, p2[1] - (p3[1] - p1[1]) / 6];
+    d += ` C${c1[0]},${c1[1]} ${c2[0]},${c2[1]} ${p2[0]},${p2[1]}`;
+  }
+  return d;
+}
 function renderChart(f) {
   const now = new Date(), months = [];
-  for (let i = 11; i >= 0; i--) { const d = new Date(now.getFullYear(), now.getMonth() - i, 1); months.push([d.getFullYear(), d.getMonth()]); }
+  for (let i = 23; i >= 0; i--) { const d = new Date(now.getFullYear(), now.getMonth() - i, 1); months.push([d.getFullYear(), d.getMonth()]); }
   const shops = S.shopy.map(s => s.name).filter(s => shopFilter === "all" || s === shopFilter);
   const cur = (f.orders[0] || {}).mena || "USD";
-  const vals = months.map(([y, m]) => shops.map(s => f.orders.filter(r => {
+  const all = months.map(([y, m]) => shops.map(s => f.orders.filter(r => {
     const d = new Date(r.vytvoreno_ts * 1000); return r.shop === s && r.mena === cur && d.getFullYear() === y && d.getMonth() === m;
   }).reduce((a, r) => a + r.celkem, 0)));
-  const max = Math.max(1, ...vals.map(v => v.reduce((a, b) => a + b, 0)));
+  const vals = all.slice(12), ms = months.slice(12);
+  const sumOf = arr => arr.reduce((a, v) => a + v.reduce((x, y) => x + y, 0), 0);
+  const sum12 = sumOf(vals), prev12 = sumOf(all.slice(0, 12)), tr = trend(sum12, prev12);
+  $("#chartNote").textContent = t("chartNote");
+  $("#chartHead").innerHTML = `<div class="lbl"><span class="dot" style="background:var(--brand)"></span>${esc(t("chartTotalNote"))}</div><div class="val"><span class="big">${esc(fmtMoney(sum12, cur))}</span>${tr ? tr.pill : ""}</div>`;
+  const totals = vals.map(v => v.reduce((a, b) => a + b, 0));
+  const series = [totals].concat(shops.length > 1 ? shops.map((s, si) => vals.map(v => v[si])) : []);
+  const max = Math.max(1, ...series.flat());
   const step = niceStep(max), top = Math.ceil(max / step) * step;
-  const W = 1100, H = 260, L = 48, B = 26, T0 = 8, bw = (W - L) / 12;
-  let svg = `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="${esc(t("chartTitle"))}">`;
-  for (let g = 0; g <= top; g += step) {
-    const y = H - B - (g / top) * (H - B - T0);
-    svg += `<line x1="${L}" x2="${W}" y1="${y}" y2="${y}" stroke="var(--line)"/><text x="${L - 6}" y="${y + 4}" text-anchor="end">${Math.round(g).toLocaleString(loc())}</text>`;
-  }
-  vals.forEach((v, i) => {
-    let y = H - B;
-    v.forEach((val, si) => {
-      const h = (val / top) * (H - B - T0); if (h <= 0) return; y -= h;
-      svg += `<rect class="bar" x="${L + i * bw + bw * .18}" y="${y}" width="${bw * .64}" height="${h}" rx="3" fill="${shopColor(shops[si])}" data-tip="${esc(shops[si])}: ${esc(fmtMoney(val, cur))} (${esc(monthName(months[i][1], months[i][0]))})"/>`;
-    });
-    svg += `<text x="${L + i * bw + bw / 2}" y="${H - 8}" text-anchor="middle">${esc(monthName(months[i][1], undefined, true))}</text>`;
+  const W = Math.max(300, $("#chart").clientWidth || 800), H = 270, L = 46, R = 8, B = 30, T0 = 10;
+  const x = i => L + (W - L - R) * (i / 11), y = v => H - B - (v / top) * (H - B - T0);
+  let svg = `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" style="display:block;max-width:100%" role="img" aria-label="${esc(t("chartTitle"))}">
+    <defs><linearGradient id="ga" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--brand)" stop-opacity=".22"/><stop offset="1" stop-color="var(--brand)" stop-opacity="0"/></linearGradient></defs>`;
+  for (let g = 0; g <= top; g += step)
+    svg += `<line x1="${L}" x2="${W - R}" y1="${y(g)}" y2="${y(g)}" stroke="var(--line)" stroke-dasharray="${g ? "2 4" : ""}"/><text x="${L - 10}" y="${y(g) + 4}" text-anchor="end">${Math.round(g).toLocaleString(loc())}</text>`;
+  series.forEach((ser, si) => {
+    const pts = ser.map((v, i) => [x(i), y(v)]), d = smooth(pts);
+    const col = si ? shopColor(shops[si - 1]) : "var(--brand)";
+    if (si === 0) svg += `<path d="${d} L${x(11)},${y(0)} L${x(0)},${y(0)} Z" fill="url(#ga)"/>`;
+    svg += `<path d="${d}" fill="none" stroke="${col}" stroke-width="${si === 0 ? 2.2 : 1.4}" ${si ? 'stroke-dasharray="4 3" opacity=".85"' : ""} stroke-linejoin="round" stroke-linecap="round"/>`;
   });
+  svg += `<g id="hover" style="display:none"><line id="hl" y1="${T0}" y2="${H - B}" stroke="var(--faint)" stroke-dasharray="3 3"/>${series.map((_, si) => `<circle id="hc${si}" r="${si ? 3.5 : 4.5}" fill="var(--panel)" stroke="${si ? shopColor(shops[si - 1]) : "var(--brand)"}" stroke-width="2"/>`).join("")}</g>`;
+  ms.forEach(([yy, m], i) => svg += `<text x="${x(i)}" y="${H - 8}" text-anchor="${i === 0 ? "start" : i === 11 ? "end" : "middle"}">${esc(monthName(m, undefined, true))}</text>`);
   $("#chart").innerHTML = svg + "</svg>";
-  $("#legend").innerHTML = shops.map(s => `<span><span class="dot" style="background:${shopColor(s)}"></span> ${esc(s)}</span>`).join("") + `<span>${esc(t("inCur", { cur }))}</span>`;
+  CH = { W, L, R, x, y, series, shops, ms, cur, vals, totals };
+  $("#legend").innerHTML = (shops.length > 1 ? `<span><span class="dot" style="background:var(--brand)"></span>${esc(t("allShops"))}</span>` + shops.map(s => `<span><span class="dot" style="background:${shopColor(s)}"></span>${esc(s)}</span>`).join("") : "") + `<span>${esc(t("inCur", { cur }))}</span>`;
 }
 function niceStep(max) { const raw = max / 4, p = 10 ** Math.floor(Math.log10(raw)); return [1, 2, 2.5, 5, 10].map(x => x * p).find(x => x >= raw); }
 
@@ -674,10 +879,10 @@ function renderTop(f) {
     const mt = it.match(/^(\d+)x (.*)$/); const q = mt ? +mt[1] : 1, name = mt ? mt[2] : it;
     if (!name || /^\d+ ks$/.test(it)) return; m[name] = m[name] || { q: 0, shop: r.shop }; m[name].q += q;
   }));
-  const top = Object.entries(m).sort((a, b) => b[1].q - a[1].q).slice(0, 8);
+  const top = Object.entries(m).sort((a, b) => b[1].q - a[1].q).slice(0, 7);
   const max = top.length ? top[0][1].q : 1;
   $("#top").innerHTML = top.length ? top.map(([name, v]) =>
-    `<li><span>${esc(name)}</span><span class="num">${v.q}×</span><span class="meter"><i style="width:${v.q / max * 100}%;background:${shopColor(v.shop)}"></i></span></li>`).join("")
+    `<li><span class="name" title="${esc(name)}">${esc(name)}</span><span class="num">${v.q}×</span><span class="meter"><i style="width:${v.q / max * 100}%;background:${shopColor(v.shop)}"></i></span></li>`).join("")
     : `<li class="empty">${f.pOrders.length ? t("topUnknown") : t("nothing")}</li>`;
 }
 
@@ -690,28 +895,41 @@ function renderFees(f) {
   const rows = Object.entries(g).map(([k, m]) => [k, m, Object.values(m).reduce((a, b) => a + b, 0)]).sort((a, b) => b[2] - a[2]);
   const max = Math.max(1, ...rows.map(r => Math.abs(r[2])));
   $("#fees").innerHTML = rows.length ? rows.map(([k, m, sum]) =>
-    `<li><span>${esc(k)}</span><span class="num ${sum < 0 ? "neg" : "pos"}">${moneyHtml(m)}</span><span class="meter"><i style="width:${Math.abs(sum) / max * 100}%;background:${sum < 0 ? "var(--bad)" : "var(--good)"}"></i></span></li>`).join("")
+    `<li><span class="name">${esc(k)}</span><span class="num ${sum < 0 ? "neg" : "pos"}">${moneyHtml(m)}</span><span class="meter"><i style="width:${Math.abs(sum) / max * 100}%;background:${sum < 0 ? "var(--bad)" : "var(--good)"}"></i></span></li>`).join("")
     : `<li class="empty">${t("noMoves")}</li>`;
+}
+
+function statusPill(r) {
+  if (r.zaplaceno && r.odeslano === 0) return `<span class="pill ship">${t("kToShip")}</span>`;
+  return `<span class="pill ${r.odeslano ? "done" : ""}">${esc(tMap("statuses", r.stav) || r.stav)}</span>`;
+}
+function orderRows(rows, multi, compact) {
+  const shopTd = r => multi ? `<td class="nw"><span class="dot" style="background:${shopColor(r.shop)}"></span> ${esc(r.shop)}</td>` : "";
+  return `<thead><tr><th>${t("colDate")}</th>${multi && !compact ? `<th>${t("colShop")}</th>` : ""}<th>${t("colBuyer")}</th>${compact ? "" : `<th>${t("colItems")}</th>`}<th class="num">${t("colTotal")}</th><th>${t("colStatus")}</th></tr></thead><tbody>` +
+    rows.map(r => `<tr class="${r.pridano_ts > lastSeen ? "new" : ""}"><td class="nw">${fmtDate(r.vytvoreno_ts)}</td>${compact ? "" : shopTd(r)}<td>${esc(r.zakaznik) || "–"}${compact ? `<div class="hint" style="margin:0">${esc(r.polozky)}</div>` : ""}</td>${compact ? "" : `<td class="items">${esc(r.polozky)}</td>`}<td class="num"${origTitle(r)}>${fmtMoney(r.celkem, r.mena)}</td><td>${statusPill(r)}</td></tr>`).join("") + "</tbody>";
+}
+
+function renderRecent(f) {
+  const rows = f.orders.slice().sort((a, b) => b.vytvoreno_ts - a.vytvoreno_ts).slice(0, 6);
+  $("#recent").innerHTML = rows.length ? orderRows(rows, S.shopy.length > 1 && shopFilter === "all", true) : `<tbody><tr><td class="empty">${t("nothing")}</td></tr></tbody>`;
 }
 
 function renderTable(f) {
   const q = $("#search").value.trim().toLowerCase();
   const match = r => !q || Object.values(r).some(v => String(v).toLowerCase().includes(q));
-  const rows = (tab === "orders" ? f.pOrders : f.pLedger).filter(match);
+  const orders = page === "objednavky";
+  const rows = (orders ? f.pOrders : f.pLedger).filter(match);
   const multi = S.shopy.length > 1 && shopFilter === "all";
-  const shopTh = multi ? `<th>${t("colShop")}</th>` : "";
-  const shopTd = r => multi ? `<td class="nw"><span class="dot" style="background:${shopColor(r.shop)}"></span> ${esc(r.shop)}</td>` : "";
   let html;
-  if (tab === "orders") {
-    html = `<thead><tr><th>${t("colDate")}</th>${shopTh}<th>${t("colBuyer")}</th><th>${t("colItems")}</th><th class="num">${t("colTotal")}</th><th>${t("colStatus")}</th></tr></thead><tbody>` +
-      rows.slice(0, shown).map(r => `<tr class="${r.pridano_ts > lastSeen ? "new" : ""}"><td class="nw">${fmtDate(r.vytvoreno_ts)}</td>${shopTd(r)}<td>${esc(r.zakaznik)}</td><td class="items">${esc(r.polozky)}</td><td class="num"${origTitle(r)}>${fmtMoney(r.celkem, r.mena)}</td><td>${r.zaplaceno && r.odeslano === 0 ? `<span class="pill ship">${t("kToShip")}</span>` : `<span class="pill">${esc(tMap("statuses", r.stav) || r.stav)}</span>`}</td></tr>`).join("");
-  } else {
-    html = `<thead><tr><th>${t("colDate")}</th>${shopTh}<th>${t("colDesc")}</th><th>${t("colType")}</th><th class="num">${t("colAmount")}</th><th class="num">${t("colBalance")}</th></tr></thead><tbody>` +
-      rows.slice(0, shown).map(r => `<tr class="${r.pridano_ts > lastSeen ? "new" : ""}"><td class="nw">${fmtDate(r.datum_ts)}</td>${shopTd(r)}<td>${esc(r.popis)}</td><td><span class="pill">${esc(r.typ)}</span></td><td class="num ${r.castka < 0 ? "neg" : "pos"}"${origTitle(r)}>${fmtMoney(r.castka, r.mena)}</td><td class="num">${r.zustatek === null ? "–" : fmtMoney(r.zustatek, r.mena)}</td></tr>`).join("");
+  if (orders) html = orderRows(rows.slice(0, shown), multi, false);
+  else {
+    const shopTd = r => multi ? `<td class="nw"><span class="dot" style="background:${shopColor(r.shop)}"></span> ${esc(r.shop)}</td>` : "";
+    html = `<thead><tr><th>${t("colDate")}</th>${multi ? `<th>${t("colShop")}</th>` : ""}<th>${t("colDesc")}</th><th>${t("colType")}</th><th class="num">${t("colAmount")}</th><th class="num">${t("colBalance")}</th></tr></thead><tbody>` +
+      rows.slice(0, shown).map(r => `<tr class="${r.pridano_ts > lastSeen ? "new" : ""}"><td class="nw">${fmtDate(r.datum_ts)}</td>${shopTd(r)}<td>${esc(r.popis)}</td><td><span class="pill">${esc(tMap("types", r.typ) || r.typ)}</span></td><td class="num ${r.castka < 0 ? "neg" : "pos"}"${origTitle(r)}>${fmtMoney(r.castka, r.mena)}</td><td class="num">${r.zustatek === null ? "–" : fmtMoney(r.zustatek, r.mena)}</td></tr>`).join("") + "</tbody>";
   }
-  $("#table").innerHTML = rows.length ? html + "</tbody>" : `<tbody><tr><td class="empty">${t("nothing")}</td></tr></tbody>`;
+  $("#table").innerHTML = rows.length ? html : `<tbody><tr><td class="empty">${t("nothing")}</td></tr></tbody>`;
   $("#moreBtn").hidden = rows.length <= shown;
-  $("#exportBtn").href = (tab === "orders" ? "/export/objednavky.csv" : "/export/vypis.csv") + "?lang=" + LANG;
+  $("#exportBtn").href = (orders ? "/export/objednavky.csv" : "/export/vypis.csv") + "?lang=" + LANG;
 }
 
 function renderBanner() {
@@ -729,16 +947,20 @@ function renderStatus() {
   $("#status").innerHTML = esc(S.bezi ? t("checking") : S.nastaveno ? t("lastCheck", { t: ago(S.posledni_kontrola) }) : t("csvOnly")) +
     errs.map(([s, e]) => `<br><span class="err">⚠ ${esc(s)}: ${esc(e)}</span>`).join("");
   $("#demoBadge").hidden = !S.demo;
+  $("#sideVer").textContent = S.verze || "";
 }
 
 function render() {
   renderStatus();
   const ready = S.shopy.length > 0;
-  $("#welcome").hidden = !!ready; $("#main").hidden = !ready;
+  $("#filters").style.display = page === "nastaveni" || !ready ? "none" : "";
+  if (page === "nastaveni") return;
+  $("#welcome").hidden = ready; $("#overview").hidden = !ready;
   if (!ready) return;
   renderChips();
   const f = filtered();
-  renderBanner(); renderKpis(f); renderChart(f); renderTop(f); renderFees(f); renderTable(f);
+  if (page === "prehled") { renderBanner(); renderKpis(f); renderChart(f); renderTop(f); renderRecent(f); renderFees(f); }
+  else renderTable(f);
 }
 
 // ---------- načítání a upozornění
@@ -765,38 +987,39 @@ function notifyNew() {
   new Notification(nO.length === 1 ? t("newOrder") : t("newOrders", { n: nO.length }),
     { body: nO.slice(0, 3).map(r => `${r.shop}: ${fmtMoney(r.celkem, r.mena)} (${r.polozky})`).join("\n") });
 }
-function setupNotifBtn() {
-  const b = $("#notifBtn");
-  if (!("Notification" in window) || Notification.permission !== "default") return;
-  b.hidden = false;
-  b.onclick = async () => { await Notification.requestPermission(); b.hidden = true; };
+function renderNotif() {
+  const ok = "Notification" in window, p = ok ? Notification.permission : "denied";
+  $("#notifBtn").hidden = p !== "default";
+  $("#notifState").textContent = p === "granted" ? t("notifOn") : p === "denied" && ok ? t("notifBlocked") : "";
 }
+$("#notifBtn").onclick = async () => { await Notification.requestPermission(); renderNotif(); };
 
 // ---------- nastavení
-const settings = $("#settings");
-function openSettings() {
+function fillSettings() {
   const n = S.nastaveni;
+  if (document.activeElement?.closest?.("#page-nastaveni input, #page-nastaveni textarea")) return;  // nepřepisovat rozepsané
   $("#keystring").value = n.keystring || ""; $("#secret").value = "";
   $("#secret").placeholder = n.ma_secret ? t("secretSaved") : "";
   $("#redirect").value = n.redirect_uri || ""; $("#interval").value = n.interval_minut || 15; $("#ntfy").value = n.ntfy_topic || "";
   $("#verze").textContent = S.verze || "";
-  $("#updMsg").textContent = "";
-  $("#saveMsg").textContent = ""; $("#authMsg").textContent = ""; $("#authStep").hidden = true;
-  renderShopList(); buildCurrency();
-  if (!settings.open) settings.showModal();
+  renderShopList(); buildCurrency(); renderNotif(); applyTheme();
 }
 function renderShopList() {
   $("#shopList").innerHTML = S.shopy.length ? S.shopy.map(s =>
-    `<div class="shoprow"><span class="dot" style="background:${shopColor(s.name)}"></span><b>${esc(s.name)}</b><div class="spacer"></div><button class="btn" data-remove="${esc(s.id)}">${t("remove")}</button></div>`).join("")
+    `<div class="shoprow"><span class="dot" style="background:${shopColor(s.name)}"></span><b>${esc(s.name)}</b><div class="spacer"></div>${s.id ? `<button class="btn ghost" data-remove="${esc(s.id)}">${t("remove")}</button>` : ""}</div>`).join("")
     : `<p class="hint">${t("noShops")}</p>`;
 }
 function msg(el, text, ok) { el.textContent = text; el.className = "msg " + (ok ? "ok" : "err"); }
 $("#saveBtn").onclick = async () => {
   try {
     await api("/api/nastaveni", { keystring: $("#keystring").value, shared_secret: $("#secret").value,
-      redirect_uri: $("#redirect").value, interval_minut: +$("#interval").value, ntfy_topic: $("#ntfy").value, jazyk: LANG });
+      redirect_uri: $("#redirect").value, interval_minut: +$("#interval").value, jazyk: LANG });
     msg($("#saveMsg"), t("saved"), true); S = await api("/api/stav"); render();
   } catch (e) { msg($("#saveMsg"), e.message); }
+};
+$("#ntfySave").onclick = async () => {
+  try { await api("/api/nastaveni", { ntfy_topic: $("#ntfy").value, jazyk: LANG }); msg($("#ntfyMsg"), t("saved"), true); S = await api("/api/stav"); }
+  catch (e) { msg($("#ntfyMsg"), e.message); }
 };
 $("#authStart").onclick = async () => {
   try { const { url } = await api("/api/prihlasit/start", {}); window.open(url, "_blank"); $("#authStep").hidden = false; $("#authUrl").value = ""; $("#authMsg").textContent = ""; }
@@ -805,7 +1028,7 @@ $("#authStart").onclick = async () => {
 $("#authFinish").onclick = async () => {
   try { const r = await api("/api/prihlasit/dokoncit", { url: $("#authUrl").value });
     msg($("#authMsg"), t("shopConnected", { shop: r.shop }), true);
-    $("#authStep").hidden = true; setTimeout(load, 3000); S = await api("/api/stav"); }
+    $("#authStep").hidden = true; setTimeout(load, 3000); S = await api("/api/stav"); renderShopList(); }
   catch (e) { msg($("#authMsg"), e.message); }
 };
 $("#updBtn").onclick = async () => {
@@ -821,29 +1044,22 @@ $("#unBtn").onclick = async () => {
   const del = $("#unDelete").checked;
   if (!confirm(del ? t("unConfirmDel") : t("unConfirm"))) return;
   try { await api("/api/odinstalovat", { smazat_data: del }); } catch (e) { alert(e.message); return; }
-  settings.close();
-  document.body.innerHTML = `<div class="wrap"><div class="card welcome"><h2>${t("unDoneTitle")}</h2>
+  document.body.innerHTML = `<main style="max-width:640px;margin:60px auto"><div class="card welcome"><h2>${t("unDoneTitle")}</h2>
     <p>${t("unDoneText")} ${del ? t("unDataDeleted") : t("unDataKept")}</p>
-    <p>${t("unDoneText2")}</p></div></div>`;
+    <p>${t("unDoneText2")}</p></div></main>`;
 };
 $("#shopList").onclick = async e => {
   const id = e.target.dataset.remove; if (!id || !confirm(t("removeConfirm"))) return;
-  try { await api("/api/odebrat", { id }); S = await api("/api/stav"); openSettings(); render(); } catch (err) { alert(err.message); }
-};
-
-// ---------- ovládání
-$("#settingsBtn").onclick = openSettings;
-$("#checkBtn").onclick = async () => {
-  const b = $("#checkBtn"); b.disabled = true; b.textContent = t("checking");
-  try { await api("/api/zkontrolovat", {}); } catch (e) { alert(e.message); }
-  b.disabled = false; b.textContent = t("checkBtn"); load();
+  try { await api("/api/odebrat", { id }); S = await api("/api/stav"); fillSettings(); } catch (err) { alert(err.message); }
 };
 $("#lang").onchange = () => {
   LANG = $("#lang").value; LS.set("lang", LANG); applyStatic();
+  $("#pageTitle").textContent = t(PAGES[page]);
   if (!S) return;
   const prev = $("#period").value; buildPeriods(); $("#period").value = prev;
+  renderShopList(); buildCurrency(); renderNotif();
+  $("#secret").placeholder = S.nastaveni.ma_secret ? t("secretSaved") : "";
   render(); syncServerLang();
-  if (settings.open) { $("#secret").placeholder = S.nastaveni.ma_secret ? t("secretSaved") : ""; renderShopList(); buildCurrency(); }
 };
 $("#currency").onchange = async () => {
   CUR = $("#currency").value; LS.set("currency", CUR);
@@ -852,22 +1068,38 @@ $("#currency").onchange = async () => {
   if (!S) return;
   const prev = $("#period").value; buildPeriods(); $("#period").value = prev; render();
 };
-$("#shopChips").onclick = e => { const c = e.target.closest(".chip"); if (!c) return; shopFilter = c.dataset.shop; LS.set("shop", shopFilter); shown = 25; render(); };
+$("#themeSeg").onclick = e => { const b = e.target.closest("button"); if (!b) return; THEME = b.dataset.theme; LS.set("theme", THEME); applyTheme(); };
+
+// ---------- ovládání
+$("#checkBtn").onclick = async () => {
+  const b = $("#checkBtn"); b.disabled = true;
+  try { await api("/api/zkontrolovat", {}); } catch (e) { alert(e.message); }
+  b.disabled = false; load();
+};
+$("#shopChips").onclick = e => { const c = e.target.closest("button"); if (!c) return; shopFilter = c.dataset.shop; LS.set("shop", shopFilter); shown = 25; render(); };
 $("#period").onchange = () => { LS.set("period", $("#period").value); shown = 25; render(); };
 $("#search").oninput = () => { shown = 25; renderTable(filtered()); };
 $("#moreBtn").onclick = () => { shown += 50; renderTable(filtered()); };
-document.querySelectorAll(".tab").forEach(el => el.onclick = () => {
-  document.querySelectorAll(".tab").forEach(x => x.classList.toggle("on", x === el)); tab = el.dataset.tab; shown = 25; renderTable(filtered());
-});
 $("#bannerOk").onclick = () => { lastSeen = Math.floor(Date.now() / 1000); LS.set("lastSeen", lastSeen); render(); };
+let resizeT; window.addEventListener("resize", () => { clearTimeout(resizeT); resizeT = setTimeout(() => { if (S && page === "prehled" && S.shopy.length) renderChart(filtered()); }, 150); });
 const tip = $("#tip");
-$("#chart").onmousemove = e => { const txt = e.target.dataset?.tip; if (!txt) { tip.style.display = "none"; return; }
-  tip.textContent = txt; tip.style.display = "block"; tip.style.left = Math.min(e.clientX + 12, innerWidth - tip.offsetWidth - 8) + "px"; tip.style.top = e.clientY + 12 + "px"; };
-$("#chart").onmouseleave = () => tip.style.display = "none";
+$("#chart").onmousemove = e => {
+  const svg = $("#chart svg"); if (!CH || !svg) return;
+  const r = svg.getBoundingClientRect(), px = (e.clientX - r.left) * CH.W / r.width;
+  const i = Math.max(0, Math.min(11, Math.round((px - CH.L) / ((CH.W - CH.L - CH.R) / 11))));
+  const hx = CH.x(i); $("#hover").style.display = ""; $("#hl").setAttribute("x1", hx); $("#hl").setAttribute("x2", hx);
+  CH.series.forEach((ser, si) => { const c = $("#hc" + si); c.setAttribute("cx", hx); c.setAttribute("cy", CH.y(ser[i])); });
+  const [yy, m] = CH.ms[i];
+  tip.innerHTML = `<div class="t">${esc(monthName(m, yy))}</div>` + (CH.shops.length > 1
+    ? CH.shops.map((s, si) => `<div><span class="dot" style="background:${shopColor(s)}"></span> ${esc(s)}: <b class="mono">${esc(fmtMoney(CH.vals[i][si], CH.cur))}</b></div>`).join("") : "")
+    + `<div><b class="mono">${esc(fmtMoney(CH.totals[i], CH.cur))}</b></div>`;
+  tip.style.display = "block"; tip.style.left = Math.min(e.clientX + 14, innerWidth - tip.offsetWidth - 8) + "px"; tip.style.top = e.clientY + 14 + "px";
+};
+$("#chart").onmouseleave = () => { tip.style.display = "none"; const h = $("#hover"); if (h) h.style.display = "none"; };
 
 // ---------- import CSV
 function openImport() {
-  const names = [...new Set(S.shopy.map(s => s.name))];
+  const names = [...new Set((S?.shopy || []).map(s => s.name))];
   $("#shopNames").innerHTML = names.map(n => `<option value="${esc(n)}">`).join("");
   $("#impShop").value = LS.get("impShop", "");
   $("#impResults").innerHTML = "";
@@ -886,7 +1118,6 @@ async function importFiles(files) {
   }
   load();
 }
-$("#importBtn").onclick = openImport;
 $("#impFiles").onchange = e => { importFiles([...e.target.files]); e.target.value = ""; };
 const drop = $("#drop");
 drop.ondragover = e => { e.preventDefault(); drop.classList.add("over"); };
@@ -895,8 +1126,8 @@ drop.ondrop = e => { e.preventDefault(); drop.classList.remove("over"); importFi
 
 applyStatic();
 $("#status").textContent = t("loading");
-setupNotifBtn();
-load();
+route();
+load().then(() => { if (page === "nastaveni") fillSettings(); });
 setInterval(load, 60000);
 </script>
 </body>
