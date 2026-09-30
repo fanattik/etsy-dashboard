@@ -301,7 +301,8 @@ const T = {
     vsPrev: "{sign} {p} % oproti předchozímu období", noneBefore: "předtím žádné", feePct: "{p} % z tržeb",
     netSub: "prodeje minus poplatky a refundace", payoutsN: "{n}× výplata", balSub: "podle posledního pohybu",
     balNone: "v CSV výpisu není, ukáže až Etsy API", shipPending: "zaplaceno, neodesláno", allShipped: "vše odesláno",
-    shipUnknown: "ukáže CSV Orders nebo Etsy API", inCur: "v {cur}", nothing: "V tomto období nic.", noMoves: "V tomto období žádné pohyby.",
+    shipUnknown: "ukáže CSV Orders nebo Etsy API",
+    topUnknown: "Názvy produktů doplní měsíční výpis (Payment Account) nebo CSV Order Items.", inCur: "v {cur}", nothing: "V tomto období nic.", noMoves: "V tomto období žádné pohyby.",
     types: { transaction: "Transakční poplatky", processing: "Poplatky za zpracování platby", listing: "Poplatky za inzerci",
       offsite_ads_fee: "Etsy Ads / Offsite Ads", shipping_transaction: "Poplatky z poštovného", vat_tax_ep: "DPH z poplatků",
       vat: "DPH z poplatků", etsy_ads: "Etsy Ads", sale: "Prodeje", payment: "Prodeje", refund: "Refundace" },
@@ -364,7 +365,8 @@ const T = {
     vsPrev: "{sign} {p}% vs. previous period", noneBefore: "none before", feePct: "{p}% of revenue",
     netSub: "sales minus fees and refunds", payoutsN: "{n}× payout", balSub: "as of the latest transaction",
     balNone: "not in the CSV statement, needs the Etsy API", shipPending: "paid, not shipped", allShipped: "all shipped",
-    shipUnknown: "needs the Orders CSV or the Etsy API", inCur: "in {cur}", nothing: "Nothing in this period.", noMoves: "No transactions in this period.",
+    shipUnknown: "needs the Orders CSV or the Etsy API",
+    topUnknown: "Product names come from the monthly statement (Payment Account) or the Order Items CSV.", inCur: "in {cur}", nothing: "Nothing in this period.", noMoves: "No transactions in this period.",
     types: { transaction: "Transaction fees", processing: "Payment processing fees", listing: "Listing fees",
       offsite_ads_fee: "Etsy Ads / Offsite Ads", shipping_transaction: "Shipping transaction fees", vat_tax_ep: "VAT on fees",
       vat: "VAT on fees", etsy_ads: "Etsy Ads", sale: "Sales", payment: "Sales", refund: "Refunds" },
@@ -431,7 +433,8 @@ const T = {
     vsPrev: "{sign} {p} % ggü. Vorzeitraum", noneBefore: "vorher keine", feePct: "{p} % vom Umsatz",
     netSub: "Verkäufe minus Gebühren und Erstattungen", payoutsN: "{n}× Auszahlung", balSub: "laut letzter Buchung",
     balNone: "nicht im CSV-Auszug, erst mit der Etsy-API", shipPending: "bezahlt, nicht versandt", allShipped: "alles versandt",
-    shipUnknown: "braucht die Orders-CSV oder die Etsy-API", inCur: "in {cur}", nothing: "In diesem Zeitraum nichts.", noMoves: "Keine Buchungen in diesem Zeitraum.",
+    shipUnknown: "braucht die Orders-CSV oder die Etsy-API",
+    topUnknown: "Produktnamen kommen aus dem Monatsauszug (Payment Account) oder der Order-Items-CSV.", inCur: "in {cur}", nothing: "In diesem Zeitraum nichts.", noMoves: "Keine Buchungen in diesem Zeitraum.",
     types: { transaction: "Transaktionsgebühren", processing: "Zahlungsabwicklungsgebühren", listing: "Einstellgebühren",
       offsite_ads_fee: "Etsy Ads / Offsite Ads", shipping_transaction: "Versandtransaktionsgebühren", vat_tax_ep: "USt. auf Gebühren",
       vat: "USt. auf Gebühren", etsy_ads: "Etsy Ads", sale: "Verkäufe", payment: "Verkäufe", refund: "Erstattungen" },
@@ -669,13 +672,13 @@ function renderTop(f) {
   const m = {};
   f.pOrders.forEach(r => r.polozky.split("; ").forEach(it => {
     const mt = it.match(/^(\d+)x (.*)$/); const q = mt ? +mt[1] : 1, name = mt ? mt[2] : it;
-    if (!name) return; m[name] = m[name] || { q: 0, shop: r.shop }; m[name].q += q;
+    if (!name || /^\d+ ks$/.test(it)) return; m[name] = m[name] || { q: 0, shop: r.shop }; m[name].q += q;
   }));
   const top = Object.entries(m).sort((a, b) => b[1].q - a[1].q).slice(0, 8);
   const max = top.length ? top[0][1].q : 1;
   $("#top").innerHTML = top.length ? top.map(([name, v]) =>
     `<li><span>${esc(name)}</span><span class="num">${v.q}×</span><span class="meter"><i style="width:${v.q / max * 100}%;background:${shopColor(v.shop)}"></i></span></li>`).join("")
-    : `<li class="empty">${t("nothing")}</li>`;
+    : `<li class="empty">${f.pOrders.length ? t("topUnknown") : t("nothing")}</li>`;
 }
 
 function renderFees(f) {
