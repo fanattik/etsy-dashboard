@@ -4,7 +4,7 @@ A small local dashboard for Etsy sellers: orders, revenue, Etsy fees, payouts an
 
 ![Dashboard](docs/screenshot.png)
 
-The interface is available in English, Czech and German (switch in the top right corner; it follows your browser language by default). A step-by-step guide in Czech is in [docs/NAVOD.md](docs/NAVOD.md).
+The interface is available in English, Czech and German (switch in *Settings*; it follows your browser language by default). A step-by-step guide in Czech is in [docs/NAVOD.md](docs/NAVOD.md).
 
 ## Features
 
@@ -12,6 +12,7 @@ The interface is available in English, Czech and German (switch in the top right
 - Monthly revenue chart (12 months), best sellers, fee breakdown
 - Orders and payment-account tables with search and CSV export (Excel-friendly)
 - Several shops side by side, filter by shop and period
+- Show all amounts in one currency of your choice (converted at the daily ECB rate)
 - Two ways to get data:
   - **CSV import** (works right away): upload the files from *Shop Manager → Settings → Options → Download Data* (Payment Account statements, Orders, Order Items, Payments). Re-uploading the same file never duplicates anything.
   - **Etsy Open API v3** (automatic every 15 minutes) once your Etsy developer app is approved

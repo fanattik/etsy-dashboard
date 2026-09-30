@@ -92,7 +92,7 @@ dialog::backdrop { background: rgba(0,0,0,.35); }
 .dlg h3 { margin: 0 0 4px; }
 .dlg section { border-top: 1px solid var(--line); padding-top: 14px; margin-top: 14px; }
 .dlg label { display: block; font-size: 13px; color: var(--muted); margin: 10px 0 4px; }
-.dlg input, .dlg textarea { width: 100%; border: 1px solid var(--line); background: var(--panel-2); padding: 8px 10px; border-radius: 10px; }
+.dlg input, .dlg textarea, .dlg select { width: 100%; border: 1px solid var(--line); background: var(--panel-2); padding: 8px 10px; border-radius: 10px; }
 .dlg .hint { font-size: 13px; color: var(--muted); margin: 6px 0 0; }
 .btn.danger { color: var(--bad); border-color: var(--bad); }
 .dlg .actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; flex-wrap: wrap; }
@@ -118,9 +118,6 @@ dialog::backdrop { background: rgba(0,0,0,.35); }
     <button class="btn" id="importBtn" data-i18n="importBtn"></button>
     <button class="btn" id="checkBtn" data-i18n="checkBtn"></button>
     <button class="btn" id="settingsBtn" data-i18n="settingsBtn"></button>
-    <select id="lang" aria-label="Language / Jazyk / Sprache">
-      <option value="cs">CZ</option><option value="en">EN</option><option value="de">DE</option>
-    </select>
   </header>
 
   <div id="welcome" class="card welcome" hidden>
@@ -201,6 +198,16 @@ dialog::backdrop { background: rgba(0,0,0,.35); }
 <dialog id="settings">
   <div class="dlg">
     <h3 data-i18n="settingsTitle"></h3>
+    <label for="lang" data-i18n="langLabel"></label>
+    <select id="lang">
+      <option value="cs">Čeština</option><option value="en">English</option><option value="de">Deutsch</option>
+    </select>
+    <label for="currency" data-i18n="curLabel"></label>
+    <select id="currency"></select>
+    <p class="hint" id="curHint"></p>
+
+    <section>
+    <h3 data-i18n="apiTitle"></h3>
     <p class="hint" data-i18n="setHint"></p>
     <label for="keystring">Keystring</label>
     <input id="keystring" autocomplete="off">
@@ -214,6 +221,7 @@ dialog::backdrop { background: rgba(0,0,0,.35); }
     <input id="ntfy" data-i18n-ph="ntfyPh">
     <div class="actions"><button class="btn primary" id="saveBtn" data-i18n="save"></button></div>
     <div class="msg" id="saveMsg"></div>
+    </section>
 
     <section>
       <h3 data-i18n="shopsTitle"></h3>
@@ -271,7 +279,10 @@ const T = {
     impHint: "Na Etsy: Shop Manager → Settings → Options → <b>Download Data</b>. Stáhni <b>Payment Account</b> CSV (měsíční výpis) za měsíce, které chceš vidět. Pro jména zákazníků a přesné položky přidej i <b>Orders</b> a <b>Order Items</b>. Nahrát stejný soubor znovu nevadí, nic se nezdvojí.",
     impShopLabel: "Shopa, ke které soubory patří", impShopPh: "název shopy na Etsy", impFilesLabel: "Soubory CSV",
     impDrop: `Přetáhni sem CSV soubory, nebo <label for="impFiles" class="link">vyber z počítače</label>`,
-    close: "Zavřít", settingsTitle: "Nastavení",
+    close: "Zavřít", settingsTitle: "Nastavení", langLabel: "Jazyk", curLabel: "Měna",
+    curOriginal: "Původní (bez přepočtu)", apiTitle: "Etsy API",
+    curHint: "Přepočet kurzem ECB ze dne {d}. Pro všechna období se použije tento kurz, starší částky jsou proto orientační.",
+    curNoRates: "Kurzy se nepodařilo stáhnout, částky zůstávají v původní měně.", curOrig: "původně {v}",
     setHint: "Klíče najdeš na etsy.com/developers → Your apps → tvoje aplikace. Ukládají se jen do tohoto počítače.",
     redirectLabel: "Callback URL (musí být stejná jako v Etsy aplikaci)", intervalLabel: "Kontrolovat každých (minut)",
     ntfyLabel: "Upozornění na mobil přes ntfy (nepovinné, název tématu)", ntfyPh: "např. moje-shopa-etsy-8f3k2", save: "Uložit",
@@ -331,7 +342,10 @@ const T = {
     impHint: "On Etsy: Shop Manager → Settings → Options → <b>Download Data</b>. Download the <b>Payment Account</b> CSV (monthly statement) for the months you want to see. For buyer names and exact items, add <b>Orders</b> and <b>Order Items</b> too. Uploading the same file again is fine, nothing gets duplicated.",
     impShopLabel: "Shop these files belong to", impShopPh: "shop name on Etsy", impFilesLabel: "CSV files",
     impDrop: `Drop CSV files here, or <label for="impFiles" class="link">choose from your computer</label>`,
-    close: "Close", settingsTitle: "Settings",
+    close: "Close", settingsTitle: "Settings", langLabel: "Language", curLabel: "Currency",
+    curOriginal: "Original (no conversion)", apiTitle: "Etsy API",
+    curHint: "Converted at the ECB rate from {d}. The same rate is used for every period, so older amounts are approximate.",
+    curNoRates: "Couldn't download exchange rates, amounts stay in their original currency.", curOrig: "originally {v}",
     setHint: "You'll find the keys at etsy.com/developers → Your apps → your app. They are stored only on this computer.",
     redirectLabel: "Callback URL (must match your Etsy app)", intervalLabel: "Check every (minutes)",
     ntfyLabel: "Phone notifications via ntfy (optional, topic name)", ntfyPh: "e.g. my-shop-etsy-8f3k2", save: "Save",
@@ -395,7 +409,10 @@ const T = {
     impHint: "Auf Etsy: Shop Manager → Settings → Options → <b>Download Data</b>. Lade die <b>Payment Account</b>-CSV (Monatsauszug) für die gewünschten Monate herunter. Für Kundennamen und genaue Artikel zusätzlich <b>Orders</b> und <b>Order Items</b>. Dieselbe Datei erneut hochzuladen schadet nicht, nichts wird doppelt gezählt.",
     impShopLabel: "Shop, zu dem die Dateien gehören", impShopPh: "Shopname auf Etsy", impFilesLabel: "CSV-Dateien",
     impDrop: `CSV-Dateien hierher ziehen oder <label for="impFiles" class="link">vom Computer auswählen</label>`,
-    close: "Schließen", settingsTitle: "Einstellungen",
+    close: "Schließen", settingsTitle: "Einstellungen", langLabel: "Sprache", curLabel: "Währung",
+    curOriginal: "Original (ohne Umrechnung)", apiTitle: "Etsy-API",
+    curHint: "Umgerechnet zum EZB-Kurs vom {d}. Dieser Kurs gilt für alle Zeiträume, ältere Beträge sind daher Richtwerte.",
+    curNoRates: "Wechselkurse konnten nicht geladen werden, Beträge bleiben in der Originalwährung.", curOrig: "ursprünglich {v}",
     setHint: "Die Schlüssel findest du unter etsy.com/developers → Your apps → deine App. Sie werden nur auf diesem Computer gespeichert.",
     redirectLabel: "Callback-URL (muss mit deiner Etsy-App übereinstimmen)", intervalLabel: "Prüfen alle (Minuten)",
     ntfyLabel: "Handy-Benachrichtigungen über ntfy (optional, Themenname)", ntfyPh: "z. B. mein-shop-etsy-8f3k2", save: "Speichern",
@@ -479,7 +496,29 @@ async function syncServerLang() {  // aby i upozornění na telefon chodila ve z
   try { await api("/api/nastaveni", { jazyk: LANG }); S.nastaveni.jazyk = LANG; } catch {}
 }
 
-let S = null, D = { objednavky: [], vypis: [] };
+let S = null, D = { objednavky: [], vypis: [] }, RAW = D, RATES = null;
+let CUR = LS.get("currency", "");
+const COMMON_CUR = ["CZK", "EUR", "USD", "GBP", "PLN", "CHF", "CAD", "AUD", "HUF", "SEK", "DKK", "NOK", "JPY"];
+// přepočet všech částek do zvolené měny (kurzy ECB: 1 EUR = x měny)
+function convertData() {
+  const k = RATES?.kurzy;
+  if (!CUR || !k || !k[CUR]) { D = RAW; return; }
+  const cv = (v, from) => v === null || v === undefined || !k[from] ? v : v / k[from] * k[CUR];
+  const map = (r, keys) => {
+    if (r.mena === CUR || !k[r.mena]) return r;
+    const o = { ...r, mena: CUR, puv: [r[keys[0]], r.mena] };
+    keys.forEach(x => o[x] = cv(r[x], r.mena)); return o;
+  };
+  D = { ...RAW, objednavky: RAW.objednavky.map(r => map(r, ["celkem"])), vypis: RAW.vypis.map(r => map(r, ["castka", "zustatek"])) };
+}
+function origTitle(r) { return r.puv ? ` title="${esc(t("curOrig", { v: fmtMoney(r.puv[0], r.puv[1]) }))}"` : ""; }
+function buildCurrency() {
+  const k = RATES?.kurzy, list = k ? Object.keys(k).sort() : COMMON_CUR;
+  const opts = [["", t("curOriginal")]].concat([...new Set(COMMON_CUR.filter(c => list.includes(c)).concat(list))].map(c => [c, c]));
+  $("#currency").innerHTML = opts.map(([v, txt]) => `<option value="${v}">${esc(txt)}</option>`).join("");
+  $("#currency").value = CUR;
+  $("#curHint").textContent = !CUR ? "" : k ? t("curHint", { d: RATES.datum ? new Date(RATES.datum + "T12:00").toLocaleDateString(loc()) : "?" }) : t("curNoRates");
+}
 let shopFilter = LS.get("shop", "all"), tab = "orders", shown = 25;
 let lastSeen = LS.get("lastSeen", 0);
 
@@ -662,10 +701,10 @@ function renderTable(f) {
   let html;
   if (tab === "orders") {
     html = `<thead><tr><th>${t("colDate")}</th>${shopTh}<th>${t("colBuyer")}</th><th>${t("colItems")}</th><th class="num">${t("colTotal")}</th><th>${t("colStatus")}</th></tr></thead><tbody>` +
-      rows.slice(0, shown).map(r => `<tr class="${r.pridano_ts > lastSeen ? "new" : ""}"><td class="nw">${fmtDate(r.vytvoreno_ts)}</td>${shopTd(r)}<td>${esc(r.zakaznik)}</td><td class="items">${esc(r.polozky)}</td><td class="num">${fmtMoney(r.celkem, r.mena)}</td><td>${r.zaplaceno && r.odeslano === 0 ? `<span class="pill ship">${t("kToShip")}</span>` : `<span class="pill">${esc(tMap("statuses", r.stav) || r.stav)}</span>`}</td></tr>`).join("");
+      rows.slice(0, shown).map(r => `<tr class="${r.pridano_ts > lastSeen ? "new" : ""}"><td class="nw">${fmtDate(r.vytvoreno_ts)}</td>${shopTd(r)}<td>${esc(r.zakaznik)}</td><td class="items">${esc(r.polozky)}</td><td class="num"${origTitle(r)}>${fmtMoney(r.celkem, r.mena)}</td><td>${r.zaplaceno && r.odeslano === 0 ? `<span class="pill ship">${t("kToShip")}</span>` : `<span class="pill">${esc(tMap("statuses", r.stav) || r.stav)}</span>`}</td></tr>`).join("");
   } else {
     html = `<thead><tr><th>${t("colDate")}</th>${shopTh}<th>${t("colDesc")}</th><th>${t("colType")}</th><th class="num">${t("colAmount")}</th><th class="num">${t("colBalance")}</th></tr></thead><tbody>` +
-      rows.slice(0, shown).map(r => `<tr class="${r.pridano_ts > lastSeen ? "new" : ""}"><td class="nw">${fmtDate(r.datum_ts)}</td>${shopTd(r)}<td>${esc(r.popis)}</td><td><span class="pill">${esc(r.typ)}</span></td><td class="num ${r.castka < 0 ? "neg" : "pos"}">${fmtMoney(r.castka, r.mena)}</td><td class="num">${r.zustatek === null ? "–" : fmtMoney(r.zustatek, r.mena)}</td></tr>`).join("");
+      rows.slice(0, shown).map(r => `<tr class="${r.pridano_ts > lastSeen ? "new" : ""}"><td class="nw">${fmtDate(r.datum_ts)}</td>${shopTd(r)}<td>${esc(r.popis)}</td><td><span class="pill">${esc(r.typ)}</span></td><td class="num ${r.castka < 0 ? "neg" : "pos"}"${origTitle(r)}>${fmtMoney(r.castka, r.mena)}</td><td class="num">${r.zustatek === null ? "–" : fmtMoney(r.zustatek, r.mena)}</td></tr>`).join("");
   }
   $("#table").innerHTML = rows.length ? html + "</tbody>" : `<tbody><tr><td class="empty">${t("nothing")}</td></tr></tbody>`;
   $("#moreBtn").hidden = rows.length <= shown;
@@ -704,7 +743,9 @@ let notified = LS.get("notified", 0);
 async function load() {
   try {
     S = await api("/api/stav");
-    D = await api("/api/data");
+    RAW = await api("/api/data");
+    if (!RATES || Date.now() / 1000 - (RATES.stazeno || 0) > 12 * 3600) RATES = await api("/api/kurzy").catch(() => RATES);
+    convertData();
     const prev = $("#period").value; buildPeriods(); if (prev) $("#period").value = prev;
     render();
     notifyNew();
@@ -738,7 +779,7 @@ function openSettings() {
   $("#verze").textContent = S.verze || "";
   $("#updMsg").textContent = "";
   $("#saveMsg").textContent = ""; $("#authMsg").textContent = ""; $("#authStep").hidden = true;
-  renderShopList();
+  renderShopList(); buildCurrency();
   if (!settings.open) settings.showModal();
 }
 function renderShopList() {
@@ -799,7 +840,14 @@ $("#lang").onchange = () => {
   if (!S) return;
   const prev = $("#period").value; buildPeriods(); $("#period").value = prev;
   render(); syncServerLang();
-  if (settings.open) { $("#secret").placeholder = S.nastaveni.ma_secret ? t("secretSaved") : ""; renderShopList(); }
+  if (settings.open) { $("#secret").placeholder = S.nastaveni.ma_secret ? t("secretSaved") : ""; renderShopList(); buildCurrency(); }
+};
+$("#currency").onchange = async () => {
+  CUR = $("#currency").value; LS.set("currency", CUR);
+  if (CUR && !RATES?.kurzy) RATES = await api("/api/kurzy").catch(() => null);
+  buildCurrency(); convertData();
+  if (!S) return;
+  const prev = $("#period").value; buildPeriods(); $("#period").value = prev; render();
 };
 $("#shopChips").onclick = e => { const c = e.target.closest(".chip"); if (!c) return; shopFilter = c.dataset.shop; LS.set("shop", shopFilter); shown = 25; render(); };
 $("#period").onchange = () => { LS.set("period", $("#period").value); shown = 25; render(); };

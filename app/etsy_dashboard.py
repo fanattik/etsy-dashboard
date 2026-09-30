@@ -40,15 +40,18 @@ AUTH_URL = "https://www.etsy.com/oauth/connect"
 TOKEN_URL = "https://api.etsy.com/v3/public/oauth/token"
 SCOPES = "transactions_r shops_r profile_r"
 PORT = 8765
-VERSION = "1.5"
+VERSION = "1.6"
 UPDATE_BASE = os.environ.get("ETSY_DASHBOARD_UPDATE_URL") or "https://raw.githubusercontent.com/fanattik/etsy-dashboard/main/app/"
 UPDATE_EVERY = 24 * 3600
+RATES_URL = os.environ.get("ETSY_DASHBOARD_RATES_URL") or "https://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml"
+RATES_EVERY = 12 * 3600
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 CONFIG_PATH = os.path.join(BASE_DIR, "config.json")
 DATA_DIR = os.path.join(BASE_DIR, "data")
 TOKENS_PATH = os.path.join(DATA_DIR, "tokens.json")
 DB_PATH = os.path.join(DATA_DIR, "etsy.db")
+RATES_PATH = os.path.join(DATA_DIR, "kurzy.json")
 DASHBOARD_PATH = os.path.join(BASE_DIR, "dashboard.html")
 
 LEDGER_CHUNK = 30 * 24 * 3600  # výpis stahujeme po 30denních oknech
@@ -446,6 +449,36 @@ def watcher_loop():
         time.sleep(max(5, int(cfg.get("interval_minut", 15))) * 60)
 
 
+# ------------------------------------------------------------- směnné kurzy
+
+def get_rates():
+    """Denní kurzy ECB (1 EUR = x měny), uložené v data/kurzy.json. Při chybě vrátí poslední uložené."""
+    cached = {}
+    if os.path.exists(RATES_PATH):
+        try:
+            with open(RATES_PATH, encoding="utf-8") as f:
+                cached = json.load(f)
+        except (OSError, ValueError):
+            cached = {}
+    if time.time() - cached.get("stazeno", 0) < RATES_EVERY:
+        return cached
+    try:
+        with urllib.request.urlopen(RATES_URL, timeout=15, context=SSL_CTX) as resp:
+            xml = resp.read().decode("utf-8", "replace")
+        rates = {c: float(r) for c, r in _re.findall(r"currency=['\"](\w{3})['\"]\s+rate=['\"]([\d.]+)['\"]", xml)}
+        if not rates:
+            raise ValueError("v odpovědi ECB nejsou kurzy")
+        rates["EUR"] = 1.0
+        day = _re.search(r"time=['\"]([\d-]+)['\"]", xml)
+        cached = {"datum": day.group(1) if day else "", "stazeno": int(time.time()), "kurzy": rates}
+        os.makedirs(DATA_DIR, exist_ok=True)
+        with open(RATES_PATH, "w", encoding="utf-8") as f:
+            json.dump(cached, f)
+    except Exception as e:
+        print(f"(Kurzy ECB se nepodařilo stáhnout: {e})")
+    return cached
+
+
 # -------------------------------------------------------------- data pro web
 
 def rows_as_dicts(con, sql):
@@ -831,6 +864,8 @@ class Handler(BaseHTTPRequestHandler):
             return self.send(200, self.state())
         if path == "/api/data":
             return self.send(200, dashboard_data(self.db_path))
+        if path == "/api/kurzy":
+            return self.send(200, get_rates())
         if path in ("/export/objednavky.csv", "/export/vypis.csv"):
             kind = path.split("/")[-1].split(".")[0]
             lang = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query).get("lang", ["cs"])[0]
