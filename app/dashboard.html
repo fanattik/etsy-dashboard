@@ -111,8 +111,6 @@ input:focus, select:focus, textarea:focus { outline: 2px solid color-mix(in srgb
 .st-tile .head { color: var(--muted); font-size: 13px; }
 .st-tile .value { font-size: 24px; margin: 8px 0 6px; letter-spacing: -.02em; }
 .st-tile .sub { font-size: 12.5px; color: var(--muted); line-height: 1.45; }
-.st-traffic { margin-bottom: 10px; }
-.st-traffic .hint a { color: var(--text); text-decoration: underline; }
 @media (max-width: 900px) { .st-charts { grid-template-columns: 1fr; } .st-tiles { grid-template-columns: 1fr 1fr; } }
 @media (max-width: 520px) { .st-tiles { grid-template-columns: 1fr; } }
 .big { font-size: 30px; font-weight: 400; letter-spacing: -.03em; line-height: 1.1; }
@@ -402,7 +400,6 @@ dialog::backdrop { background: rgba(0,0,0,.4); }
       <p class="hint st-note" id="stNote"></p>
       <h2 class="st-h" data-i18n="stShopper"></h2>
       <div class="grid st-tiles" id="stTiles"></div>
-      <div class="card st-traffic"><div class="card-h"><h2 data-i18n="stTrafficTitle"></h2></div><p class="hint" id="stTraffic"></p></div>
       <div class="card">
         <div class="card-h"><div><h2 id="stLHead"></h2><span class="note" id="stLSub"></span></div></div>
         <div class="tablewrap"><table id="stTable"></table></div>
@@ -1184,12 +1181,13 @@ function renderKpis(f) {
 }
 
 let CH = null;  // data grafu pro tooltip
-function smooth(pts) {  // hladká křivka přes body (Catmull-Rom → Bézier)
+function smooth(pts, floor) {  // hladká křivka přes body (Catmull-Rom → Bézier); floor = y nuly, pod kterou křivka nesmí klesnout
   if (pts.length < 2) return "";
   let d = `M${pts[0][0]},${pts[0][1]}`;
   for (let i = 0; i < pts.length - 1; i++) {
     const p0 = pts[i - 1] || pts[i], p1 = pts[i], p2 = pts[i + 1], p3 = pts[i + 2] || p2;
     const c1 = [p1[0] + (p2[0] - p0[0]) / 6, p1[1] + (p2[1] - p0[1]) / 6], c2 = [p2[0] - (p3[0] - p1[0]) / 6, p2[1] - (p3[1] - p1[1]) / 6];
+    if (floor != null) { c1[1] = Math.min(c1[1], floor); c2[1] = Math.min(c2[1], floor); }
     d += ` C${c1[0]},${c1[1]} ${c2[0]},${c2[1]} ${p2[0]},${p2[1]}`;
   }
   return d;
@@ -1477,21 +1475,23 @@ function statBuckets(a, b) {  // dny (do ~2 měsíců), jinak měsíce
   }
   return out;
 }
+let SCH = {};  // data grafů ve Statistikách pro najetí myší
 function statChart(id, buckets, vals, fmt, color) {
   const W = 560, H = 190, L = 40, R = 8, T0 = 8, B = 24, n = vals.length;
-  const max = Math.max(...vals, 0) || 1, step = niceStep(max), top = Math.ceil(max / step) * step || 1;
+  const max = Math.max(...vals, 0) || 1, step = vals.every(Number.isInteger) ? Math.max(1, Math.ceil(niceStep(max))) : niceStep(max), top = Math.ceil(max / step) * step || 1;
   const x = i => n < 2 ? (L + W - R) / 2 : L + (W - L - R) * i / (n - 1), y = v => H - B - (v / top) * (H - B - T0);
   let svg = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img">`;
   for (let g = 0; g <= top + 1e-9; g += step)
     svg += `<line x1="${L}" x2="${W - R}" y1="${y(g)}" y2="${y(g)}" stroke="var(--line)" stroke-dasharray="${g ? "2 4" : ""}"/><text x="${L - 8}" y="${y(g) + 4}" text-anchor="end">${esc(fmt(g, true))}</text>`;
   const pts = vals.map((v, i) => [x(i), y(v)]);
-  if (n > 1) svg += `<path d="${smooth(pts)}" fill="none" stroke="${color}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>`;
+  if (n > 1) svg += `<path d="${smooth(pts, y(0))}" fill="none" stroke="${color}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>`;
   const every = Math.ceil(n / 7);
   pts.forEach(([px, py], i) => {
     if (n <= 31) svg += `<circle cx="${px}" cy="${py}" r="3" fill="${color}"/>`;
-    svg += `<rect x="${px - (W - L - R) / Math.max(n, 1) / 2}" y="${T0}" width="${(W - L - R) / Math.max(n, 1)}" height="${H - B - T0}" fill="transparent"><title>${esc(buckets[i].long)}: ${esc(fmt(vals[i]))}</title></rect>`;
     if (i % every === 0 || i === n - 1) svg += `<text x="${px}" y="${H - 6}" text-anchor="${i === 0 ? "start" : i === n - 1 ? "end" : "middle"}">${esc(buckets[i].lbl)}</text>`;
   });
+  svg += `<g class="sth" style="display:none"><line y1="${T0}" y2="${H - B}" stroke="var(--faint)" stroke-dasharray="3 3"/><circle r="4.5" fill="var(--panel)" stroke="${color}" stroke-width="2"/></g>`;
+  SCH[id] = { W, L, R, n, x, y, vals, buckets, fmt };
   return svg + "</svg>";
 }
 function renderStats(f) {
@@ -1521,12 +1521,12 @@ function renderStats(f) {
   const cards = [
     ["stViews", nf(tv), hasPrevViews ? trend(tv, pViews) : null, views, v => nf(v), "var(--brand)", tv ? t("stViewsSub") : t("stNoViews")],
     ["stOrders", nf(to), trend(to, pOrders.length), ordN, v => nf(v), "var(--shop-2)", t("vsPrevN", { n: pOrders.length })],
-    ["stConv", tv ? pct(orders.filter(r => st.od && r.vytvoreno_ts >= dts(st.od) + 43200).length / tv * 100) : "–", null, conv, (v, ax) => ax ? Math.round(v) + "%" : pct(v), "var(--shop-3)", t("stConvSub")],
+    ["stConv", tv ? pct(orders.filter(r => st.od && r.vytvoreno_ts >= dts(st.od) + 43200).length / tv * 100) : "–", null, conv, (v, ax) => ax ? (+v.toFixed(2)).toLocaleString(loc()) + "%" : pct(v), "var(--shop-3)", t("stConvSub")],
     ["stRevenue", moneyHtml(revAll), oneCur ? trend(rev.reduce((s, v) => s + v, 0), pOrders.filter(r => r.mena === cur).reduce((s, r) => s + r.celkem, 0)) : null, rev,
-      (v, ax) => ax ? Math.round(v).toLocaleString(loc()) : fmtMoney(v, cur), "var(--shop-4)", oneCur ? "" : t("inCur", { cur })],
+      (v, ax) => ax ? (+v.toFixed(2)).toLocaleString(loc()) : fmtMoney(v, cur), "var(--shop-4)", oneCur ? "" : t("inCur", { cur })],
   ];
   $("#stCharts").innerHTML = cards.map(([k, val, tr, ser, fmt, col, sub]) => `<div class="card st-chart"><div class="kpi"><div class="head">${esc(t(k))}${tr ? tr.pill : ""}</div></div>
-      <div class="value">${val}</div><div class="sub">${esc(sub || "")}</div><div class="plot">${buckets.length ? statChart(k, buckets, ser, fmt, col) : ""}</div></div>`).join("");
+      <div class="value">${val}</div><div class="sub">${esc(sub || "")}</div><div class="plot" data-ch="${k}">${buckets.length ? statChart(k, buckets, ser, fmt, col) : ""}</div></div>`).join("");
   $("#stNote").textContent = st.od ? t("stNote", { d: new Date(st.od + "T12:00").toLocaleDateString(loc()) }) : t("stNoHistory");
 
   // zákazníci
@@ -1559,7 +1559,6 @@ function renderStats(f) {
     [t("stCountries"), known ? nf(Object.keys(ctryCnt).length) : "–", known ? (top3(ctryCnt) || "–") : t("stInfoNone")],
   ];
   $("#stTiles").innerHTML = tiles.map(([h, v, sub]) => `<div class="card st-tile"><div class="head">${esc(h)}</div><div class="value">${v}</div><div class="sub">${esc(sub)}</div></div>`).join("");
-  $("#stTraffic").innerHTML = t("stTrafficText");
 
   // listingy
   const all = D.listingy.filter(l => byShop(l.shop));
@@ -1856,6 +1855,18 @@ $("#chart").onmousemove = e => {
     + `<div><b class="mono">${esc(fmtMoney(CH.totals[i], CH.cur))}</b></div>`;
   tip.style.display = "block"; tip.style.left = Math.min(e.clientX + 14, innerWidth - tip.offsetWidth - 8) + "px"; tip.style.top = e.clientY + 14 + "px";
 };
+$("#stCharts").onmousemove = e => {
+  const plot = e.target.closest(".plot"), c = plot && SCH[plot.dataset.ch], svg = plot && plot.querySelector("svg");
+  document.querySelectorAll("#stCharts .sth").forEach(g => { if (!plot || !plot.contains(g)) g.style.display = "none"; });
+  if (!c || !svg) { tip.style.display = "none"; return; }
+  const r = svg.getBoundingClientRect(), px = (e.clientX - r.left) * c.W / r.width;
+  const i = c.n < 2 ? 0 : Math.max(0, Math.min(c.n - 1, Math.round((px - c.L) / ((c.W - c.L - c.R) / (c.n - 1)))));
+  const hx = c.x(i), g = svg.querySelector(".sth"), ln = g.querySelector("line"), dot = g.querySelector("circle");
+  g.style.display = ""; ln.setAttribute("x1", hx); ln.setAttribute("x2", hx); dot.setAttribute("cx", hx); dot.setAttribute("cy", c.y(c.vals[i]));
+  tip.innerHTML = `<div class="t">${esc(c.buckets[i].long)}</div><div><b class="mono">${esc(c.fmt(c.vals[i]))}</b></div>`;
+  tip.style.display = "block"; tip.style.left = Math.min(e.clientX + 14, innerWidth - tip.offsetWidth - 8) + "px"; tip.style.top = e.clientY + 14 + "px";
+};
+$("#stCharts").onmouseleave = () => { tip.style.display = "none"; document.querySelectorAll("#stCharts .sth").forEach(g => g.style.display = "none"); };
 $("#chart").onmouseleave = () => { tip.style.display = "none"; const h = $("#hover"); if (h) h.style.display = "none"; };
 
 // ---------- import CSV
@@ -2510,8 +2521,6 @@ const T7 = {
     stReviews: "Recenze", stReviewsSub: "průměr {r} ★", stReviewsNone: "v tomto období žádné",
     stRepeat: "Opakovaní kupující", stRepeatSub: "z {n} kupujících v období", stInfoNone: "doplní se po další kontrole přes Etsy API",
     stCities: "Města", stCountries: "Země",
-    stTrafficTitle: "Odkud zákazníci přišli",
-    stTrafficText: 'Zdroje návštěv (Etsy vyhledávání, reklamy, sociální sítě…), počet návštěv shopy a opuštěné košíky Etsy přes API nesdílí. Najdeš je v <a href="https://www.etsy.com/your/shops/me/stats" target="_blank" rel="noopener">Shop Manager → Stats</a>.',
     stLHead: "Listingy si lidé zobrazili {n}×", stLSub: "{n} s aktivitou v tomto období", stLNone: "V tomto období žádná zobrazení ani prodeje.",
   },
   en: {
@@ -2524,8 +2533,6 @@ const T7 = {
     stReviews: "Reviews", stReviewsSub: "average {r} ★", stReviewsNone: "none in this period",
     stRepeat: "Repeat buyers", stRepeatSub: "of {n} buyers in the period", stInfoNone: "filled in after the next Etsy API check",
     stCities: "Cities", stCountries: "Countries",
-    stTrafficTitle: "How shoppers found you",
-    stTrafficText: 'Traffic sources (Etsy search, ads, social media…), shop visits and abandoned carts are not available through the Etsy API. See them in <a href="https://www.etsy.com/your/shops/me/stats" target="_blank" rel="noopener">Shop Manager → Stats</a>.',
     stLHead: "Shoppers viewed your listings {n} times", stLSub: "{n} with activity in this period", stLNone: "No views or sales in this period.",
   },
   de: {
@@ -2538,8 +2545,6 @@ const T7 = {
     stReviews: "Bewertungen", stReviewsSub: "Durchschnitt {r} ★", stReviewsNone: "keine in diesem Zeitraum",
     stRepeat: "Stammkunden", stRepeatSub: "von {n} Käufern im Zeitraum", stInfoNone: "wird nach der nächsten Etsy-API-Prüfung ergänzt",
     stCities: "Städte", stCountries: "Länder",
-    stTrafficTitle: "Wie Käufer dich gefunden haben",
-    stTrafficText: 'Besucherquellen (Etsy-Suche, Werbung, soziale Medien…), Shop-Besuche und verlassene Warenkörbe gibt die Etsy-API nicht heraus. Du findest sie unter <a href="https://www.etsy.com/your/shops/me/stats" target="_blank" rel="noopener">Shop Manager → Stats</a>.',
     stLHead: "Deine Angebote wurden {n}× aufgerufen", stLSub: "{n} mit Aktivität in diesem Zeitraum", stLNone: "Keine Aufrufe oder Verkäufe in diesem Zeitraum.",
   },
 };
