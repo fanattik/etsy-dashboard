@@ -41,7 +41,7 @@ AUTH_URL = "https://www.etsy.com/oauth/connect"
 TOKEN_URL = "https://api.etsy.com/v3/public/oauth/token"
 SCOPES = "transactions_r shops_r profile_r listings_r"
 PORT = 8765
-VERSION = "1.13"
+VERSION = "1.14"
 UPDATE_BASE = os.environ.get("ETSY_DASHBOARD_UPDATE_URL") or "https://raw.githubusercontent.com/fanattik/etsy-dashboard/main/app/"
 UPDATE_EVERY = 24 * 3600
 RATES_URL = os.environ.get("ETSY_DASHBOARD_RATES_URL") or "https://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml"
@@ -305,6 +305,9 @@ def db(path=None):
         sku TEXT, vytvoreno_ts INTEGER, zmeneno_ts INTEGER, pridano_ts INTEGER, popis TEXT)""")
     if "popis" not in {r[1] for r in con.execute("PRAGMA table_info(listingy)")}:  # tabulka z verze 1.10
         con.execute("ALTER TABLE listingy ADD COLUMN popis TEXT")
+    con.execute("""CREATE TABLE IF NOT EXISTS doprava (
+        receipt_id INTEGER PRIMARY KEY, dopravce TEXT, cislo TEXT, cena REAL, mena TEXT,
+        zmeneno_ts INTEGER)""")  # ruční údaje, import ani synchronizace je nepřepíšou
     con.execute("""CREATE TABLE IF NOT EXISTS csv_polozky (
         receipt_id INTEGER PRIMARY KEY, polozky TEXT)""")
     con.execute("""CREATE TABLE IF NOT EXISTS stav (
@@ -346,6 +349,14 @@ def check_shop(cfg, tokens, con, shop_id):
     for r in api_get_all(cfg, tokens, shop_id, f"/shops/{shop_id}/receipts", params):
         total, cur = money(r.get("grandtotal"))
         items = "; ".join(f"{t.get('quantity', 1)}x {t.get('title', '')}" for t in r.get("transactions", []))
+        ship = next((x for x in r.get("shipments") or [] if x.get("carrier_name") or x.get("tracking_code")), None)
+        if ship:  # dopravce a číslo zásilky z Etsy, jen když je uživatel nevyplnil sám
+            con.execute("INSERT OR IGNORE INTO doprava VALUES (?,?,?,?,?,?)",
+                        (r["receipt_id"], "", "", None, "", 0))
+            con.execute("UPDATE doprava SET dopravce=? WHERE receipt_id=? AND dopravce=''",
+                        (ship.get("carrier_name") or "", r["receipt_id"]))
+            con.execute("UPDATE doprava SET cislo=? WHERE receipt_id=? AND cislo=''",
+                        (ship.get("tracking_code") or "", r["receipt_id"]))
         old = con.execute("SELECT stav, pridano_ts FROM objednavky WHERE receipt_id=?", (r["receipt_id"],)).fetchone()
         added = old[1] if old else (0 if first else now)
         con.execute("INSERT OR REPLACE INTO objednavky VALUES (?,?,?,?,?,?,?,?,?,?,?,?)", (
@@ -566,23 +577,24 @@ def dashboard_data(db_path=None):
         "objednavky": rows_as_dicts(con, "SELECT * FROM objednavky ORDER BY vytvoreno_ts DESC"),
         "vypis": rows_as_dicts(con, "SELECT * FROM vypis ORDER BY datum_ts DESC, entry_id DESC"),
         "listingy": rows_as_dicts(con, "SELECT * FROM listingy ORDER BY nazev"),
+        "doprava": rows_as_dicts(con, "SELECT * FROM doprava"),
     }
     con.close()
     return data
 
 
 CSV_HEADERS = {
-    "cs": {"listing_id": "ID listingu", "nazev": "Název", "cena": "Cena", "mnozstvi": "Skladem", "zobrazeni": "Zobrazení", "oblibene": "Oblíbené", "stitky": "Štítky", "sku": "SKU", "url": "Odkaz", "shop": "Shopa", "receipt_id": "Číslo objednávky", "vytvoreno_ts": "Datum", "zakaznik": "Zákazník",
+    "cs": {"dopravce": "Dopravce", "cislo_zasilky": "Číslo zásilky", "cena_dopravy": "Cena dopravy", "mena_dopravy": "Měna dopravy", "listing_id": "ID listingu", "nazev": "Název", "cena": "Cena", "mnozstvi": "Skladem", "zobrazeni": "Zobrazení", "oblibene": "Oblíbené", "stitky": "Štítky", "sku": "SKU", "url": "Odkaz", "shop": "Shopa", "receipt_id": "Číslo objednávky", "vytvoreno_ts": "Datum", "zakaznik": "Zákazník",
            "polozky": "Položky", "celkem": "Celkem", "mena": "Měna", "zaplaceno": "Zaplaceno",
            "odeslano": "Odesláno", "stav": "Stav", "entry_id": "ID pohybu", "datum_ts": "Datum",
            "typ": "Typ", "popis": "Popis", "castka": "Částka", "zustatek": "Zůstatek",
            "reference": "Reference"},
-    "en": {"listing_id": "Listing ID", "nazev": "Title", "cena": "Price", "mnozstvi": "Quantity", "zobrazeni": "Views", "oblibene": "Favorites", "stitky": "Tags", "sku": "SKU", "url": "URL", "shop": "Shop", "receipt_id": "Order ID", "vytvoreno_ts": "Date", "zakaznik": "Buyer",
+    "en": {"dopravce": "Carrier", "cislo_zasilky": "Tracking number", "cena_dopravy": "Shipping cost", "mena_dopravy": "Shipping currency", "listing_id": "Listing ID", "nazev": "Title", "cena": "Price", "mnozstvi": "Quantity", "zobrazeni": "Views", "oblibene": "Favorites", "stitky": "Tags", "sku": "SKU", "url": "URL", "shop": "Shop", "receipt_id": "Order ID", "vytvoreno_ts": "Date", "zakaznik": "Buyer",
            "polozky": "Items", "celkem": "Total", "mena": "Currency", "zaplaceno": "Paid",
            "odeslano": "Shipped", "stav": "Status", "entry_id": "Entry ID", "datum_ts": "Date",
            "typ": "Type", "popis": "Description", "castka": "Amount", "zustatek": "Balance",
            "reference": "Reference"},
-    "de": {"listing_id": "Angebots-ID", "nazev": "Titel", "cena": "Preis", "mnozstvi": "Bestand", "zobrazeni": "Aufrufe", "oblibene": "Favoriten", "stitky": "Tags", "sku": "SKU", "url": "Link", "shop": "Shop", "receipt_id": "Bestellnr.", "vytvoreno_ts": "Datum", "zakaznik": "Kunde",
+    "de": {"dopravce": "Versanddienst", "cislo_zasilky": "Sendungsnummer", "cena_dopravy": "Versandkosten", "mena_dopravy": "Versandwährung", "listing_id": "Angebots-ID", "nazev": "Titel", "cena": "Preis", "mnozstvi": "Bestand", "zobrazeni": "Aufrufe", "oblibene": "Favoriten", "stitky": "Tags", "sku": "SKU", "url": "Link", "shop": "Shop", "receipt_id": "Bestellnr.", "vytvoreno_ts": "Datum", "zakaznik": "Kunde",
            "polozky": "Artikel", "celkem": "Gesamt", "mena": "Währung", "zaplaceno": "Bezahlt",
            "odeslano": "Versandt", "stav": "Status", "entry_id": "Buchungsnr.", "datum_ts": "Datum",
            "typ": "Typ", "popis": "Beschreibung", "castka": "Betrag", "zustatek": "Saldo",
@@ -595,8 +607,10 @@ def csv_export(kind, db_path=None, lang="cs"):
     con = db(db_path)
     if kind == "objednavky":
         cols = ["shop", "receipt_id", "vytvoreno_ts", "zakaznik", "polozky", "celkem", "mena",
-                "zaplaceno", "odeslano", "stav"]
-        rows = con.execute(f"SELECT {','.join(cols)} FROM objednavky ORDER BY shop, vytvoreno_ts").fetchall()
+                "zaplaceno", "odeslano", "stav", "dopravce", "cislo_zasilky", "cena_dopravy", "mena_dopravy"]
+        rows = con.execute("SELECT o.shop, o.receipt_id, o.vytvoreno_ts, o.zakaznik, o.polozky, o.celkem, o.mena, "
+                           "o.zaplaceno, o.odeslano, o.stav, d.dopravce, d.cislo, d.cena, d.mena FROM objednavky o "
+                           "LEFT JOIN doprava d ON d.receipt_id=o.receipt_id ORDER BY o.shop, o.vytvoreno_ts").fetchall()
     elif kind == "listingy":
         cols = ["shop", "listing_id", "nazev", "stav", "cena", "mena", "mnozstvi", "zobrazeni", "oblibene",
                 "stitky", "sku", "url"]
@@ -624,6 +638,33 @@ def csv_export(kind, db_path=None, lang="cs"):
 
 
 # -------------------------------------------------------------- ukázková data
+
+def save_shipping(body, db_path=None):
+    try:
+        rid = int(body.get("receipt_id"))
+    except (TypeError, ValueError):
+        raise AppError("ship_bad", "Chybí číslo objednávky.")
+    cena = body.get("cena")
+    if cena in (None, ""):
+        cena = None
+    else:
+        try:
+            cena = round(float(str(cena).replace(",", ".").replace(" ", "")), 2)
+        except ValueError:
+            raise AppError("ship_price", "Cena dopravy musí být číslo.")
+    vals = [str(body.get(k) or "").strip()[:200] for k in ("dopravce", "cislo", "mena")]
+    con = db(db_path)
+    try:
+        if not vals[0] and not vals[1] and cena is None:
+            con.execute("DELETE FROM doprava WHERE receipt_id=?", (rid,))
+        else:
+            con.execute("INSERT OR REPLACE INTO doprava VALUES (?,?,?,?,?,?)",
+                        (rid, vals[0], vals[1], cena, vals[2].upper(), int(time.time())))
+        con.commit()
+    finally:
+        con.close()
+    return {"ok": True}
+
 
 def make_demo_db(path):
     if os.path.exists(path):
@@ -696,6 +737,11 @@ def make_demo_db(path):
                 ts = int(day.replace(hour=5, minute=0).timestamp())
                 con.execute("INSERT INTO vypis VALUES (?,?,?,?,?,?,?,?,?,?)", (
                     shop, eid, ts, "offsite_ads_fee", "Etsy Ads", amt, "USD", round(balance, 2), "", 0))
+    for (rid, ts) in con.execute("SELECT receipt_id, vytvoreno_ts FROM objednavky WHERE shop='DemoHandmade' AND odeslano=1").fetchall():
+        if rnd.random() < .8:
+            carrier = rnd.choice(["Zásilkovna", "Česká pošta", "PPL", "DPD"])
+            con.execute("INSERT INTO doprava VALUES (?,?,?,?,?,?)", (rid, carrier, f"Z{rnd.randint(10**9, 10**10 - 1)}",
+                        rnd.choice([3.2, 3.9, 4.6, 5.8]), "USD", ts))
     con.commit()
     con.close()
 
@@ -1024,7 +1070,7 @@ class Handler(BaseHTTPRequestHandler):
             return self.send(403, {"chyba": "zakázáno"})
         try:
             body = self.read_json()
-            if self.demo and path != "/api/zkontrolovat":
+            if self.demo and path not in ("/api/zkontrolovat", "/api/doprava"):
                 return self.send(400, {"chyba": "V ukázkovém režimu nejde nic měnit.", "kod": "demo"})
             if path == "/api/nastaveni":
                 cfg = load_config()
@@ -1055,6 +1101,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send(200, {"ok": True})
             if path == "/api/aktualizace":
                 return self.send(200, check_update())
+            if path == "/api/doprava":
+                return self.send(200, save_shipping(body, self.db_path))
             if path == "/api/import":
                 return self.send(200, import_csv(body.get("shop"), body.get("soubor", ""),
                                                  body.get("obsah", ""), self.db_path))
