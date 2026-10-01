@@ -79,7 +79,7 @@ if [ "$needs_install" = 1 ]; then
   fi
 
   mkdir -p "$APP_DIR" "$HOME/Library/LaunchAgents"
-  cp "$RES/etsy_dashboard.py" "$RES/dashboard.html" "$APP_DIR/"
+  cp "$RES"/*.py "$RES/dashboard.html" "$APP_DIR/"
   cat > "$PLIST" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">

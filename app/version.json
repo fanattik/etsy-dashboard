@@ -1,1 +1,1 @@
-{"verze": "1.22", "soubory": ["etsy_dashboard.py", "dashboard.html"]}
+{"verze": "1.23", "soubory": ["csv_import.py", "databaze.py", "etsy_api.py", "etsy_dashboard.py", "etsy_listingy.py", "prehled.py", "synchronizace.py", "zaklad.py", "dashboard.html"]}

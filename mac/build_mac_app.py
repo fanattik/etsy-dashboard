@@ -87,10 +87,15 @@ def app_version():
     raise SystemExit("VERSION nenalezena v app/etsy_dashboard.py")
 
 
+def app_files():
+    """Soubory aplikace: všechny moduly v app/ a dashboard.html (stejný seznam stahuje automatická aktualizace)."""
+    return sorted(f for f in os.listdir(os.path.join(ROOT, "app")) if f.endswith(".py")) + ["dashboard.html"]
+
+
 def main():
     os.makedirs(os.path.dirname(OUT_ZIP), exist_ok=True)
     with open(os.path.join(ROOT, "app", "version.json"), "w", encoding="utf-8") as f:  # pro automatické aktualizace
-        json.dump({"verze": app_version(), "soubory": ["etsy_dashboard.py", "dashboard.html"]}, f)
+        json.dump({"verze": app_version(), "soubory": app_files()}, f)
         f.write("\n")
     when = time.localtime()[:6]
     root = "Etsy Dashboard/"
@@ -102,8 +107,8 @@ def main():
         add(z, app + "PkgInfo", b"APPL????", when=when)
         add(z, app + "MacOS/etsy-dashboard", read("mac/launcher.sh"), 0o755, when)
         add(z, app + "Resources/AppIcon.icns", icns_bytes(), when=when)
-        add(z, app + "Resources/etsy_dashboard.py", read("app/etsy_dashboard.py"), when=when)
-        add(z, app + "Resources/dashboard.html", read("app/dashboard.html"), when=when)
+        for name in app_files():
+            add(z, app + "Resources/" + name, read("app/" + name), when=when)
         add(z, root + "NAVOD.md", read("docs/NAVOD.md"), when=when)
         add(z, root + "README.md", read("README.md"), when=when)
         add(z, root + "LICENSE", read("LICENSE"), when=when)

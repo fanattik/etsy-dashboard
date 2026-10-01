@@ -53,7 +53,14 @@ python3 app/etsy_dashboard.py jednou   # one API sync without the UI (cron)
 
 | Path | What |
 | --- | --- |
-| `app/etsy_dashboard.py` | local web server, Etsy API sync, CSV import, SQLite storage |
+| `app/etsy_dashboard.py` | entry point: local web server, background sync loop, self-update, `VERSION` |
+| `app/zaklad.py` | paths, constants, settings, tokens, HTTP helper |
+| `app/databaze.py` | SQLite schema and helpers |
+| `app/etsy_api.py` | Etsy Open API v3: OAuth sign-in and API calls |
+| `app/synchronizace.py` | sync of orders, payment account, listings and stats from Etsy, ECB rates |
+| `app/etsy_listingy.py` | creating and editing listings, personalization, scheduled sales |
+| `app/prehled.py` | data for the dashboard and stats pages, CSV export, shipping notes, demo data |
+| `app/csv_import.py` | import of CSV files downloaded from Etsy |
 | `app/dashboard.html` | the dashboard UI (no build step, no external libraries) |
 | `app/version.json` | version used by the self-updater |
 | `mac/launcher.sh`, `mac/build_mac_app.py` | macOS app bundle and its build script (`python3 mac/build_mac_app.py`, needs Pillow for the icon) |
