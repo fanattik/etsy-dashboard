@@ -260,6 +260,12 @@ def save_listing(cfg, body):
         listing = api_send(cfg, tokens, shop_id, "POST", base, create)
         lid = listing["listing_id"]
         old_images, old_files, old_props = [], [], []
+        if not inventory and str(body.get("sku") or "").strip():  # SKU jde nastavit jen přes inventory
+            offering = {"price": price, "quantity": qty, "is_enabled": True}
+            if readiness:
+                offering["readiness_state_id"] = readiness
+            inventory = {"products": [{"sku": str(body["sku"]).strip(), "property_values": [], "offerings": [offering]}],
+                         "price_on_property": [], "quantity_on_property": [], "sku_on_property": []}
         if not inventory:
             inventory = None  # cena a množství jsou už v konceptu
     else:

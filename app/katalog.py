@@ -99,6 +99,8 @@ def catalog_data(db_path=None, base_cur="", lang="en"):
         a["pravidla"] = _jl(a["pravidla"], {})
     for p in products:
         p["ceny"] = {a["id"]: account_price(p, p["vrstvy"], a, base_cur, rates) for a in accounts}
+    from nabidky import offer_states
+    offer_states(con, products, accounts, base_cur, rates)
     data = {"ucty": accounts, "produkty": products, "zakladni_mena": base_cur, "jazyk": lang, "kurzy": bool(rates)}
     con.close()
     return data
@@ -242,20 +244,10 @@ def adopt_listing(cfg, body, db_path=None, demo=False):
                 if not con.execute("SELECT 1 FROM produkt_media WHERE produkt_id=? AND druh='soubor' AND nazev=?", (pid, name)).fetchone():
                     con.execute("INSERT INTO produkt_media (produkt_id, druh, nazev, velikost, poradi, zdroj) VALUES (?,?,?,?,?,?)",
                                 (pid, "soubor", name, _bytes(f.get("velikost")), 99, "etsy"))
-            # vrstva shopy: Etsy údaje; název a popis jen když se liší od produktu
-            lay = _layer(con, pid, ucet)
-            extra = {k: det.get(k) for k in ("doprava", "zpracovani", "produkty", "cena_dle", "mnozstvi_dle", "sku_dle",
-                                             "personalizace", "personalizace_nove", "mnozstvi")}
-            con.execute("UPDATE kanal_data SET nazev=?, popis=?, stitky=?, atributy=?, kategorie_id=?, cena=?, mena=?, extra=?, zmeneno_ts=? WHERE id=?",
-                        (det["nazev"] if det["nazev"] != prod[1] else None, det["popis"] if det["popis"] != prod[2] else None,
-                         json.dumps(det["stitky"], ensure_ascii=False), json.dumps(det["atributy"], ensure_ascii=False),
-                         det["kategorie"], det["cena"], _account_currency(con, ucet, lid),
-                         json.dumps(extra, ensure_ascii=False), now, lay))
-            snap = {k: v for k, v in det.items() if k not in ("url",)}
-            modified = con.execute("SELECT zmeneno_ts FROM listingy WHERE listing_id=?", (lid,)).fetchone()
-            con.execute("INSERT INTO nabidky (produkt_id, ucet_id, externi_id, stav, odeslano, hash, zmeneno_v_kanalu_ts, vytvoreno_ts) "
-                        "VALUES (?,?,?,?,?,?,?,?)", (pid, ucet, str(lid), det["stav"], json.dumps(snap, ensure_ascii=False),
-                                                     _snapshot_hash(snap), modified[0] if modified else None, now))
+            store_etsy_layer(con, pid, ucet, det, now)
+            con.execute("INSERT INTO nabidky (produkt_id, ucet_id, externi_id, stav, vytvoreno_ts) VALUES (?,?,?,?,?)",
+                        (pid, ucet, str(lid), det["stav"], now))
+            store_snapshot(con, ucet, lid, det)
             sku = con.execute("SELECT sku FROM produkty WHERE id=?", (pid,)).fetchone()[0]
             con.commit()
         finally:
@@ -269,6 +261,34 @@ def _bytes(v):
     if not m:
         return None
     return int(float(m.group(1)) * {"KB": 1024, "MB": 1024 ** 2, "GB": 1024 ** 3}.get((m.group(2) or "").upper(), 1))
+
+
+def store_etsy_layer(con, pid, ucet, det, now):
+    """Údaje listingu z Etsy do vrstvy shopy. Název a popis jen když se liší od toho, co by se jinak zdědilo."""
+    prod = con.execute("SELECT nazev, popis FROM produkty WHERE id=?", (pid,)).fetchone()
+    up = con.execute("SELECT nazev, popis FROM kanal_data WHERE produkt_id=? AND rozsah='etsy'", (pid,)).fetchone() or (None, None)
+    inherited = (up[0] or prod[0], up[1] or prod[1])
+    lay = _layer(con, pid, ucet)
+    extra = {k: det.get(k) for k in ("doprava", "zpracovani", "produkty", "cena_dle", "mnozstvi_dle", "sku_dle",
+                                     "personalizace", "personalizace_nove", "mnozstvi")}
+    con.execute("UPDATE kanal_data SET nazev=?, popis=?, stitky=?, atributy=?, kategorie_id=?, cena=?, mena=?, extra=?, zmeneno_ts=? WHERE id=?",
+                (det["nazev"] if det["nazev"] != inherited[0] else None, det["popis"] if det["popis"] != inherited[1] else None,
+                 json.dumps(det["stitky"], ensure_ascii=False), json.dumps(det["atributy"], ensure_ascii=False),
+                 det["kategorie"], det["cena"], _account_currency(con, ucet, det["listing_id"]),
+                 json.dumps(extra, ensure_ascii=False), now, lay))
+
+
+def store_snapshot(con, ucet, lid, sent, pushed=False):
+    """Co je teď v kanálu (odesláno nebo načteno), aby šly poznat změny v katalogu i na Etsy.
+    Po vlastním odeslání se čas změny v kanálu posune, aby se naše úprava nehlásila jako cizí."""
+    snap = {k: v for k, v in sent.items() if k not in ("url", "obrazky", "soubory")}
+    if pushed:
+        modified = int(time.time()) + 120
+    else:
+        row = con.execute("SELECT zmeneno_ts FROM listingy WHERE listing_id=?", (int(lid),)).fetchone()
+        modified = row[0] if row else None
+    con.execute("UPDATE nabidky SET odeslano=?, hash=?, zmeneno_v_kanalu_ts=?, posledni_chyba=NULL WHERE ucet_id=? AND externi_id=?",
+                (json.dumps(snap, ensure_ascii=False), _snapshot_hash(snap), modified, ucet, str(lid)))
 
 
 def _account_currency(con, ucet, lid):
