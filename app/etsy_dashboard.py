@@ -39,11 +39,12 @@ from etsy_listingy import (
 from prehled import csv_export, dashboard_data, make_demo_db, save_shipping
 from csv_import import fill_items_from_ledger, import_csv
 from katalog import adopt_listing, adoption_proposal, catalog_data, import_folder, media_file
+from nabidky import link_offer, offer_data, readopt_offer, unlink_offer
 from produkty import delete_product, media_action, save_layer, save_product, save_rules, save_variants
 
 
 PORT = 8765
-VERSION = "1.25"
+VERSION = "1.26"
 zaklad.VERSION = VERSION  # User-Agent v HTTP požadavcích
 
 
@@ -219,6 +220,13 @@ class Handler(BaseHTTPRequestHandler):
                                                cfg.get("jazyk_katalogu") or "en"))
         if path == "/api/katalog/navrh":
             return self.send(200, adoption_proposal(load_config(), self.db_path))
+        if path == "/api/katalog/nabidka":
+            q = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+            try:
+                cfg = dict(load_config(), zakladni_mena="USD") if self.demo else load_config()
+                return self.send(200, offer_data(cfg, self.db_path, q.get("ucet", [""])[0], q.get("produkt", ["0"])[0]))
+            except Exception as e:
+                return self.send(400, {"chyba": str(e), "kod": getattr(e, "kod", None), "param": getattr(e, "param", {})})
         if path.startswith("/media/"):
             found = media_file(path[len("/media/"):])
             if not found:
@@ -294,7 +302,13 @@ class Handler(BaseHTTPRequestHandler):
             if path == "/api/aktualizace":
                 return self.send(200, check_update())
             if path == "/api/listing/vytvorit":
-                return self.send(200, save_listing(load_config(), body))
+                result = save_listing(load_config(), body)
+                link_offer(body, result, self.db_path)
+                return self.send(200, result)
+            if path == "/api/nabidka/prevzit":
+                return self.send(200, readopt_offer(load_config(), body, self.db_path, self.demo))
+            if path == "/api/nabidka/odpojit":
+                return self.send(200, unlink_offer(body, self.db_path, self.demo))
             if path == "/api/listing/stav":
                 return self.send(200, listings_state(load_config(), body))
             if path == "/api/sleva":

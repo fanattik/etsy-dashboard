@@ -246,6 +246,9 @@ th.sortable:hover, th.sorted { color: var(--text); }
 .pill.err { background: var(--bad-soft); color: var(--bad); }
 .lbulk { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; background: var(--panel-2); border-radius: 10px; padding: 8px 10px 8px 14px; margin: 0 0 12px; font-size: 13px; }
 .lbulk b { font-weight: 500; }
+.nl-pub { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; background: var(--brand-soft); border-radius: 10px; padding: 10px 14px; margin: 10px 0 4px; font-size: 13.5px; }
+.offrow td { vertical-align: middle; } .offrow .btn { padding: 4px 10px; font-size: 12.5px; }
+#publish label.check { display: flex; gap: 8px; align-items: center; margin: 8px 0; }
 td.sel, th.sel { width: 28px; padding-right: 0; vertical-align: middle; } td.sel input, th.sel input { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; }
 .ld-actions { margin-top: 2px; }
 #sale .field input { width: 100%; }
@@ -429,6 +432,9 @@ dialog::backdrop { background: rgba(0,0,0,.4); }
         </div>
         <p class="hint" data-i18n="pIntro"></p>
         <p class="hint" id="pMsg"></p>
+        <div class="tfilters"><label><span data-i18n="fShow"></span><select id="pFilter"></select></label></div>
+        <div class="lbulk" id="pBulk" hidden><b id="pBulkN"></b><div class="spacer"></div>
+          <button class="btn primary" id="pPublish" data-i18n="pubBtn"></button><button class="btn ghost" id="pClearSel" data-i18n="lClearSel"></button></div>
         <p class="tsum" id="psum"></p>
         <div class="tablewrap"><table id="ptable"></table></div>
       </div>
@@ -468,6 +474,7 @@ dialog::backdrop { background: rgba(0,0,0,.4); }
           <div class="field"><label for="nlAfter" data-i18n="nlAfter"></label><select id="nlAfter"><option value="draft" data-i18n="nlKeepDraft"></option><option value="active" data-i18n="nlPublish"></option></select></div>
         </div>
         <p class="hint" id="nlInfo"></p>
+        <div class="nl-pub" id="nlPub" hidden></div>
         <div class="nl-warn" id="nlWarn" hidden></div>
         <div id="nlTools"><div class="actions left">
           <label class="btn primary" for="nlFolder"><svg class="i" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg><span data-i18n="nlLoadFolder"></span></label>
@@ -619,6 +626,15 @@ dialog::backdrop { background: rgba(0,0,0,.4); }
 </dialog>
 <dialog id="pdetail">
   <div class="dlg" tabindex="-1" style="outline:none"><button class="btn dclose" onclick="$('#pdetail').close()" data-i18n-aria="close">✕</button><div id="pdBody"></div></div>
+</dialog>
+<dialog id="publish">
+  <div class="dlg">
+    <h3 data-i18n="pubTitle"></h3>
+    <p class="hint" id="pubFor"></p>
+    <div id="pubAccts"></div>
+    <p class="hint" data-i18n="pubHint"></p>
+    <div class="actions"><span class="msg" id="pubMsg"></span><button class="btn" onclick="$('#publish').close()" data-i18n="close"></button><button class="btn primary" id="pubGo" data-i18n="pubGo"></button></div>
+  </div>
 </dialog>
 <dialog id="adopt">
   <div class="dlg">
@@ -1118,10 +1134,12 @@ const icon = k => `<svg class="i" viewBox="0 0 24 24">${ICON[k]}</svg>`;
 const PAGES = { prehled: "navOverview", objednavky: "tabOrders", produkty: "navProducts", listingy: "navListings", statistiky: "navStats", novy: "nlTitle", vypis: "ledgerTitle", nastaveni: "settingsTitle" };
 let page = "prehled";
 function route() {
-  const h = location.hash.slice(1), m = h.match(/^upravit\/([^/]+)\/(\d+)$/);
+  const h = location.hash.slice(1), m = h.match(/^upravit\/([^/]+)\/(\d+)(?:\/katalog\/(\d+))?$/);
   page = m ? "novy" : PAGES[h] ? h : "prehled";
-  ["#ldetail", "#odetail", "#sale", "#pdetail"].forEach(s => { const d = $(s); if (d && d.open) d.close(); });
-  if (m) { if (!EDIT || EDIT.shop !== m[1] || EDIT.id !== m[2]) EDIT = { shop: m[1], id: m[2], started: false }; }
+  if (page !== "novy" || m) PUB = null;
+  if ($("#nlPub")) $("#nlPub").hidden = !PUB;
+  ["#ldetail", "#odetail", "#sale", "#pdetail", "#publish"].forEach(s => { const d = $(s); if (d && d.open) d.close(); });
+  if (m) { if (!EDIT || EDIT.shop !== m[1] || EDIT.id !== m[2] || EDIT.katalog !== m[3]) EDIT = { shop: m[1], id: m[2], katalog: m[3], started: false }; }
   else if (page === "novy" && EDIT) { EDIT = null; NL = []; $("#nlList").innerHTML = ""; nlSetMode(); }
   document.querySelectorAll(".nav a").forEach(a => a.classList.toggle("on", a.dataset.page === (page === "novy" ? "listingy" : page)));
   $("#page-prehled").hidden = page !== "prehled";
@@ -2656,7 +2674,14 @@ async function startEdit() {
   try {
     const d = await api(`/api/listing/detail?shop=${encodeURIComponent(EDIT.shop)}&id=${EDIT.id}`);
     if (!EDIT || String(d.listing_id) !== String(EDIT.id)) return;
-    NL = [detailToProduct(d)]; nlSetMode(); renderNlList();
+    const pid = EDIT.katalog;
+    if (pid) {  // „Odeslat změny“ z katalogu: texty, štítky, kategorie a cena z katalogu, fotky a soubory zůstanou z Etsy
+      const r = await api(`/api/katalog/nabidka?ucet=etsy:${encodeURIComponent(EDIT.shop)}&produkt=${pid}`);
+      Object.assign(d, { nazev: r.nazev, popis: r.popis, stitky: r.stitky, kategorie: r.kategorie || d.kategorie });
+      if (r.cena !== null && (d.produkty || []).length <= 1) { d.cena = r.cena; if (d.produkty?.[0]) d.produkty[0].cena = r.cena; }
+      $("#nlEditMsg").textContent = t("offEditFromCatalog");
+    }
+    NL = [detailToProduct(d)]; if (pid) NL[0].produkt_id = +pid; nlSetMode(); renderNlList();
   } catch (e) { $("#nlList").innerHTML = `<div class="card nl-empty nl-bad">${esc(e.message)}</div>`; }
 }
 function detailToProduct(d) {
@@ -2714,7 +2739,7 @@ async function nlBody4Api(p) {
   const digital = p.typ === "digital", files = digital ? p.soubory.filter(f => f.on) : [];
   const big = files.find(f => !f.id && f.file.size > 20 * 1048576); if (big) throw new Error(t("nlTooBig", { f: big.file.name }));
   const enc = async list => Promise.all(list.map(async x => x.id ? { id: x.id } : { nazev: x.file.name, data: await b64(x.file) }));
-  return { shop_id: $("#nlShop").value, typ: p.typ, nazev: p.nazev, popis: p.popis, cena: p.cena, mnozstvi: p.mnozstvi,
+  return { shop_id: $("#nlShop").value, produkt_id: p.produkt_id, sku: p.sku || undefined, typ: p.typ, nazev: p.nazev, popis: p.popis, cena: p.cena, mnozstvi: p.mnozstvi,
     stitky: tagList(p.stitky), kategorie: catId(p.kategorie), doprava_id: p.doprava, zpracovani_id: p.zpracovani, ...nlPayload(p),
     obrazky: await enc(p.obrazky.filter(i => i.on)), soubory: await enc(files) };
 }
@@ -2970,6 +2995,48 @@ Object.assign(T.de.errors, { product_number: "„{hodnota}“ ist keine Zahl.", 
   product_sku: "SKU {sku} gehört schon zu einem anderen Produkt.", variant_sku: "SKU {sku} ist bei zwei Varianten eingetragen.", layer_scope: "Unbekannter Kanal.",
   layer_title: "Ein Etsy-Titel darf höchstens 140 Zeichen haben.", rules_coef: "Der Faktor muss größer als null sein.", rules_account: "Dieses Konto ist nicht in der App.", bad_action: "Unbekannte Aktion." });
 
+const T10 = {
+  cs: {
+    fShow: "Zobrazit", fAllProducts: "Všechny produkty", fChanges: "Se změnami k vyřešení", fNoOffer: "Bez nabídky v {s}",
+    pubBtn: "Vystavit…", pubTitle: "Vystavit do shopů", pubFor: "Vybráno: {n}", pubHas: "{n} tu už nabídku má, přeskočí se",
+    pubNoWrite: "shopa není přihlášená s právem vytvářet listingy", pubPick: "Vyber aspoň jeden shop.", pubGo: "Pokračovat",
+    pubHint: "Pro každý shop se otevře formulář nového listingu předvyplněný z katalogu podle pravidel shopu. Před vytvořením ho zkontroluješ.",
+    pubLoading: "Připravuji formulář pro {s} ({i}/{n})…", pubBanner: "Vystavuješ z katalogu do {s} ({i}/{n}).", pubSkipped: "{n} tu už nabídku má.",
+    pubNext: "Další shop: {s}",
+    offChgCat: "neodeslané změny", offChgShop: "změněno na Etsy", offSend: "Odeslat změny", offTake: "Převzít z Etsy", offUnlink: "Odpojit od produktu",
+    offUnlinkConfirm: "Odpojit tenhle listing od produktu? Na Etsy zůstane beze změny.", offPublishTo: "Vystavit do {s}",
+    offEditFromCatalog: "Formulář je předvyplněný z katalogu (název, popis, štítky, kategorie a cena). Fotky, soubory a varianty jsou z Etsy. Zkontroluj a ulož.",
+    fld_nazev: "název", fld_popis: "popis", fld_stitky: "štítky", fld_cena: "cena", fld_kategorie: "kategorie",
+  },
+  en: {
+    fShow: "Show", fAllProducts: "All products", fChanges: "With changes to resolve", fNoOffer: "Without an offer in {s}",
+    pubBtn: "Publish…", pubTitle: "Publish to shops", pubFor: "Selected: {n}", pubHas: "{n} already offered here, will be skipped",
+    pubNoWrite: "shop isn't signed in with permission to create listings", pubPick: "Pick at least one shop.", pubGo: "Continue",
+    pubHint: "For each shop, the new listing form opens prefilled from the catalog using the shop's rules. You review it before creating.",
+    pubLoading: "Preparing the form for {s} ({i}/{n})…", pubBanner: "Publishing from the catalog to {s} ({i}/{n}).", pubSkipped: "{n} already offered here.",
+    pubNext: "Next shop: {s}",
+    offChgCat: "unsent changes", offChgShop: "changed on Etsy", offSend: "Send changes", offTake: "Take from Etsy", offUnlink: "Unlink from product",
+    offUnlinkConfirm: "Unlink this listing from the product? It stays unchanged on Etsy.", offPublishTo: "Publish to {s}",
+    offEditFromCatalog: "The form is prefilled from the catalog (title, description, tags, category and price). Photos, files and variants are from Etsy. Review and save.",
+    fld_nazev: "title", fld_popis: "description", fld_stitky: "tags", fld_cena: "price", fld_kategorie: "category",
+  },
+  de: {
+    fShow: "Anzeigen", fAllProducts: "Alle Produkte", fChanges: "Mit offenen Änderungen", fNoOffer: "Ohne Angebot in {s}",
+    pubBtn: "Einstellen…", pubTitle: "In Shops einstellen", pubFor: "Ausgewählt: {n}", pubHas: "{n} hier schon angeboten, wird übersprungen",
+    pubNoWrite: "Shop ist nicht mit dem Recht zum Erstellen von Angeboten angemeldet", pubPick: "Wähle mindestens einen Shop.", pubGo: "Weiter",
+    pubHint: "Für jeden Shop öffnet sich das Formular für ein neues Angebot, vorausgefüllt aus dem Katalog nach den Regeln des Shops. Du prüfst es vor dem Erstellen.",
+    pubLoading: "Formular für {s} wird vorbereitet ({i}/{n})…", pubBanner: "Du stellst aus dem Katalog in {s} ein ({i}/{n}).", pubSkipped: "{n} hier schon angeboten.",
+    pubNext: "Nächster Shop: {s}",
+    offChgCat: "nicht gesendete Änderungen", offChgShop: "auf Etsy geändert", offSend: "Änderungen senden", offTake: "Von Etsy übernehmen", offUnlink: "Vom Produkt trennen",
+    offUnlinkConfirm: "Dieses Angebot vom Produkt trennen? Auf Etsy bleibt es unverändert.", offPublishTo: "In {s} einstellen",
+    offEditFromCatalog: "Das Formular ist aus dem Katalog vorausgefüllt (Titel, Beschreibung, Tags, Kategorie und Preis). Fotos, Dateien und Varianten stammen von Etsy. Prüfen und speichern.",
+    fld_nazev: "Titel", fld_popis: "Beschreibung", fld_stitky: "Tags", fld_cena: "Preis", fld_kategorie: "Kategorie",
+  },
+};
+for (const l in T10) Object.assign(T[l], T10[l]);
+Object.assign(T.en.errors, { offer_missing: "This offer is no longer in the catalog." });
+Object.assign(T.de.errors, { offer_missing: "Dieses Angebot ist nicht mehr im Katalog." });
+
 let K = null, PROWS = [];
 const acctName = id => (K?.ucty || []).find(u => u.id === id)?.nazev || id;
 let LINKS = [null, null];
@@ -2982,28 +3049,51 @@ const inCatalog = l => catalogLinks().has(l.shop + "/" + l.listing_id);
 const photoOf = p => p.media.find(m => m.druh === "foto" && m.url)?.url || "";
 const thumbHtml = (src, name, cls) => src ? `<img class="${cls}" src="${esc(src)}" alt="" loading="lazy">` : `<span class="${cls} thumb">${esc((name || "?").trim()[0] || "?")}</span>`;
 
+const PSEL = new Set();
 function renderProducts() {
   const all = K?.produkty || [], links = catalogLinks(), nf = n => n.toLocaleString(loc());
   const outside = (RAW.listingy || []).filter(l => l.listing_id > 0 && !links.has(l.shop + "/" + l.listing_id)).length;
   $("#pAdoptBtn").disabled = $("#pFolderBtn").disabled = !!S.demo;
   $("#pAdoptBtn").title = $("#pFolderBtn").title = S.demo ? t("pDemo") : "";
+  const fopts = [["", t("fAllProducts")], ["zmeny", t("fChanges")]].concat(etsyAccts().map(u => ["bez:" + u.id, t("fNoOffer", { s: u.nazev })]));
+  const fv = fopts.some(o => o[0] === $("#pFilter").value) ? $("#pFilter").value : "";
+  $("#pFilter").innerHTML = fopts.map(([v, x]) => `<option value="${esc(v)}">${esc(x)}</option>`).join(""); $("#pFilter").value = fv;
   const q = $("#psearch").value.trim().toLowerCase();
-  const rows = all.filter(p => !q || [p.nazev, p.sku, p.slozka].concat(p.varianty.map(v => v.sku)).some(v => (v || "").toLowerCase().includes(q)));
+  const rows = all.filter(p => (!q || [p.nazev, p.sku, p.slozka].concat(p.varianty.map(v => v.sku)).some(v => (v || "").toLowerCase().includes(q))) &&
+    (!fv || (fv === "zmeny" ? p.nabidky.some(n => n.zmeny?.length) : !p.nabidky.some(n => n.ucet_id === fv.slice(4)))));
   $("#psum").innerHTML = all.length ? esc(t("pSum", { n: pl(all.length, "product") })) + (outside ? ` · <a class="linkbtn" href="#" id="pOutside">${esc(t("pOutside", { n: pl(outside, "listing") }))}</a>` : "") : "";
-  const offerPill = n => `<span class="pill ${n.stav === "active" ? "done" : ""}" title="${esc(tMap("lstates", n.stav) || n.stav || "")}">${esc(acctName(n.ucet_id))}</span>`;
-  $("#ptable").innerHTML = rows.length ? `<thead><tr><th>${t("colProduct")}</th><th>${t("colType")}</th><th>${t("colOffers")}</th><th>${t("colMedia")}</th><th class="num">${t("colSold")}</th></tr></thead><tbody>` +
+  const offerPill = n => {
+    const warn = n.zmeny?.length, tip = [tMap("lstates", n.stav) || n.stav || ""].concat((n.zmeny || []).map(z => t(z === "katalog" ? "offChgCat" : "offChgShop")));
+    return `<span class="pill ${warn ? "ship" : n.stav === "active" ? "done" : ""}" title="${esc(tip.filter(Boolean).join(" · "))}">${warn ? "⚠ " : ""}${esc(acctName(n.ucet_id))}</span>`;
+  };
+  [...PSEL].forEach(id => { if (!all.some(p => p.id === id)) PSEL.delete(id); });
+  const canSel = !S.demo && rows.length;
+  $("#ptable").innerHTML = rows.length ? `<thead><tr>${canSel ? `<th class="sel"><input type="checkbox" id="pSelAll" ${rows.every(p => PSEL.has(p.id)) ? "checked" : ""} aria-label="all"></th>` : ""}<th>${t("colProduct")}</th><th>${t("colType")}</th><th>${t("colOffers")}</th><th>${t("colMedia")}</th><th class="num">${t("colSold")}</th></tr></thead><tbody>` +
     rows.map((p, i) => {
       const f = p.media.filter(m => m.druh === "foto").length, s = p.media.filter(m => m.druh === "soubor").length;
       const meta = [p.sku, p.varianty.length ? pl(p.varianty.length, "variant") : ""].filter(Boolean).join(" · ");
-      return `<tr class="click" data-p="${i}"><td><div class="lcell">${thumbHtml(photoOf(p), p.nazev, "thumb")}<div><span class="t">${esc(p.nazev)}</span>${meta ? `<div class="tags">${esc(meta)}</div>` : ""}</div></div></td>` +
+      return `<tr class="click" data-p="${i}">${canSel ? `<td class="sel"><input type="checkbox" data-psel="${p.id}" ${PSEL.has(p.id) ? "checked" : ""}></td>` : ""}<td><div class="lcell">${thumbHtml(photoOf(p), p.nazev, "thumb")}<div><span class="t">${esc(p.nazev)}</span>${meta ? `<div class="tags">${esc(meta)}</div>` : ""}</div></div></td>` +
         `<td class="nw">${esc(t(p.typ === "digital" ? "pDigital" : "pPhysical"))}</td>` +
         `<td><div class="offers">${p.nabidky.length ? p.nabidky.map(offerPill).join("") : `<span class="pill">${esc(t("pNoOffer"))}</span>`}</div></td>` +
         `<td class="nw">${esc([f ? pl(f, "photo") : "", s ? pl(s, "file") : ""].filter(Boolean).join(" · ") || "–")}</td><td class="num">${p.prodano ? nf(p.prodano) : "–"}</td></tr>`;
     }).join("") + "</tbody>" : `<tbody><tr><td class="empty">${esc(t(all.length ? "nothingF" : "pEmpty"))}</td></tr></tbody>`;
   PROWS = rows;
+  $("#pBulk").hidden = !PSEL.size; $("#pBulkN").textContent = t("lSelected", { n: pl(PSEL.size, "product") });
 }
 $("#psearch").addEventListener("input", renderProducts);
-$("#ptable").addEventListener("click", e => { const r = e.target.closest("tr[data-p]"); if (r) openProduct(PROWS[+r.dataset.p]); });
+$("#ptable").addEventListener("click", e => {
+  const c = e.target.closest("input[data-psel], #pSelAll");
+  if (c) {
+    if (c.id === "pSelAll") PROWS.forEach(p => c.checked ? PSEL.add(p.id) : PSEL.delete(p.id));
+    else c.checked ? PSEL.add(+c.dataset.psel) : PSEL.delete(+c.dataset.psel);
+    renderProducts(); return;
+  }
+  if (e.target.closest("td.sel")) return;
+  const r = e.target.closest("tr[data-p]"); if (r) openProduct(PROWS[+r.dataset.p]);
+});
+$("#pFilter").onchange = renderProducts;
+$("#pClearSel").onclick = () => { PSEL.clear(); renderProducts(); };
+$("#pPublish").onclick = () => openPublish([...PSEL]);
 $("#psum").addEventListener("click", e => { if (e.target.id === "pOutside") { e.preventDefault(); if (!S.demo) openAdopt(); } });
 
 // detail produktu: obecné údaje, varianty, média, vrstvy pro kanály a nabídky
@@ -3135,12 +3225,22 @@ async function pdChannelsLoad(p) {  // strom kategorií z první Etsy shopy, aby
 }
 
 function pdOffers(p) {
+  const shops = S?.shopy || [];
+  const fields = n => (n.zmeny_pole || []).map(f => t("fld_" + f)).join(", ");
   const offer = n => {
     const url = n.ucet_id.startsWith("etsy:") ? `https://www.etsy.com/listing/${encodeURIComponent(n.externi_id)}` : "";
-    return `<tr><td>${esc(acctName(n.ucet_id))}</td><td>${listingPill(n.stav)}</td><td class="nw">${n.vytvoreno_ts ? fmtDate(n.vytvoreno_ts) : ""}</td>` +
-      `<td class="num">${url ? `<a class="linkbtn" href="${url}" target="_blank" rel="noopener">${esc(t("ldOpen"))} ↗</a>` : esc(n.externi_id)}</td></tr>`;
+    const shop = shopOfAcct(n.ucet_id), can = !S.demo && shops.some(x => x.id === shop && x.zapis);
+    const chg = (n.zmeny || []).map(z => `<span class="pill ship">${esc(t(z === "katalog" ? "offChgCat" : "offChgShop"))}${z === "katalog" && fields(n) ? `: ${esc(fields(n))}` : ""}</span>`).join(" ");
+    return `<tr class="offrow"><td>${esc(acctName(n.ucet_id))}<div>${listingPill(n.stav)} ${chg}</div>${n.posledni_chyba ? `<div class="hint err">${esc(n.posledni_chyba)}</div>` : ""}</td>` +
+      `<td class="nw" style="text-align:right">${can && n.zmeny?.includes("katalog") ? `<a class="btn" href="#upravit/${esc(shop)}/${esc(n.externi_id)}/katalog/${p.id}">${esc(t("offSend"))}</a> ` : ""}` +
+      `${can && n.zmeny?.includes("kanal") ? `<button class="btn" data-pa="offTake" data-id="${n.id}">${esc(t("offTake"))}</button> ` : ""}` +
+      `${url ? `<a class="btn ghost" href="${url}" target="_blank" rel="noopener">${esc(t("ldOpen"))} ↗</a>` : esc(n.externi_id)} ` +
+      `${S.demo ? "" : `<button class="btn ghost" data-pa="offUnlink" data-id="${n.id}" title="${esc(t("offUnlink"))}">✕</button>`}</td></tr>`;
   };
-  return p.nabidky.length ? `<div class="tablewrap" style="margin-top:12px"><table><tbody>${p.nabidky.map(offer).join("")}</tbody></table></div>` : `<p class="hint">${esc(t("pdNoOffers"))}</p>`;
+  const free = etsyAccts().filter(u => !p.nabidky.some(n => n.ucet_id === u.id));
+  return (p.nabidky.length ? `<div class="tablewrap" style="margin-top:12px"><table><tbody>${p.nabidky.map(offer).join("")}</tbody></table></div>` : `<p class="hint">${esc(t("pdNoOffers"))}</p>`) +
+    (free.length && !S.demo ? `<div class="actions left">${free.map(u => `<button class="btn" data-pa="offPublish" data-id="${esc(u.id)}">${esc(t("offPublishTo", { s: u.nazev }))}</button>`).join("")}</div>` : "") +
+    `<span class="msg" id="pdMsg"></span>`;
 }
 
 async function pdAction(a, el) {
@@ -3185,6 +3285,12 @@ async function pdAction(a, el) {
     };
     inp.click(); return;
   }
+  if (a === "offTake") return pdRun(() => api("/api/nabidka/prevzit", { id: +el.dataset.id }), t("saved"));
+  if (a === "offUnlink") {
+    if (!confirm(t("offUnlinkConfirm"))) return;
+    return pdRun(() => api("/api/nabidka/odpojit", { id: +el.dataset.id }));
+  }
+  if (a === "offPublish") { $("#pdetail").close(); pubStart([el.dataset.id], [p.id]); return; }
   if (a === "saveLayer") {
     const o = NLOPTS[shopOfAcct((etsyAccts().find(u => u.id === PD.scope) || etsyAccts()[0] || {}).id || "")] || {};
     const kat = v("#plKat").trim(), katId = kat ? catIdOf(o, kat) : null;
@@ -3195,6 +3301,66 @@ async function pdAction(a, el) {
   }
 }
 $("#pNewBtn").onclick = () => openProduct(null);
+
+// vystavení produktů z katalogu do jednoho nebo více Etsy shopů (přes formulář nového listingu)
+let PUB = null, PUB_PIDS = [];
+function openPublish(pids) {
+  PUB_PIDS = pids; $("#pubMsg").textContent = "";
+  const prods = (K?.produkty || []).filter(p => pids.includes(p.id)), accts = etsyAccts();
+  $("#pubFor").textContent = t("pubFor", { n: pl(prods.length, "product") });
+  $("#pubAccts").innerHTML = accts.length ? accts.map(u => {
+    const shop = (S?.shopy || []).find(x => x.id === shopOfAcct(u.id)), can = shop && shop.zapis;
+    const has = prods.filter(p => p.nabidky.some(n => n.ucet_id === u.id)).length;
+    return `<label class="check"><input type="checkbox" value="${esc(u.id)}" ${can && has < prods.length ? "checked" : ""} ${can ? "" : "disabled"}> <b>${esc(u.nazev)}</b>` +
+      `<span class="hint">${esc([u.mena, has ? t("pubHas", { n: pl(has, "product") }) : "", can ? "" : t("pubNoWrite")].filter(Boolean).join(" · "))}</span></label>`;
+  }).join("") : `<p class="hint">${esc(t("rNoAccts"))}</p>`;
+  $("#publish").showModal();
+}
+$("#pubGo").onclick = () => {
+  const ucty = [...$("#pubAccts").querySelectorAll("input:checked")].map(i => i.value);
+  if (!ucty.length) { msg($("#pubMsg"), t("pubPick")); return; }
+  $("#publish").close(); PSEL.clear(); pubStart(ucty, PUB_PIDS);
+};
+function pubStart(ucty, pids) {
+  EDIT = null; PUB = { ucty, pids, i: 0 };
+  if (location.hash !== "#novy") location.hash = "#novy";
+  setTimeout(pubFill, 0);  // až po přepnutí stránky
+}
+async function mediaFile(m) {
+  const r = await fetch(m.url); if (!r.ok) throw new Error(m.nazev);
+  const b = await r.blob(); return new File([b], m.nazev, { type: b.type });
+}
+async function pubFill() {
+  if (!PUB) return;
+  const u = PUB.ucty[PUB.i], shop = shopOfAcct(u);
+  const todo = PUB.pids.filter(pid => !((K?.produkty || []).find(p => p.id === pid)?.nabidky || []).some(n => n.ucet_id === u));
+  PUB.skip = PUB.pids.length - todo.length;
+  NL = []; $("#nlList").innerHTML = ""; renderPubBanner(true);
+  $("#nlShop").value = shop; LS.set("nlShop", shop);
+  await nlLoadOpts();
+  const errs = [];
+  for (const pid of todo) {
+    try {
+      const d = await api(`/api/katalog/nabidka?ucet=${encodeURIComponent(u)}&produkt=${pid}`);
+      const p = detailToProduct(d);
+      Object.assign(p, { edit: false, open: false, listing_id: null, produkt_id: pid, sku: d.produkty.length ? "" : d.sku, stav: "", url: "" });
+      p.obrazky = (await Promise.all(d.obrazky.map(m => mediaFile(m).catch(() => null)))).filter(Boolean).map(f => ({ file: f, url: URL.createObjectURL(f), on: true }));
+      p.soubory = (await Promise.all(d.soubory.map(m => mediaFile(m).catch(() => null)))).filter(Boolean).map(f => ({ file: f, on: true }));
+      if (!p.kategorie) { p.kategorie = guessCat(p); p.odhad = !!p.kategorie; }
+      NL.push(p);
+    } catch (e) { errs.push(e.message); }
+  }
+  renderNlList(); renderPubBanner(false, errs);
+}
+function renderPubBanner(loading, errs) {
+  const el = $("#nlPub"); el.hidden = !PUB; if (!PUB) return;
+  const next = PUB.ucty[PUB.i + 1];
+  el.innerHTML = `<span>${esc(t(loading ? "pubLoading" : "pubBanner", { s: acctName(PUB.ucty[PUB.i]), i: PUB.i + 1, n: PUB.ucty.length }))}` +
+    `${PUB.skip ? " " + esc(t("pubSkipped", { n: pl(PUB.skip, "product") })) : ""}</span>` +
+    (errs?.length ? `<span class="err">${esc(errs.join(", "))}</span>` : "") +
+    (next && !loading ? `<div class="spacer"></div><button class="btn" id="pubNext">${esc(t("pubNext", { s: acctName(next) }))} →</button>` : "");
+}
+$("#nlPub").addEventListener("click", e => { if (e.target.closest("#pubNext")) { PUB.i++; pubFill(); } });
 
 // nastavení: katalog a pravidla prodejních účtů
 const CAT_LANGS = ["en", "cs", "de", "fr", "es", "it", "pl", "sk", "nl"];
