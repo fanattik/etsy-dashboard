@@ -41,7 +41,7 @@ AUTH_URL = "https://www.etsy.com/oauth/connect"
 TOKEN_URL = "https://api.etsy.com/v3/public/oauth/token"
 SCOPES = "transactions_r shops_r profile_r listings_r listings_w listings_d"
 PORT = 8765
-VERSION = "1.17"
+VERSION = "1.18"
 UPDATE_BASE = os.environ.get("ETSY_DASHBOARD_UPDATE_URL") or "https://raw.githubusercontent.com/fanattik/etsy-dashboard/main/app/"
 UPDATE_EVERY = 24 * 3600
 RATES_URL = os.environ.get("ETSY_DASHBOARD_RATES_URL") or "https://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml"
@@ -812,7 +812,7 @@ def listing_detail(cfg, shop_id, lid, demo=False):
         raise AppError("demo", "V ukázkovém režimu nejde nic měnit.")
     tokens = _shop_tokens(shop_id, need="r")
     lid = int(lid)
-    l = api_get(cfg, tokens, shop_id, f"/listings/{lid}", {"includes": "Images,Inventory"})
+    l = api_get(cfg, tokens, shop_id, f"/listings/{lid}", {"includes": "Images"})
     inv = l.get("inventory") or api_get(cfg, tokens, shop_id, f"/listings/{lid}/inventory")
     files = []
     if l.get("type") == "download":
