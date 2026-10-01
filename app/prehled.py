@@ -2,6 +2,7 @@
 
 import csv
 import io
+import json
 import os
 import random
 import time
@@ -228,5 +229,49 @@ def make_demo_db(path):
             carrier = rnd.choice(["Zásilkovna", "Česká pošta", "PPL", "DPD"])
             con.execute("INSERT INTO doprava VALUES (?,?,?,?,?,?)", (rid, carrier, f"Z{rnd.randint(10**9, 10**10 - 1)}",
                         rnd.choice([3.2, 3.9, 4.6, 5.8]), "USD", ts))
+    demo_catalog(con)
     con.commit()
     con.close()
+
+
+def demo_catalog(con):
+    """Demo katalog: většina listingů je převzatá jako produkt s nabídkou, dva zůstávají mimo katalog
+    a jeden produkt (ze složky) ještě nikde vystavený není."""
+    now = int(time.time())
+    accounts = {"DemoPrintables": "etsy:1001", "DemoHandmade": "etsy:1002"}
+    for shop, ucet in accounts.items():
+        con.execute("INSERT INTO kanal_ucty (id, kanal, nazev, mena, jazyk) VALUES (?,?,?,?,?)", (ucet, "etsy", shop, "USD", "en"))
+    skip = {"Meal Planner", "Wooden Coaster Set"}
+    for shop, lid, name, state, price, cur, tags, sku, desc in con.execute(
+            "SELECT shop, listing_id, nazev, stav, cena, mena, stitky, sku, popis FROM listingy ORDER BY listing_id").fetchall():
+        if name in skip:
+            continue
+        digital = shop == "DemoPrintables"
+        pid = con.execute("INSERT INTO produkty (sku, typ, nazev, popis, jazyk, vytvoreno_ts, zmeneno_ts) VALUES (?,?,?,?,?,?,?)",
+                          (sku, "digital" if digital else "physical", name, desc, "en", now, now)).lastrowid
+        con.execute("INSERT INTO kanal_data (produkt_id, rozsah, jazyk, stitky, cena, mena, zmeneno_ts) VALUES (?,?,?,?,?,?,?)",
+                    (pid, accounts[shop], "en", json.dumps([t.strip() for t in tags.split(",")]), price, cur, now))
+        con.execute("INSERT INTO nabidky (produkt_id, ucet_id, externi_id, stav, odeslano, zmeneno_v_kanalu_ts, vytvoreno_ts) VALUES (?,?,?,?,?,?,?)",
+                    (pid, accounts[shop], str(lid), state, "{}", now, now))
+        if digital:
+            con.execute("INSERT INTO produkt_media (produkt_id, druh, nazev, velikost, poradi, zdroj) VALUES (?,?,?,?,?,?)",
+                        (pid, "soubor", name.replace(" ", "-") + ".pdf", 240000, 1, "etsy"))
+        elif name == "Ceramic Mug":
+            for n, (color, vsku) in enumerate((("White", "MUG-W"), ("Sage", "MUG-S"), ("Terracotta", "MUG-T")), 1):
+                con.execute("INSERT INTO produkt_varianty (produkt_id, sku, vlastnosti, aktivni, poradi) VALUES (?,?,?,?,?)",
+                            (pid, vsku, json.dumps({"Color": color}), 1, n))
+    pid = con.execute("INSERT INTO produkty (sku, typ, nazev, popis, slozka, jazyk, vytvoreno_ts, zmeneno_ts) VALUES (?,?,?,?,?,?,?,?)",
+                      ("HALLOWEEN-ACTIVITY-PACK", "digital", "Halloween Activity Pack", "Printable Halloween activities for kids.",
+                       "halloween-activity-pack", "en", now, now)).lastrowid
+    con.execute("INSERT INTO kanal_data (produkt_id, rozsah, jazyk, stitky, cena, mena, zmeneno_ts) VALUES (?,?,?,?,?,?,?)",
+                (pid, "etsy", "en", json.dumps(["halloween", "kids activity", "printable"]), 3.99, "USD", now))
+    for name in ("Halloween-Activity-Pack_US-Letter.pdf", "Halloween-Activity-Pack_A4.pdf"):
+        con.execute("INSERT INTO produkt_media (produkt_id, druh, nazev, velikost, poradi, zdroj) VALUES (?,?,?,?,?,?)",
+                    (pid, "soubor", name, 190000, 1, "slozka"))
+    # řádky objednávek jako z Etsy (listing a SKU), aby katalog ukazoval prodané kusy
+    lids = {(r[0], r[1]): (r[2], r[3]) for r in con.execute("SELECT shop, nazev, listing_id, sku FROM listingy")}
+    for shop, rid, items, total, cur in con.execute("SELECT shop, receipt_id, polozky, celkem, mena FROM objednavky").fetchall():
+        q, name = items.split("x ", 1)
+        lid, sku = lids.get((shop, name), ("", ""))
+        con.execute("INSERT INTO obj_polozky VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+                    (accounts[shop], rid, f"{rid}1", str(lid), sku, name, int(q), total, cur, "", ""))

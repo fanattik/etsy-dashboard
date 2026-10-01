@@ -38,10 +38,11 @@ from etsy_listingy import (
     process_discounts, save_listing)
 from prehled import csv_export, dashboard_data, make_demo_db, save_shipping
 from csv_import import fill_items_from_ledger, import_csv
+from katalog import adopt_listing, adoption_proposal, catalog_data, import_folder, media_file
 
 
 PORT = 8765
-VERSION = "1.23"
+VERSION = "1.24"
 zaklad.VERSION = VERSION  # User-Agent v HTTP požadavcích
 
 
@@ -210,6 +211,18 @@ class Handler(BaseHTTPRequestHandler):
             return self.send(200, dashboard_data(self.db_path))
         if path == "/api/kurzy":
             return self.send(200, get_rates())
+        if path == "/api/katalog":
+            return self.send(200, catalog_data(self.db_path))
+        if path == "/api/katalog/navrh":
+            return self.send(200, adoption_proposal(load_config(), self.db_path))
+        if path.startswith("/media/"):
+            found = media_file(path[len("/media/"):])
+            if not found:
+                return self.send(404, {"chyba": "nenalezeno"})
+            with open(found[0], "rb") as f:
+                data = f.read()
+            extra = {} if found[1].startswith("image/") else {"Content-Disposition": "attachment"}
+            return self.send(200, data, found[1], extra)
         if path == "/api/listing/detail":
             q = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
             try:
@@ -282,6 +295,10 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send(200, add_discount(load_config(), body, self.db_path))
             if path == "/api/sleva/zrusit":
                 return self.send(200, cancel_discount(load_config(), body, self.db_path))
+            if path == "/api/katalog/prevzit":
+                return self.send(200, adopt_listing(load_config(), body, self.db_path, self.demo))
+            if path == "/api/katalog/slozka":
+                return self.send(200, import_folder(body, self.db_path, self.demo))
             if path == "/api/doprava":
                 return self.send(200, save_shipping(body, self.db_path))
             if path == "/api/import":

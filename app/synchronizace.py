@@ -10,7 +10,7 @@ import urllib.parse
 import urllib.request
 
 from zaklad import DATA_DIR, LEDGER_CHUNK, OVERLAP, RATES_EVERY, RATES_PATH, RATES_URL, SSL_CTX, tr
-from databaze import last_ts, set_last_ts, today
+from databaze import last_ts, save_account, set_last_ts, today
 from etsy_api import api_get, api_get_all, money
 
 
@@ -42,6 +42,7 @@ def check_shop(cfg, tokens, con, shop_id):
             con.execute("UPDATE doprava SET cislo=? WHERE receipt_id=? AND cislo=''",
                         (ship.get("tracking_code") or "", r["receipt_id"]))
         save_receipt_info(con, r)
+        save_receipt_items(con, shop_id, r)
         old = con.execute("SELECT stav, pridano_ts FROM objednavky WHERE receipt_id=?", (r["receipt_id"],)).fetchone()
         added = old[1] if old else (0 if first else now)
         con.execute("INSERT OR REPLACE INTO objednavky VALUES (?,?,?,?,?,?,?,?,?,?,?,?)", (
@@ -63,6 +64,15 @@ def check_shop(cfg, tokens, con, shop_id):
             print(f"⚠️  {name}: města objednávek: {e}")
     elif first:
         set_last_ts(con, shop_id, "obj_info", now)
+    if not first and last_ts(con, shop_id, "obj_polozky") is None:  # objednávky stažené před verzí 1.24: doplnit řádky
+        try:
+            for r in api_get_all(cfg, tokens, shop_id, f"/shops/{shop_id}/receipts", {"min_created": first_start}):
+                save_receipt_items(con, shop_id, r)
+            set_last_ts(con, shop_id, "obj_polozky", now)
+        except Exception as e:
+            print(f"⚠️  {name}: řádky objednávek: {e}")
+    elif first:
+        set_last_ts(con, shop_id, "obj_polozky", now)
 
     # --- platební účet (měsíční výpis): prodeje, poplatky, refundy, výplaty
     since = last_ts(con, shop_id, "vypis")
@@ -108,9 +118,25 @@ def save_receipt_info(con, r):
         (r.get("city") or "").strip(), r.get("country_iso") or ""))
 
 
+def save_receipt_items(con, shop_id, r):
+    """Řádky objednávky s listingem a SKU, aby šlo prodej přiřadit k produktu v katalogu."""
+    for t in r.get("transactions") or []:
+        if not t.get("transaction_id"):
+            continue
+        price, cur = money(t.get("price"))
+        vars_ = [(v.get("formatted_name") or "", html.unescape(v.get("formatted_value") or "")) for v in t.get("variations") or []]
+        perso = "; ".join(v for n, v in vars_ if "personali" in n.lower())
+        variant = "; ".join(f"{n}: {v}" for n, v in vars_ if "personali" not in n.lower())
+        con.execute("INSERT OR REPLACE INTO obj_polozky VALUES (?,?,?,?,?,?,?,?,?,?,?)", (
+            f"etsy:{shop_id}", r["receipt_id"], str(t["transaction_id"]),
+            str(t["listing_id"]) if t.get("listing_id") else "", t.get("sku") or "",
+            html.unescape(t.get("title") or ""), t.get("quantity") or 1, price, cur, variant, perso))
+
+
 def sync_shop_stats(cfg, tokens, con, shop_id, name, now):
-    """Sledující shopy (denní stav) a recenze."""
+    """Sledující shopy (denní stav), měna shopy a recenze."""
     shop = api_get(cfg, tokens, shop_id, f"/shops/{shop_id}")
+    save_account(con, f"etsy:{shop_id}", "etsy", name, shop.get("currency_code"), "en")
     if shop.get("num_favorers") is not None:
         con.execute("INSERT OR REPLACE INTO stat_shop VALUES (?,?,?)", (today(), name, shop["num_favorers"]))
     since = last_ts(con, shop_id, "recenze")

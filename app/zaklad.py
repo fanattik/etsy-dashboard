@@ -28,6 +28,7 @@ TOKENS_PATH = os.path.join(DATA_DIR, "tokens.json")
 DB_PATH = os.path.join(DATA_DIR, "etsy.db")
 RATES_PATH = os.path.join(DATA_DIR, "kurzy.json")
 TAXONOMY_PATH = os.path.join(DATA_DIR, "kategorie.json")
+MEDIA_DIR = os.path.join(DATA_DIR, "media")  # fotky a soubory produktů z katalogu
 DASHBOARD_PATH = os.path.join(BASE_DIR, "dashboard.html")
 
 LEDGER_CHUNK = 30 * 24 * 3600  # výpis stahujeme po 30denních oknech
