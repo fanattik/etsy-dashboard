@@ -41,7 +41,7 @@ AUTH_URL = "https://www.etsy.com/oauth/connect"
 TOKEN_URL = "https://api.etsy.com/v3/public/oauth/token"
 SCOPES = "transactions_r shops_r profile_r listings_r listings_w"
 PORT = 8765
-VERSION = "1.15"
+VERSION = "1.16"
 UPDATE_BASE = os.environ.get("ETSY_DASHBOARD_UPDATE_URL") or "https://raw.githubusercontent.com/fanattik/etsy-dashboard/main/app/"
 UPDATE_EVERY = 24 * 3600
 RATES_URL = os.environ.get("ETSY_DASHBOARD_RATES_URL") or "https://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml"
@@ -522,6 +522,91 @@ def listing_options(cfg, shop_id, demo=False):
     return out
 
 
+DEMO_PROPERTIES = [
+    {"property_id": 200, "name": "Primary color", "display_name": "Primary color", "is_required": False, "supports_attributes": True,
+     "supports_variations": True, "is_multivalued": False, "max_values_allowed": None, "scales": [],
+     "possible_values": [{"value_id": 1, "name": "Black"}, {"value_id": 2, "name": "White"}, {"value_id": 3, "name": "Green"}]},
+    {"property_id": 100, "name": "Size", "display_name": "Size", "is_required": False, "supports_attributes": False,
+     "supports_variations": True, "is_multivalued": False, "max_values_allowed": None,
+     "scales": [{"scale_id": 1, "display_name": "Inches"}, {"scale_id": 2, "display_name": "Centimeters"}], "possible_values": []},
+    {"property_id": 46803063641, "name": "Holiday", "display_name": "Holiday", "is_required": False, "supports_attributes": True,
+     "supports_variations": False, "is_multivalued": True, "max_values_allowed": 5, "scales": [],
+     "possible_values": [{"value_id": 35, "name": "Christmas"}, {"value_id": 36, "name": "Halloween"}, {"value_id": 37, "name": "Thanksgiving"}]},
+]
+
+
+def listing_properties(cfg, shop_id, taxonomy_id, demo=False):
+    """Vlastnosti kategorie: co jde nastavit jako atribut a co jako variantu (barva, velikost…)."""
+    if demo:
+        props = DEMO_PROPERTIES
+    else:
+        tokens = load_tokens()
+        if shop_id not in tokens:
+            raise AppError("listing_no_shop", "Tahle shopa není přihlášená přes Etsy API.")
+        props = api_get(cfg, tokens, shop_id, f"/seller-taxonomy/nodes/{int(taxonomy_id)}/properties").get("results", [])
+    out = []
+    for p in props:
+        if not (p.get("supports_attributes") or p.get("supports_variations")):
+            continue
+        out.append({"id": p["property_id"], "nazev": p.get("display_name") or p.get("name") or str(p["property_id"]),
+                    "povinne": bool(p.get("is_required")), "atribut": bool(p.get("supports_attributes")),
+                    "varianta": bool(p.get("supports_variations")), "vice": bool(p.get("is_multivalued")),
+                    "max": p.get("max_values_allowed"),
+                    "skaly": [{"id": x["scale_id"], "nazev": x.get("display_name") or str(x["scale_id"])} for x in p.get("scales") or []],
+                    "hodnoty": [{"id": v.get("value_id"), "nazev": v.get("name", ""), "skala": v.get("scale_id")}
+                                for v in p.get("possible_values") or []]})
+    return out
+
+
+CUSTOM_PROPERTIES = (513, 514)  # vlastní varianty s vlastním názvem
+
+
+def build_inventory(body, price, qty, readiness):
+    """Etsy inventory z variant: kombinace hodnot → produkt s cenou, množstvím a SKU."""
+    var = body.get("varianty") or {}
+    props = var.get("vlastnosti") or []
+    if not props:
+        return None
+    if len(props) > 2:
+        raise AppError("listing_variants", "Listing může mít nejvýš 2 varianty.")
+    custom = iter(CUSTOM_PROPERTIES)
+    ids = []
+    for p in props:
+        pid = p.get("property_id")
+        ids.append(next(custom) if pid in (None, "", "custom") else int(pid))
+        if not p.get("hodnoty"):
+            raise AppError("listing_variants", "Každá varianta potřebuje aspoň jednu hodnotu.")
+
+    def num(v, default, cast):
+        try:
+            return cast(str(v).replace(",", ".")) if v not in (None, "") else default
+        except ValueError:
+            raise AppError("listing_variants", "Cena a množství u variant musí být čísla.")
+    products = []
+    for combo in var.get("kombinace") or []:
+        values = []
+        for i, p in enumerate(props):
+            h = p["hodnoty"][int(combo["hodnoty"][i])]
+            pv = {"property_id": ids[i], "property_name": str(p.get("nazev") or "").strip(),
+                  "value_ids": [int(h["id"])] if h.get("id") not in (None, "") else [], "values": [str(h.get("nazev", "")).strip()]}
+            if p.get("scale_id"):
+                pv["scale_id"] = int(p["scale_id"])
+            values.append(pv)
+        offering = {"price": round(num(combo.get("cena"), price, float), 2), "quantity": num(combo.get("mnozstvi"), qty, int),
+                    "is_enabled": combo.get("aktivni", True) is not False}
+        if readiness:
+            offering["readiness_state_id"] = readiness
+        products.append({"sku": str(combo.get("sku") or "").strip(), "property_values": values, "offerings": [offering]})
+    if not products or not any(p["offerings"][0]["is_enabled"] for p in products):
+        raise AppError("listing_variants", "U variant musí být zapnutá aspoň jedna kombinace.")
+    on = lambda k: [ids[int(i)] for i in var.get(k) or []]
+    inv = {"products": products, "price_on_property": on("cena_dle"), "quantity_on_property": on("mnozstvi_dle"),
+           "sku_on_property": on("sku_dle")}
+    if readiness:
+        inv["readiness_state_on_property"] = []
+    return inv
+
+
 MAX_FILE = 20 * 1024 * 1024
 
 
@@ -575,6 +660,7 @@ def create_listing(cfg, body):
             if not body.get(src):
                 raise AppError("listing_physical", "Fyzický listing potřebuje profil dopravy a zpracování.")
             data[key] = int(body[src])
+    inventory = build_inventory(body, price, qty, data.get("readiness_state_id"))
     base = f"/shops/{shop_id}/listings"
     listing = api_send(cfg, tokens, shop_id, "POST", base, data)
     lid = listing["listing_id"]
@@ -589,6 +675,21 @@ def create_listing(cfg, body):
             api_send(cfg, tokens, shop_id, "POST", f"{base}/{lid}/files", {"name": name, "rank": rank}, {"file": (name, content)})
         except Exception as e:
             errors.append(f"{name}: {e}")
+    for a in body.get("atributy") or []:  # atributy (barva, materiál, svátek…)
+        vals = {"value_ids": [int(x) for x in a.get("value_ids") or []], "values": [str(x) for x in a.get("values") or []]}
+        if not vals["value_ids"] and not vals["values"]:
+            continue
+        if a.get("scale_id"):
+            vals["scale_id"] = int(a["scale_id"])
+        try:
+            api_send(cfg, tokens, shop_id, "PUT", f"{base}/{lid}/properties/{int(a['property_id'])}", vals)
+        except Exception as e:
+            errors.append(f"{a.get('nazev') or a.get('property_id')}: {e}")
+    if inventory:
+        try:
+            api_send(cfg, tokens, shop_id, "PUT", f"/listings/{lid}/inventory", inventory)
+        except Exception as e:
+            errors.append(f"Varianty: {e}")
     state = "draft"
     if body.get("zverejnit") and not errors:
         if not images or (digital and not files):
@@ -1231,6 +1332,12 @@ class Handler(BaseHTTPRequestHandler):
             return self.send(200, dashboard_data(self.db_path))
         if path == "/api/kurzy":
             return self.send(200, get_rates())
+        if path == "/api/listing/vlastnosti":
+            q = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+            try:
+                return self.send(200, listing_properties(load_config(), q.get("shop", [""])[0], q.get("kategorie", ["0"])[0], self.demo))
+            except Exception as e:
+                return self.send(400, {"chyba": str(e), "kod": getattr(e, "kod", None), "param": getattr(e, "param", {})})
         if path == "/api/listing/moznosti":
             shop = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query).get("shop", [""])[0]
             try:

@@ -60,7 +60,12 @@ Na stránce **Listingy** klikni **+ Nový listing**.
 4. Zvol **Nechat jako koncept** (zdarma, zveřejníš pak na Etsy) nebo **Rovnou zveřejnit**
    (Etsy účtuje $0.20 za listing) a klikni **Vytvořit**.
 
-Fyzické produkty (3D tisk) potřebují profil dopravy a zpracování, které máš nastavené na Etsy.
+U každého listingu přepneš **Digitální / Fyzický produkt**. Digitální má soubory ke stažení,
+fyzický (3D tisk) profil dopravy a zpracování, které máš nastavené na Etsy.
+Po výběru kategorie se ukážou **Atributy** (barva, materiál, svátek…, hvězdička = Etsy je vyžaduje)
+a **Varianty**: nejvýš 2, buď vlastnost z Etsy (barva, velikost), nebo vlastní název (např. „Velikost“: S, M, L).
+U každé varianty zaškrtni, jestli se podle ní liší cena, množství nebo SKU, a vyplň je v tabulce kombinací.
+Kombinaci, kterou neprodáváš, odškrtni.
 
 ## Co na dashboardu najdeš
 - Přepínač shop (obě / jen jedna) a období (tento měsíc, minulý, letos, konkrétní měsíc…).
