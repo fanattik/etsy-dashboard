@@ -41,7 +41,7 @@ AUTH_URL = "https://www.etsy.com/oauth/connect"
 TOKEN_URL = "https://api.etsy.com/v3/public/oauth/token"
 SCOPES = "transactions_r shops_r profile_r listings_r"
 PORT = 8765
-VERSION = "1.12"
+VERSION = "1.13"
 UPDATE_BASE = os.environ.get("ETSY_DASHBOARD_UPDATE_URL") or "https://raw.githubusercontent.com/fanattik/etsy-dashboard/main/app/"
 UPDATE_EVERY = 24 * 3600
 RATES_URL = os.environ.get("ETSY_DASHBOARD_RATES_URL") or "https://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml"
@@ -70,7 +70,6 @@ DEFAULT_CONFIG = {
 
 LOCK = threading.Lock()  # jedna kontrola / zápis tokenů naráz
 STATUS = {"posledni_kontrola": None, "chyby": {}, "bezi": False}
-PENDING_AUTH = {}  # state -> code_verifier
 
 # Texty, které posílá server (upozornění na telefon). Dashboard má vlastní překlady.
 TEXTS = {
@@ -135,6 +134,28 @@ def load_tokens():
         return json.load(f)
 
 
+PENDING_PATH = os.path.join(DATA_DIR, "prihlaseni.json")
+
+
+def pending_auth(update=None, pop=None):
+    """Rozpracovaná přihlášení (state → code_verifier). Ukládají se na disk, aby přežila
+    restart služby (např. automatickou aktualizaci) mezi otevřením Etsy a vložením adresy."""
+    try:
+        with open(PENDING_PATH, encoding="utf-8") as f:
+            data = json.load(f)
+    except (OSError, ValueError):
+        data = {}
+    now = int(time.time())
+    data = {k: v for k, v in data.items() if now - v[1] < 3600}
+    found = data.pop(pop, None) if pop is not None else None
+    if update:
+        data.update({k: [v, now] for k, v in update.items()})
+    os.makedirs(DATA_DIR, exist_ok=True)
+    with open(PENDING_PATH, "w", encoding="utf-8") as f:
+        json.dump(data, f)
+    return found[0] if found else None
+
+
 def save_tokens(tokens):
     os.makedirs(DATA_DIR, exist_ok=True)
     tmp = TOKENS_PATH + ".tmp"
@@ -148,6 +169,7 @@ def save_tokens(tokens):
 def http_json(method, url, headers=None, form=None):
     data = urllib.parse.urlencode(form).encode() if form is not None else None
     req = urllib.request.Request(url, data=data, method=method, headers=headers or {})
+    req.add_header("User-Agent", f"etsy-dashboard/{VERSION} (+https://github.com/fanattik/etsy-dashboard)")
     if data is not None:
         req.add_header("Content-Type", "application/x-www-form-urlencoded")
     try:
@@ -211,7 +233,7 @@ def auth_start(cfg):
     verifier = base64.urlsafe_b64encode(secrets.token_bytes(32)).rstrip(b"=").decode()
     challenge = base64.urlsafe_b64encode(hashlib.sha256(verifier.encode()).digest()).rstrip(b"=").decode()
     state = secrets.token_urlsafe(16)
-    PENDING_AUTH[state] = verifier
+    pending_auth(update={state: verifier})
     return AUTH_URL + "?" + urllib.parse.urlencode({
         "response_type": "code",
         "client_id": cfg["keystring"],
@@ -237,7 +259,7 @@ def auth_finish(cfg, pasted):
         raise AppError("auth_code", "V adrese chybí 'code'. Vlož celou adresu, na které skončíš po kliknutí "
                        "na Grant access na Etsy.")
     state = query.get("state", [""])[0]
-    verifier = PENDING_AUTH.pop(state, None)
+    verifier = pending_auth(pop=state)
     if not verifier:
         raise AppError("auth_state", "Adresa nepatří k tomuto přihlášení. Klikni znovu na „Přihlásit shopu“.")
     tok = token_request(cfg, {
