@@ -166,15 +166,16 @@ def save_layer(body, db_path=None, demo=False):
     Atributy, personalizace a další údaje z Etsy (extra) zůstávají, upravují se ve formuláři nabídky."""
     _demo(demo)
     rozsah = str(body.get("rozsah") or "")
-    if not (rozsah == "etsy" or rozsah.startswith("etsy:")):
+    if not (rozsah == "etsy" or rozsah.startswith("etsy:") or rozsah.startswith("api:")):
         raise AppError("layer_scope", "Neznámý kanál.")
+    etsy = rozsah.startswith("etsy")
     nazev = _text(body.get("nazev")) or None
     popis = str(body.get("popis") or "").strip() or None
     tags = body.get("stitky")
     tags = [_text(t) for t in (tags if isinstance(tags, list) else str(tags or "").split(",")) if _text(t)]
-    if nazev and len(nazev) > 140:
+    if etsy and nazev and len(nazev) > 140:
         raise AppError("layer_title", "Název pro Etsy může mít nejvýš 140 znaků.")
-    if len(tags) > 13 or any(len(t) > 20 for t in tags):
+    if etsy and (len(tags) > 13 or any(len(t) > 20 for t in tags)):
         raise AppError("listing_tags", "Etsy dovolí nejvýš 13 štítků, každý do 20 znaků.")
     cena = _num(body.get("cena"))
     kat = _num(body.get("kategorie_id"), int)

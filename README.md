@@ -18,6 +18,7 @@ The interface is available in English, Czech and German (switch in *Settings*, w
 - Order details list each item with its variant and personalization and link to the catalog product. Products in stock mode lower their variant stock after a sale and flag their offers until the new quantity is sent through the edit form
 - Products page (catalog): every product once, with its photos, download files, variants, per-channel data and the listings that offer it. Adopt existing Etsy listings into the catalog (photos are downloaded, the Etsy data is kept as that shop's layer) or load a folder of products; neither changes anything on Etsy. Each product can be edited: general data and base price, variants with SKU and stock, photos and files, and its text, tags, category and price for all of Etsy or for one shop
 - Publish catalog products to one or more Etsy shops: the new listing form opens prefilled from the catalog (shop layer, Etsy layer, product, shop rules) with local photos and files, and the created listing is linked to the product. The catalog flags offers with unsent catalog changes (send them through the edit form) and listings changed directly on Etsy (take them into the catalog)
+- Sell through your own web shop: any shop that implements the small [Custom API](docs/custom-api.md) can be added in *Settings → Web shops via custom API*. Catalog products are published and updated there with a button, the shop's orders and product changes are downloaded on every check, and tracking numbers are sent back from the order detail. [`examples/custom_api_server.py`](examples/custom_api_server.py) is a complete reference shop to try it with or to copy from
 - Catalog settings: base currency, catalog language and rules per sales account (price multiplier and rounding from the ECB rate, made-to-order quantity, photo limit, description footer, default shipping, processing and category)
 - Listings page: price, stock, views, favorites, and units sold and revenue per listing in the selected period
 - Create new listings through the Etsy API: load a folder of products (each with an `etsy-listing.md`, images and download files), check and edit them, then create drafts or publish them in one go. Each listing can be digital (download files) or physical (shipping and processing profiles), with category attributes, up to two variations with their own price, quantity and SKU, and custom options for the buyer (personalization questions: text, dropdown or file upload)
@@ -70,9 +71,12 @@ python3 app/etsy_dashboard.py jednou   # one API sync without the UI (cron)
 | `app/produkty.py` | editing catalog products, variants, media and channel layers; account rules and price calculation |
 | `app/nabidky.py` | offers: data for publishing a product to a shop, linking created listings, change detection, taking changes from Etsy |
 | `app/objednavky.py` | order states and their rules, manual state changes, sending tracking to Etsy, stock after a sale |
+| `app/kanal_api.py` | the Custom API channel: shop accounts, publishing products, downloading products and orders, sending tracking |
 | `app/prehled.py` | data for the dashboard and stats pages, CSV export, shipping notes, demo data |
 | `app/csv_import.py` | import of CSV files downloaded from Etsy |
 | `app/dashboard.html` | the dashboard UI (no build step, no external libraries) |
+| `docs/custom-api.md` | specification of the Custom API a web shop implements |
+| `examples/custom_api_server.py` | reference implementation of the Custom API (standard library only) |
 | `app/version.json` | version used by the self-updater |
 | `mac/launcher.sh`, `mac/build_mac_app.py` | macOS app bundle and its build script (`python3 mac/build_mac_app.py`, needs Pillow for the icon) |
 | `dist/Etsy-Dashboard-mac.zip` | built macOS app |

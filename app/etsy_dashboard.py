@@ -39,24 +39,25 @@ from etsy_listingy import (
 from prehled import csv_export, dashboard_data, make_demo_db, save_shipping
 from csv_import import fill_items_from_ledger, import_csv
 from katalog import adopt_listing, adoption_proposal, catalog_data, import_folder, media_file
+from kanal_api import delete_account as api_delete, list_accounts as api_accounts, publish as api_publish, \
+    save_account as api_save, sync_all as api_sync, test_account as api_test
 from objednavky import after_sync, push_tracking, save_states, set_state
 from nabidky import link_offer, offer_data, readopt_offer, unlink_offer
 from produkty import delete_product, media_action, save_layer, save_product, save_rules, save_variants
 
 
 PORT = 8765
-VERSION = "1.27"
+VERSION = "1.28"
 zaklad.VERSION = VERSION  # User-Agent v HTTP požadavcích
 
 
 def run_check(cfg):
     """Zkontroluje všechny shopy. Vrací seznam novinek."""
-    if not config_ready(cfg):
-        return []
+    etsy = config_ready(cfg)  # bez klíčů Etsy se stahují jen e-shopy přes Vlastní API
     with LOCK:
         STATUS["bezi"] = True
         try:
-            tokens = load_tokens()
+            tokens = load_tokens() if etsy else {}
             con = db()
             all_news = []
             for shop_id in list(tokens):
@@ -68,6 +69,17 @@ def run_check(cfg):
                     STATUS["chyby"][name] = str(e)
                     print(f"⚠️  {name}: {e}")
             con.close()
+            try:  # e-shopy přes Vlastní API
+                news, errors = api_sync(cfg)
+                all_news.extend(news)
+                for name, err in errors.items():
+                    if err:
+                        STATUS["chyby"][name] = err
+                        print(f"⚠️  {name}: {err}")
+                    else:
+                        STATUS["chyby"].pop(name, None)
+            except Exception as e:
+                print(f"⚠️  e-shopy: {e}")
             try:
                 all_news.extend(after_sync(cfg))
             except Exception as e:
@@ -76,7 +88,8 @@ def run_check(cfg):
         finally:
             STATUS["bezi"] = False
     try:
-        process_discounts(cfg)
+        if etsy:
+            process_discounts(cfg)
     except Exception as e:
         print(f"⚠️  slevy: {e}")
     if all_news:
@@ -225,6 +238,8 @@ class Handler(BaseHTTPRequestHandler):
             cfg = load_config()
             return self.send(200, catalog_data(self.db_path, "USD" if self.demo else cfg.get("zakladni_mena", ""),
                                                cfg.get("jazyk_katalogu") or "en"))
+        if path == "/api/kanaly":
+            return self.send(200, {"ucty": []} if self.demo else api_accounts(self.db_path))
         if path == "/api/katalog/navrh":
             return self.send(200, adoption_proposal(load_config(), self.db_path))
         if path == "/api/katalog/nabidka":
@@ -331,6 +346,14 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send(200, katalog_post[path](body, self.db_path, self.demo))
             if path == "/api/katalog/slozka":
                 return self.send(200, import_folder(body, self.db_path, self.demo))
+            if path == "/api/nabidka/odeslat":
+                return self.send(200, api_publish(load_config(), body, self.db_path, self.demo))
+            if path == "/api/kanal/ulozit":
+                return self.send(200, api_save(body, self.db_path, self.demo))
+            if path == "/api/kanal/odebrat":
+                return self.send(200, api_delete(body, self.db_path, self.demo))
+            if path == "/api/kanal/test":
+                return self.send(200, api_test(body, self.db_path))
             if path == "/api/objednavka/stav":
                 return self.send(200, set_state(load_config(), body, self.db_path, self.demo))
             if path == "/api/objednavka/tracking":

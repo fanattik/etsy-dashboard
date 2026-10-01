@@ -3,3 +3,5 @@ __pycache__/
 app/data/
 app/config.json
 .DS_Store
+examples/custom_api_data.json
+examples/custom_api_data-media/
