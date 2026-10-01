@@ -36,12 +36,12 @@ import webbrowser
 from datetime import datetime, timedelta
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-API = "https://openapi.etsy.com/v3/application"
+API = os.environ.get("ETSY_DASHBOARD_API") or "https://openapi.etsy.com/v3/application"
 AUTH_URL = "https://www.etsy.com/oauth/connect"
 TOKEN_URL = "https://api.etsy.com/v3/public/oauth/token"
-SCOPES = "transactions_r shops_r profile_r listings_r"
+SCOPES = "transactions_r shops_r profile_r listings_r listings_w"
 PORT = 8765
-VERSION = "1.14"
+VERSION = "1.15"
 UPDATE_BASE = os.environ.get("ETSY_DASHBOARD_UPDATE_URL") or "https://raw.githubusercontent.com/fanattik/etsy-dashboard/main/app/"
 UPDATE_EVERY = 24 * 3600
 RATES_URL = os.environ.get("ETSY_DASHBOARD_RATES_URL") or "https://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml"
@@ -53,6 +53,7 @@ DATA_DIR = os.path.join(BASE_DIR, "data")
 TOKENS_PATH = os.path.join(DATA_DIR, "tokens.json")
 DB_PATH = os.path.join(DATA_DIR, "etsy.db")
 RATES_PATH = os.path.join(DATA_DIR, "kurzy.json")
+TAXONOMY_PATH = os.path.join(DATA_DIR, "kategorie.json")
 DASHBOARD_PATH = os.path.join(BASE_DIR, "dashboard.html")
 
 LEDGER_CHUNK = 30 * 24 * 3600  # výpis stahujeme po 30denních oknech
@@ -166,12 +167,13 @@ def save_tokens(tokens):
 
 # ---------------------------------------------------------------------- HTTP
 
-def http_json(method, url, headers=None, form=None):
-    data = urllib.parse.urlencode(form).encode() if form is not None else None
+def http_json(method, url, headers=None, form=None, body=None, ctype=None):
+    """form = urlencoded formulář, body = hotová data (JSON, multipart) s typem ctype."""
+    data = urllib.parse.urlencode(form).encode() if form is not None else body
     req = urllib.request.Request(url, data=data, method=method, headers=headers or {})
     req.add_header("User-Agent", f"etsy-dashboard/{VERSION} (+https://github.com/fanattik/etsy-dashboard)")
     if data is not None:
-        req.add_header("Content-Type", "application/x-www-form-urlencoded")
+        req.add_header("Content-Type", ctype or "application/x-www-form-urlencoded")
     try:
         with urllib.request.urlopen(req, timeout=60, context=SSL_CTX) as resp:
             return json.loads(resp.read().decode("utf-8"))
@@ -213,6 +215,25 @@ def api_get(cfg, tokens, shop_id, path, params=None):
     headers = api_key_header(cfg)
     headers["Authorization"] = "Bearer " + access_token(cfg, tokens, shop_id)
     return http_json("GET", url, headers=headers)
+
+
+def api_send(cfg, tokens, shop_id, method, path, data=None, files=None):
+    """Zápis do Etsy: data jako JSON, nebo se soubory (files = {pole: (název, bajty)}) jako multipart."""
+    headers = api_key_header(cfg)
+    headers["Authorization"] = "Bearer " + access_token(cfg, tokens, shop_id)
+    if files:
+        boundary = "----etsydashboard" + secrets.token_hex(12)
+        parts = []
+        for k, v in (data or {}).items():
+            parts.append(f'--{boundary}\r\nContent-Disposition: form-data; name="{k}"\r\n\r\n{v}\r\n'.encode())
+        for k, (fname, content) in files.items():
+            safe = fname.replace('"', "'").replace("\r", "").replace("\n", "")
+            parts.append(f'--{boundary}\r\nContent-Disposition: form-data; name="{k}"; filename="{safe}"\r\n'
+                         f'Content-Type: application/octet-stream\r\n\r\n'.encode() + content + b"\r\n")
+        parts.append(f"--{boundary}--\r\n".encode())
+        return http_json(method, API + path, headers, body=b"".join(parts),
+                         ctype="multipart/form-data; boundary=" + boundary)
+    return http_json(method, API + path, headers, body=json.dumps(data or {}).encode(), ctype="application/json")
 
 
 def api_get_all(cfg, tokens, shop_id, path, params):
@@ -280,7 +301,7 @@ def auth_finish(cfg, pasted):
             shop = api_get(cfg, tokens, "_novy", f"/shops/{shop_id}")
         finally:
             tokens.pop("_novy", None)
-        tok.update({"shop_name": shop.get("shop_name", shop_id),
+        tok.update({"shop_name": shop.get("shop_name", shop_id), "scope": SCOPES,
                     "user_id": tok["access_token"].split(".")[0]})
         tokens[shop_id] = tok
         save_tokens(tokens)
@@ -436,6 +457,161 @@ def sync_listings(cfg, tokens, con, shop_id, name, now):
         for (lid,) in con.execute("SELECT listing_id FROM listingy WHERE shop=?", (name,)).fetchall():
             if lid not in seen:
                 con.execute("DELETE FROM listingy WHERE listing_id=?", (lid,))
+
+
+# ------------------------------------------------------- nové listingy přes API
+
+def can_write(tok):
+    return "listings_w" in (tok.get("scope") or "").split()
+
+
+def taxonomy(cfg, tokens, shop_id):
+    """Kategorie Etsy (jen koncové, s celou cestou). Mění se zřídka, drží se 30 dní v data/kategorie.json."""
+    try:
+        with open(TAXONOMY_PATH, encoding="utf-8") as f:
+            cached = json.load(f)
+        if time.time() - cached["stazeno"] < 30 * 24 * 3600:
+            return cached["kategorie"]
+    except (OSError, ValueError, KeyError):
+        pass
+    out = []
+
+    def walk(nodes, path):
+        for n in nodes:
+            p = path + [n.get("name", "")]
+            if n.get("children"):
+                walk(n["children"], p)
+            else:
+                out.append([n["id"], " › ".join(p)])
+    walk(api_get(cfg, tokens, shop_id, "/seller-taxonomy/nodes").get("results", []), [])
+    out.sort(key=lambda x: x[1].lower())
+    os.makedirs(DATA_DIR, exist_ok=True)
+    with open(TAXONOMY_PATH, "w", encoding="utf-8") as f:
+        json.dump({"stazeno": int(time.time()), "kategorie": out}, f, ensure_ascii=False)
+    return out
+
+
+DEMO_TAXONOMY = [[1, "Paper & Party Supplies › Paper › Calendars & Planners"], [2, "Paper & Party Supplies › Paper › Stationery › Worksheets"],
+                 [3, "Books, Movies & Music › Books › Coloring Books"], [4, "Home & Living › Kitchen & Dining › Drink & Barware › Drinkware › Mugs"],
+                 [5, "Home & Living › Home Decor › Vases"]]
+
+
+def listing_options(cfg, shop_id, demo=False):
+    """Co formulář pro nový listing potřebuje vědět o shopě: měnu, kategorie, profily dopravy a zpracování."""
+    if demo:
+        return {"zapis": True, "mena": "USD", "kategorie": DEMO_TAXONOMY,
+                "doprava": [{"id": 11, "nazev": "Standard (CZ → svět)"}], "zpracovani": [{"id": 21, "nazev": "Made to order, 3–5 days"}]}
+    tokens = load_tokens()
+    if shop_id not in tokens:
+        raise AppError("listing_no_shop", "Tahle shopa není přihlášená přes Etsy API.")
+    out = {"zapis": can_write(tokens[shop_id]), "mena": "", "kategorie": [], "doprava": [], "zpracovani": [], "chyby": []}
+    out["mena"] = api_get(cfg, tokens, shop_id, f"/shops/{shop_id}").get("currency_code", "")
+    out["kategorie"] = taxonomy(cfg, tokens, shop_id)
+    try:
+        out["doprava"] = [{"id": p["shipping_profile_id"], "nazev": p.get("title") or str(p["shipping_profile_id"])}
+                          for p in api_get(cfg, tokens, shop_id, f"/shops/{shop_id}/shipping-profiles").get("results", [])]
+    except Exception as e:
+        out["chyby"].append(str(e))
+    try:
+        for r in api_get(cfg, tokens, shop_id, f"/shops/{shop_id}/readiness-state-definitions").get("results", []):
+            rid = r.get("readiness_state_id") or r.get("readiness_state_definition_id")
+            days = f"{r.get('min_processing_time', '?')}–{r.get('max_processing_time', '?')} {r.get('processing_time_unit', 'days')}"
+            out["zpracovani"].append({"id": rid, "nazev": f"{(r.get('readiness_state') or '').replace('_', ' ')}, {days}".strip(", ")})
+    except Exception as e:
+        out["chyby"].append(str(e))
+    return out
+
+
+MAX_FILE = 20 * 1024 * 1024
+
+
+def _decode_files(items, what):
+    out = []
+    for it in items or []:
+        try:
+            data = base64.b64decode(it.get("data") or "", validate=False)
+        except (ValueError, TypeError):
+            raise AppError("listing_bad_file", f"Soubor {it.get('nazev')} se nepodařilo přečíst.", soubor=it.get("nazev", ""))
+        if what == "file" and len(data) > MAX_FILE:
+            raise AppError("listing_file_big", f"Soubor {it.get('nazev')} má víc než 20 MB, Etsy ho nepřijme.", soubor=it.get("nazev", ""))
+        out.append((os.path.basename(it.get("nazev") or what), data))
+    return out
+
+
+def create_listing(cfg, body):
+    """Založí koncept listingu, nahraje obrázky a soubory ke stažení, případně ho zveřejní.
+    Když selže až nahrávání, koncept na Etsy zůstane a vrátí se seznam chyb."""
+    shop_id = str(body.get("shop_id") or "")
+    tokens = load_tokens()
+    if shop_id not in tokens:
+        raise AppError("listing_no_shop", "Tahle shopa není přihlášená přes Etsy API.")
+    if not can_write(tokens[shop_id]):
+        raise AppError("listing_relogin", "Shopa je přihlášená bez práva vytvářet listingy. V Nastavení ji přihlas znovu.")
+    digital = body.get("typ") != "physical"
+    title = " ".join(str(body.get("nazev") or "").split())
+    tags = [" ".join(str(t).split()) for t in body.get("stitky") or [] if str(t).strip()]
+    try:
+        price = round(float(str(body.get("cena")).replace(",", ".")), 2)
+        qty = int(body.get("mnozstvi") or (999 if digital else 1))
+        tax = int(body.get("kategorie"))
+    except (TypeError, ValueError):
+        raise AppError("listing_fields", "Vyplň název, cenu, množství a kategorii.")
+    if not title or len(title) > 140 or price <= 0 or qty < 1:
+        raise AppError("listing_fields", "Vyplň název (max 140 znaků), cenu a množství.")
+    if len(tags) > 13 or any(len(t) > 20 for t in tags):
+        raise AppError("listing_tags", "Etsy povoluje nejvýš 13 štítků, každý do 20 znaků.")
+    images = _decode_files(body.get("obrazky"), "image")
+    files = _decode_files(body.get("soubory"), "file") if digital else []
+    if len(files) > 5:
+        raise AppError("listing_files_many", "Digitální listing může mít nejvýš 5 souborů.")
+    data = {"title": title, "description": str(body.get("popis") or "").strip() or title, "price": price,
+            "quantity": qty, "who_made": body.get("who_made") or "i_did", "when_made": body.get("when_made") or "made_to_order",
+            "taxonomy_id": tax, "is_supply": False, "tags": tags}
+    if digital:
+        data["type"] = "download"
+    else:
+        data["type"] = "physical"
+        for key, src in (("shipping_profile_id", "doprava_id"), ("readiness_state_id", "zpracovani_id")):
+            if not body.get(src):
+                raise AppError("listing_physical", "Fyzický listing potřebuje profil dopravy a zpracování.")
+            data[key] = int(body[src])
+    base = f"/shops/{shop_id}/listings"
+    listing = api_send(cfg, tokens, shop_id, "POST", base, data)
+    lid = listing["listing_id"]
+    errors = []
+    for rank, (name, content) in enumerate(images, 1):
+        try:
+            api_send(cfg, tokens, shop_id, "POST", f"{base}/{lid}/images", {"rank": rank}, {"image": (name, content)})
+        except Exception as e:
+            errors.append(f"{name}: {e}")
+    for rank, (name, content) in enumerate(files, 1):
+        try:
+            api_send(cfg, tokens, shop_id, "POST", f"{base}/{lid}/files", {"name": name, "rank": rank}, {"file": (name, content)})
+        except Exception as e:
+            errors.append(f"{name}: {e}")
+    state = "draft"
+    if body.get("zverejnit") and not errors:
+        if not images or (digital and not files):
+            errors.append("Ke zveřejnění chybí obrázek nebo soubor ke stažení, listing zůstal jako koncept.")
+        else:
+            try:
+                state = api_send(cfg, tokens, shop_id, "PATCH", f"{base}/{lid}", {"state": "active"}).get("state", "active")
+            except Exception as e:
+                errors.append(str(e))
+
+    def refresh():  # nový listing hned i na stránce Listingy
+        with LOCK:
+            try:
+                con = db()
+                sync_listings(cfg, load_tokens(), con, shop_id, tokens[shop_id].get("shop_name", shop_id), int(time.time()))
+                con.commit()
+                con.close()
+            except Exception as e:
+                print(f"⚠️  listingy: {e}")
+    threading.Thread(target=refresh, daemon=True).start()
+    return {"listing_id": lid, "stav": state, "chyby": errors,
+            "url": listing.get("url") or f"https://www.etsy.com/listing/{lid}",
+            "upravit": f"https://www.etsy.com/your/shops/me/listing-editor/edit/{lid}"}
 
 
 def run_check(cfg):
@@ -1024,9 +1200,9 @@ class Handler(BaseHTTPRequestHandler):
         cfg = load_config()
         tokens = load_tokens()
         if self.demo:
-            shops = [{"id": "1", "name": "DemoPrintables"}, {"id": "2", "name": "DemoHandmade"}]
+            shops = [{"id": "1", "name": "DemoPrintables", "zapis": True}, {"id": "2", "name": "DemoHandmade", "zapis": True}]
         else:
-            shops = [{"id": k, "name": v.get("shop_name", k)} for k, v in tokens.items()]
+            shops = [{"id": k, "name": v.get("shop_name", k), "zapis": can_write(v)} for k, v in tokens.items()]
             con = db(self.db_path)
             names = {r[0] for r in con.execute("SELECT shop FROM objednavky UNION SELECT shop FROM vypis UNION SELECT shop FROM listingy")}
             con.close()
@@ -1055,6 +1231,12 @@ class Handler(BaseHTTPRequestHandler):
             return self.send(200, dashboard_data(self.db_path))
         if path == "/api/kurzy":
             return self.send(200, get_rates())
+        if path == "/api/listing/moznosti":
+            shop = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query).get("shop", [""])[0]
+            try:
+                return self.send(200, listing_options(load_config(), shop, self.demo))
+            except Exception as e:
+                return self.send(400, {"chyba": str(e), "kod": getattr(e, "kod", None), "param": getattr(e, "param", {})})
         if path in ("/export/objednavky.csv", "/export/vypis.csv", "/export/listingy.csv"):
             kind = path.split("/")[-1].split(".")[0]
             lang = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query).get("lang", ["cs"])[0]
@@ -1101,6 +1283,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send(200, {"ok": True})
             if path == "/api/aktualizace":
                 return self.send(200, check_update())
+            if path == "/api/listing/vytvorit":
+                return self.send(200, create_listing(load_config(), body))
             if path == "/api/doprava":
                 return self.send(200, save_shipping(body, self.db_path))
             if path == "/api/import":

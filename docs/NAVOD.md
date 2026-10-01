@@ -47,6 +47,21 @@ Nová data se neobjeví sama, musíš je znovu stáhnout a nahrát.
 Při prvním propojení se stáhne historie za poslední rok a nahradí data z CSV
 (shopa se musí v CSV jmenovat stejně jako na Etsy).
 
+## 4. Nové listingy přes Etsy API
+Na stránce **Listingy** klikni **+ Nový listing**.
+1. Shopy přihlášené před verzí 1.15 mají jen čtecí právo. V Nastavení je jednou přihlas znovu
+   (+ Přihlásit shopu), Etsy se zeptá i na právo upravovat listingy.
+2. Klikni **Načíst složku s produkty** a vyber složku, kde má každý produkt vlastní podsložku
+   s `etsy-listing.md` (sekce Title, Tags, Price, Description), obrázky a soubory ke stažení.
+   Hlavní obrázek je `etsy-cover.jpg`. Když popis zmiňuje ZIP, nahrají se ZIPy, jinak PDF.
+   Nebo klikni **Prázdný listing** a vyplň ho ručně.
+3. Zkontroluj kategorii (dashboard ji jen odhadne podle názvu), cenu v měně shopy, štítky
+   (max 13, každý do 20 znaků), obrázky a soubory (max 5, každý do 20 MB).
+4. Zvol **Nechat jako koncept** (zdarma, zveřejníš pak na Etsy) nebo **Rovnou zveřejnit**
+   (Etsy účtuje $0.20 za listing) a klikni **Vytvořit**.
+
+Fyzické produkty (3D tisk) potřebují profil dopravy a zpracování, které máš nastavené na Etsy.
+
 ## Co na dashboardu najdeš
 - Přepínač shop (obě / jen jedna) a období (tento měsíc, minulý, letos, konkrétní měsíc…).
 - Tržby, počet objednávek, průměrná objednávka, poplatky Etsy, čistě na účet,

@@ -13,6 +13,7 @@ The interface is available in English, Czech and German (switch in *Settings*, w
 - Orders and payment-account tables with filters, sorting and CSV export (Excel-friendly)
 - Per-order shipping notes: carrier, tracking number and your shipping cost (kept locally, never overwritten by imports)
 - Listings page: price, stock, views, favorites, and units sold and revenue per listing in the selected period
+- Create new listings through the Etsy API: load a folder of products (each with an `etsy-listing.md`, images and download files), check and edit them, then create drafts or publish them in one go
 - Several shops side by side, filter by shop and period
 - Show all amounts in one currency of your choice (converted at the daily ECB rate)
 - Two ways to get data:

@@ -180,6 +180,55 @@ span.dimg { font-size: 42px; }
 .ddesc { white-space: pre-wrap; font-size: 13px; line-height: 1.55; max-height: 220px; overflow-y: auto; background: var(--panel-2); border-radius: 10px; padding: 12px 14px; }
 @media (max-width: 600px) { .dhead { flex-direction: column; } .dimg { width: 100%; height: 200px; } .dstats { grid-template-columns: 1fr 1fr; } }
 th.sortable:hover, th.sorted { color: var(--text); }
+
+/* nový listing */
+.nl-setup { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0 14px; }
+.nl-setup .field { margin-top: 0; }
+.nl-warn { background: var(--warn-soft); color: var(--warn); border-radius: 10px; padding: 10px 14px; font-size: 13px; margin-top: 14px; }
+.nl-warn a { color: inherit; font-weight: 500; }
+.nl-item { padding: 0; margin-top: 10px; }
+.nl-head { display: flex; align-items: center; gap: 12px; padding: 14px 20px; cursor: pointer; }
+.nl-head .t { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nl-head .sub { color: var(--muted); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nl-head .grow { flex: 1; min-width: 0; }
+.nl-head input[type=checkbox] { width: 16px; height: 16px; flex: none; accent-color: var(--accent); }
+.nl-head .chev { color: var(--muted); transition: transform .15s; }
+.nl-item.open .chev { transform: rotate(180deg); }
+.nl-body { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 0 22px; padding: 0 20px 20px; border-top: 1px solid var(--line); }
+.nl-body .full { grid-column: 1 / -1; }
+.nl-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px; }
+.nl-count { float: right; font-family: var(--mono); color: var(--faint); }
+.nl-count.bad, .nl-bad, .hint.nl-bad { color: var(--bad); }
+.nl-imgs { display: flex; flex-wrap: wrap; gap: 8px; }
+.nl-img { position: relative; width: 84px; height: 84px; border-radius: 9px; overflow: hidden; background: var(--panel-2); }
+.nl-img img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.nl-img.off img { opacity: .3; }
+.nl-img b { position: absolute; left: 5px; top: 5px; background: rgba(0,0,0,.6); color: #fff; font-size: 10.5px; border-radius: 5px; padding: 0 5px; font-weight: 500; }
+.nl-img button, .nl-files button.x { border: 0; background: rgba(0,0,0,.6); color: #fff; border-radius: 6px; width: 22px; height: 22px; cursor: pointer; font-size: 12px; line-height: 1; }
+.nl-img button { position: absolute; right: 4px; top: 4px; }
+.nl-img button.l { right: auto; left: 4px; top: auto; bottom: 4px; }
+.nl-add { width: 84px; height: 84px; border-radius: 9px; border: 1.5px dashed var(--faint); display: grid; place-items: center; color: var(--muted); cursor: pointer; font-size: 22px; }
+.nl-add:hover { color: var(--text); border-color: var(--text); }
+.nl-files { list-style: none; margin: 0; padding: 0; }
+.nl-files li { display: flex; align-items: center; gap: 10px; padding: 7px 0; font-size: 13px; }
+.nl-files li + li { border-top: 1px solid var(--line); }
+.nl-files li span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nl-files li.off span { color: var(--faint); text-decoration: line-through; }
+.nl-files button.x { background: var(--panel-2); color: var(--muted); }
+.nl-files input[type=checkbox] { width: auto; flex: none; accent-color: var(--accent); }
+.nl-imgs .nl-add { display: grid; margin: 0; font-size: 22px; color: var(--muted); }
+.nl-bar { position: sticky; bottom: 10px; margin-top: 10px; display: flex; align-items: center; gap: 10px 14px; flex-wrap: wrap; box-shadow: 0 6px 24px rgba(0,0,0,.08); }
+.nl-bar .field { margin: 0; flex: 1 1 320px; }
+.nl-empty { text-align: center; padding: 40px 20px; color: var(--muted); }
+.pill.err { background: var(--bad-soft); color: var(--bad); }
+@media (max-width: 900px) { .nl-setup { grid-template-columns: 1fr 1fr; } .nl-body { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 520px) {
+  .nl-setup, .nl-row { grid-template-columns: minmax(0, 1fr); } .nl-body { padding: 0 14px 16px; }
+  .nl-head { padding: 12px 14px; flex-wrap: wrap; } .nl-head .thumb { display: none; } .nl-head .grow { flex: 1 1 0; }
+  .nl-head .t { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+  .nl-head .chev { display: none; } .nl-head .pill { margin-left: 30px; } .nl-head .btn.ghost { margin-left: auto; }
+  .nl-bar { position: static; }
+}
 .empty { color: var(--muted); padding: 28px 0; text-align: center; font-size: 13px; }
 .linkbtn { background: none; border: 0; color: var(--text); cursor: pointer; font-weight: 500; padding: 0; text-decoration: none; font-size: 12.5px; }
 .linkbtn:hover { text-decoration: underline; }
@@ -303,13 +352,15 @@ dialog::backdrop { background: rgba(0,0,0,.4); }
     <!-- listingy -->
     <section class="page" id="page-listingy" hidden>
       <div class="card welcome" id="lEmpty" hidden><h2 data-i18n="lEmptyTitle"></h2><p data-i18n="lEmptyText"></p>
-        <button class="btn primary" onclick="openImport()"><svg class="i" viewBox="0 0 24 24"><path d="M12 16V4M7 9l5-5 5 5M4 20h16"/></svg><span data-i18n="uploadCsv"></span></button></div>
+        <button class="btn primary" onclick="openImport()"><svg class="i" viewBox="0 0 24 24"><path d="M12 16V4M7 9l5-5 5 5M4 20h16"/></svg><span data-i18n="uploadCsv"></span></button>
+        <a class="btn" href="#novy"><svg class="i" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg><span data-i18n="nlNew"></span></a></div>
       <div id="lBody">
         <div class="grid kpis" id="lkpis"></div>
         <div class="card">
           <div class="card-h">
             <input class="search" id="lsearch" data-i18n-ph="lSearchPh">
             <div class="spacer"></div>
+            <a class="btn primary" href="#novy" id="lNew"><svg class="i" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg><span data-i18n="nlNew"></span></a>
             <a class="btn" id="lExport" href="/export/listingy.csv"><svg class="i" viewBox="0 0 24 24"><path d="M12 4v12M7 11l5 5 5-5M4 20h16"/></svg><span data-i18n="exportCsv"></span></a>
           </div>
           <div class="tfilters">
@@ -320,6 +371,39 @@ dialog::backdrop { background: rgba(0,0,0,.4); }
           <div class="tablewrap"><table id="ltable"></table></div>
         </div>
       </div>
+    </section>
+
+    <!-- nový listing -->
+    <section class="page" id="page-novy" hidden>
+      <div class="card">
+        <div class="nl-setup">
+          <div class="field"><label for="nlShop" data-i18n="nlShop"></label><select id="nlShop"></select></div>
+          <div class="field"><label for="nlType" data-i18n="nlType"></label><select id="nlType"><option value="digital" data-i18n="nlDigital"></option><option value="physical" data-i18n="nlPhysical"></option></select></div>
+          <div class="field"><label for="nlAfter" data-i18n="nlAfter"></label><select id="nlAfter"><option value="draft" data-i18n="nlKeepDraft"></option><option value="active" data-i18n="nlPublish"></option></select></div>
+          <div class="field" id="nlShipF"><label for="nlShip" data-i18n="nlShipProfile"></label><select id="nlShip"></select></div>
+          <div class="field" id="nlProcF"><label for="nlProc" data-i18n="nlProcProfile"></label><select id="nlProc"></select></div>
+        </div>
+        <p class="hint" id="nlInfo"></p>
+        <div class="nl-warn" id="nlWarn" hidden></div>
+        <div class="actions left">
+          <label class="btn primary" for="nlFolder"><svg class="i" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg><span data-i18n="nlLoadFolder"></span></label>
+          <input type="file" id="nlFolder" webkitdirectory multiple hidden>
+          <button class="btn" id="nlAddEmpty"><svg class="i" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg><span data-i18n="nlAddEmpty"></span></button>
+          <span class="hint" id="nlLoadMsg"></span>
+        </div>
+        <p class="hint" data-i18n="nlFolderHint"></p>
+      </div>
+      <div id="nlList"></div>
+      <div class="card nl-bar" id="nlBar" hidden>
+        <div class="field"><input id="nlCatAll" list="nlTax" data-i18n-ph="nlCatAllPh" autocomplete="off"></div>
+        <button class="btn" id="nlCatAllBtn" data-i18n="nlCatAllBtn"></button>
+        <div class="spacer"></div>
+        <span class="hint" id="nlSum"></span>
+        <button class="btn primary" id="nlCreate"></button>
+      </div>
+      <datalist id="nlTax"></datalist>
+      <input type="file" id="nlPickImg" accept="image/jpeg,image/png,image/gif,image/webp" multiple hidden>
+      <input type="file" id="nlPickFile" multiple hidden>
     </section>
 
     <!-- objednávky a výpis -->
@@ -910,18 +994,19 @@ const ICON = {
 const icon = k => `<svg class="i" viewBox="0 0 24 24">${ICON[k]}</svg>`;
 
 // ---------- stránky
-const PAGES = { prehled: "navOverview", objednavky: "tabOrders", listingy: "navListings", vypis: "ledgerTitle", nastaveni: "settingsTitle" };
+const PAGES = { prehled: "navOverview", objednavky: "tabOrders", listingy: "navListings", novy: "nlTitle", vypis: "ledgerTitle", nastaveni: "settingsTitle" };
 let page = "prehled";
 function route() {
   const h = location.hash.slice(1);
   page = PAGES[h] ? h : "prehled";
-  document.querySelectorAll(".nav a").forEach(a => a.classList.toggle("on", a.dataset.page === page));
+  document.querySelectorAll(".nav a").forEach(a => a.classList.toggle("on", a.dataset.page === (page === "novy" ? "listingy" : page)));
   $("#page-prehled").hidden = page !== "prehled";
   $("#page-tabulka").hidden = page !== "objednavky" && page !== "vypis";
   $("#page-listingy").hidden = page !== "listingy";
+  $("#page-novy").hidden = page !== "novy";
   $("#lsearch").value = "";
   $("#page-nastaveni").hidden = page !== "nastaveni";
-  $("#filters").style.display = page === "nastaveni" || (S && !S.shopy.length) ? "none" : "";
+  $("#filters").style.display = page === "nastaveni" || page === "novy" || (S && !S.shopy.length) ? "none" : "";
   $("#period").hidden = page === "objednavky" || page === "vypis";
   $("#search").value = "";
   $("#pageTitle").textContent = t(PAGES[page]);
@@ -1377,8 +1462,9 @@ function renderStatus() {
 function render() {
   renderStatus();
   const ready = S.shopy.length > 0;
-  $("#filters").style.display = page === "nastaveni" || !ready ? "none" : "";
+  $("#filters").style.display = page === "nastaveni" || page === "novy" || !ready ? "none" : "";
   if (page === "nastaveni") return;
+  if (page === "novy") { renderNew(); return; }
   $("#welcome").hidden = ready; $("#overview").hidden = !ready;
   if (!ready) return;
   renderChips();
@@ -1483,6 +1569,7 @@ $("#lang").onchange = () => {
   if (!S) return;
   const prev = $("#period").value; buildPeriods(); $("#period").value = prev;
   renderShopList(); buildCurrency(); renderNotif();
+  if (page === "novy" && $("#nlShop").value) { nlLoadOpts(); renderNlList(); }
   $("#secret").placeholder = S.nastaveni.ma_secret ? t("secretSaved") : "";
   render(); syncServerLang();
 };
@@ -1577,6 +1664,321 @@ const drop = $("#drop");
 drop.ondragover = e => { e.preventDefault(); drop.classList.add("over"); };
 drop.ondragleave = () => drop.classList.remove("over");
 drop.ondrop = e => { e.preventDefault(); drop.classList.remove("over"); importFiles([...e.dataTransfer.files]); };
+
+// ---------- nový listing přes Etsy API
+const T3 = {
+  cs: {
+    nlTitle: "Nový listing", nlNew: "Nový listing", nlShop: "Shopa", nlType: "Typ", nlDigital: "Digitální (ke stažení)", nlPhysical: "Fyzický produkt",
+    nlAfter: "Po vytvoření", nlKeepDraft: "Nechat jako koncept", nlPublish: "Rovnou zveřejnit", nlShipProfile: "Profil dopravy", nlProcProfile: "Profil zpracování",
+    nlLoadFolder: "Načíst složku s produkty", nlAddEmpty: "Prázdný listing",
+    nlFolderHint: "Vyber složku, ve které má každý produkt vlastní podsložku s <b>etsy-listing.md</b> (název, štítky, cena, popis), obrázky a soubory ke stažení, třeba rozbalený MiLuMaCreations-vse.zip. Všechno před vytvořením ještě uvidíš a můžeš upravit.",
+    nlNoShops: "Vytvářet listingy jde jen u shopy přihlášené přes Etsy API. Přihlas ji v <a href=\"#nastaveni\">Nastavení</a>.",
+    nlRelogin: "Shopa {shop} je přihlášená jen pro čtení. V <a href=\"#nastaveni\">Nastavení</a> klikni na „+ Přihlásit shopu“ a přihlas ji znovu, Etsy se tentokrát zeptá i na právo upravovat listingy.",
+    nlLoadingOpts: "Načítám kategorie a profily z Etsy…", nlInfo: "Ceny zadávej v měně shopy ({cur}). Zveřejnění stojí u Etsy $0.20 za listing, koncept je zdarma.",
+    nlOptsErr: "Kategorie z Etsy se nepodařilo načíst: {e}", nlNoMd: "Ve složce jsem nenašel žádný etsy-listing.md.", nlLoaded: "Načteno {n}.",
+    nlEmpty: "Zatím tu nic není. Načti složku s produkty nebo přidej prázdný listing.",
+    nlFTitle: "Název", nlFPrice: "Cena ({cur})", nlFQty: "Množství", nlFCat: "Kategorie na Etsy", nlCatPh: "začni psát, např. planners",
+    nlCatGuess: "návrh podle názvu, zkontroluj", nlCatBad: "vyber kategorii ze seznamu", nlFTags: "Štítky (oddělené čárkou)", nlTagsBad: "delší než 20 znaků: {t}",
+    nlFDesc: "Popis", nlFImgs: "Obrázky (první je hlavní)", nlFFiles: "Soubory ke stažení (max 5, každý do 20 MB)", nlNoFiles: "Žádný soubor.",
+    nlAddFile: "+ Přidat soubor", nlMoveFirst: "Dát na první místo", nlRemove: "Odebrat", nlToggle: "Zapnout / vypnout",
+    nlCatAllPh: "Kategorie pro všechny vybrané…", nlCatAllBtn: "Použít", nlSum: "Vybráno {n}",
+    nlCreateDraft: "Vytvořit koncepty ({n})", nlCreatePub: "Vytvořit a zveřejnit ({n})",
+    nlConfirmPub: "Zveřejnit {n} na Etsy? Etsy za každý listing účtuje poplatek $0.20.",
+    nlNeedCat: "U {t} chybí kategorie.", nlNeedTitle: "Bez názvu",
+    nlStWait: "čeká", nlStRun: "vytvářím…", nlStDraft: "koncept na Etsy", nlStActive: "zveřejněno", nlStErr: "chyba",
+    nlEdit: "Upravit na Etsy ↗", nlView: "Zobrazit ↗", nlDone: "Hotovo: {ok} z {n}. Nové listingy se za chvíli objeví na stránce Listingy.",
+    nlTooBig: "{f} má víc než 20 MB, Etsy ho nepřijme.", nlUntitled: "Nový listing",
+  },
+  en: {
+    nlTitle: "New listing", nlNew: "New listing", nlShop: "Shop", nlType: "Type", nlDigital: "Digital (download)", nlPhysical: "Physical item",
+    nlAfter: "After creating", nlKeepDraft: "Keep as draft", nlPublish: "Publish right away", nlShipProfile: "Shipping profile", nlProcProfile: "Processing profile",
+    nlLoadFolder: "Load product folder", nlAddEmpty: "Empty listing",
+    nlFolderHint: "Pick a folder where each product has its own subfolder with <b>etsy-listing.md</b> (title, tags, price, description), images and download files, e.g. the unzipped MiLuMaCreations-vse.zip. You'll see and can edit everything before anything is created.",
+    nlNoShops: "Listings can only be created for a shop connected through the Etsy API. Connect it in <a href=\"#nastaveni\">Settings</a>.",
+    nlRelogin: "{shop} is connected read-only. In <a href=\"#nastaveni\">Settings</a> click “+ Connect shop” and sign in again; this time Etsy will also ask for permission to edit listings.",
+    nlLoadingOpts: "Loading categories and profiles from Etsy…", nlInfo: "Enter prices in the shop currency ({cur}). Etsy charges $0.20 per published listing, drafts are free.",
+    nlOptsErr: "Couldn't load categories from Etsy: {e}", nlNoMd: "No etsy-listing.md found in that folder.", nlLoaded: "Loaded {n}.",
+    nlEmpty: "Nothing here yet. Load a product folder or add an empty listing.",
+    nlFTitle: "Title", nlFPrice: "Price ({cur})", nlFQty: "Quantity", nlFCat: "Etsy category", nlCatPh: "start typing, e.g. planners",
+    nlCatGuess: "suggested from the title, please check", nlCatBad: "pick a category from the list", nlFTags: "Tags (comma separated)", nlTagsBad: "longer than 20 characters: {t}",
+    nlFDesc: "Description", nlFImgs: "Images (the first one is the main photo)", nlFFiles: "Download files (max 5, up to 20 MB each)", nlNoFiles: "No files.",
+    nlAddFile: "+ Add file", nlMoveFirst: "Make it the first", nlRemove: "Remove", nlToggle: "Turn on / off",
+    nlCatAllPh: "Category for all selected…", nlCatAllBtn: "Apply", nlSum: "{n} selected",
+    nlCreateDraft: "Create drafts ({n})", nlCreatePub: "Create and publish ({n})",
+    nlConfirmPub: "Publish {n} on Etsy? Etsy charges a $0.20 fee per listing.",
+    nlNeedCat: "{t} has no category.", nlNeedTitle: "Untitled",
+    nlStWait: "waiting", nlStRun: "creating…", nlStDraft: "draft on Etsy", nlStActive: "published", nlStErr: "error",
+    nlEdit: "Edit on Etsy ↗", nlView: "View ↗", nlDone: "Done: {ok} of {n}. The new listings will show up on the Listings page shortly.",
+    nlTooBig: "{f} is over 20 MB, Etsy won't accept it.", nlUntitled: "New listing",
+  },
+  de: {
+    nlTitle: "Neues Angebot", nlNew: "Neues Angebot", nlShop: "Shop", nlType: "Art", nlDigital: "Digital (Download)", nlPhysical: "Physischer Artikel",
+    nlAfter: "Nach dem Erstellen", nlKeepDraft: "Als Entwurf lassen", nlPublish: "Sofort veröffentlichen", nlShipProfile: "Versandprofil", nlProcProfile: "Bearbeitungsprofil",
+    nlLoadFolder: "Produktordner laden", nlAddEmpty: "Leeres Angebot",
+    nlFolderHint: "Wähle einen Ordner, in dem jedes Produkt einen Unterordner mit <b>etsy-listing.md</b> (Titel, Tags, Preis, Beschreibung), Bildern und Download-Dateien hat, z. B. das entpackte MiLuMaCreations-vse.zip. Vor dem Erstellen siehst du alles und kannst es ändern.",
+    nlNoShops: "Angebote lassen sich nur für einen über die Etsy-API verbundenen Shop erstellen. Verbinde ihn in den <a href=\"#nastaveni\">Einstellungen</a>.",
+    nlRelogin: "{shop} ist nur mit Leserechten verbunden. Klicke in den <a href=\"#nastaveni\">Einstellungen</a> auf „+ Shop verbinden“ und melde dich erneut an; Etsy fragt diesmal auch nach dem Recht, Angebote zu bearbeiten.",
+    nlLoadingOpts: "Lade Kategorien und Profile von Etsy…", nlInfo: "Preise in der Shop-Währung ({cur}) eingeben. Etsy berechnet $0.20 pro veröffentlichtem Angebot, Entwürfe sind kostenlos.",
+    nlOptsErr: "Kategorien konnten nicht von Etsy geladen werden: {e}", nlNoMd: "In diesem Ordner gibt es keine etsy-listing.md.", nlLoaded: "{n} geladen.",
+    nlEmpty: "Noch nichts da. Lade einen Produktordner oder füge ein leeres Angebot hinzu.",
+    nlFTitle: "Titel", nlFPrice: "Preis ({cur})", nlFQty: "Menge", nlFCat: "Etsy-Kategorie", nlCatPh: "tippen, z. B. planners",
+    nlCatGuess: "Vorschlag nach dem Titel, bitte prüfen", nlCatBad: "Kategorie aus der Liste wählen", nlFTags: "Tags (durch Komma getrennt)", nlTagsBad: "länger als 20 Zeichen: {t}",
+    nlFDesc: "Beschreibung", nlFImgs: "Bilder (das erste ist das Hauptbild)", nlFFiles: "Download-Dateien (max. 5, je bis 20 MB)", nlNoFiles: "Keine Dateien.",
+    nlAddFile: "+ Datei hinzufügen", nlMoveFirst: "An erste Stelle", nlRemove: "Entfernen", nlToggle: "Ein / aus",
+    nlCatAllPh: "Kategorie für alle ausgewählten…", nlCatAllBtn: "Übernehmen", nlSum: "{n} ausgewählt",
+    nlCreateDraft: "Entwürfe erstellen ({n})", nlCreatePub: "Erstellen und veröffentlichen ({n})",
+    nlConfirmPub: "{n} auf Etsy veröffentlichen? Etsy berechnet $0.20 pro Angebot.",
+    nlNeedCat: "{t} hat keine Kategorie.", nlNeedTitle: "Ohne Titel",
+    nlStWait: "wartet", nlStRun: "wird erstellt…", nlStDraft: "Entwurf auf Etsy", nlStActive: "veröffentlicht", nlStErr: "Fehler",
+    nlEdit: "Auf Etsy bearbeiten ↗", nlView: "Ansehen ↗", nlDone: "Fertig: {ok} von {n}. Die neuen Angebote erscheinen gleich auf der Seite Angebote.",
+    nlTooBig: "{f} ist größer als 20 MB, Etsy nimmt sie nicht an.", nlUntitled: "Neues Angebot",
+  },
+};
+for (const l in T3) Object.assign(T[l], T3[l]);
+Object.assign(T.cs.plural, { tag: ["štítek", "štítky", "štítků"] }); Object.assign(T.en.plural, { tag: ["tag", "tags"] }); Object.assign(T.de.plural, { tag: ["Tag", "Tags"] });
+Object.assign(T.en.errors, {
+  listing_no_shop: "This shop isn't connected through the Etsy API.", listing_relogin: "The shop is connected without permission to create listings. Sign it in again in Settings.",
+  listing_fields: "Fill in the title (max 140 characters), price, quantity and category.", listing_tags: "Etsy allows at most 13 tags, each up to 20 characters.",
+  listing_files_many: "A digital listing can have at most 5 files.", listing_file_big: "{soubor} is over 20 MB, Etsy won't accept it.",
+  listing_bad_file: "Couldn't read {soubor}.", listing_physical: "A physical listing needs a shipping and a processing profile.", demo: "Nothing can be changed in demo mode.",
+});
+Object.assign(T.de.errors, {
+  listing_no_shop: "Dieser Shop ist nicht über die Etsy-API verbunden.", listing_relogin: "Der Shop ist ohne das Recht verbunden, Angebote zu erstellen. Melde ihn in den Einstellungen neu an.",
+  listing_fields: "Titel (max. 140 Zeichen), Preis, Menge und Kategorie ausfüllen.", listing_tags: "Etsy erlaubt höchstens 13 Tags mit je bis zu 20 Zeichen.",
+  listing_files_many: "Ein digitales Angebot kann höchstens 5 Dateien haben.", listing_file_big: "{soubor} ist größer als 20 MB, Etsy nimmt sie nicht an.",
+  listing_bad_file: "{soubor} konnte nicht gelesen werden.", listing_physical: "Ein physisches Angebot braucht ein Versand- und ein Bearbeitungsprofil.", demo: "Im Demo-Modus lässt sich nichts ändern.",
+});
+
+let NL = [], NLID = 0, NLOPTS = {}, NLPICK = null, NLBUSY = false;
+const nlShop = () => (S?.shopy || []).find(s => s.id && s.id === $("#nlShop").value);
+const nlOpts = () => NLOPTS[$("#nlShop").value] || {};
+const nlCur = () => nlOpts().mena || "USD";
+const IMG_RE = /\.(jpe?g|png|gif|webp)$/i;
+
+// etsy-listing.md: sekce „## Title“, „## Tags“, „## Price“, „## Description“
+function parseListingMd(text) {
+  const sec = {}; let cur = null;
+  text.replace(/\r/g, "").split("\n").forEach(line => {
+    const m = line.match(/^##\s+(.*)$/);
+    if (m) { cur = m[1].toLowerCase(); sec[cur] = []; } else if (cur) sec[cur].push(line);
+  });
+  const get = k => { const key = Object.keys(sec).find(x => x.startsWith(k)); return key ? sec[key].join("\n").trim() : ""; };
+  const price = (get("price").match(/\d+(?:[.,]\d+)?/) || [""])[0].replace(",", ".");
+  return { nazev: get("title").split("\n")[0].trim(), stitky: get("tags").split(/[,\n]/).map(x => x.trim()).filter(Boolean).join(", "),
+    cena: price, popis: get("description") };
+}
+const imgRank = n => /etsy-cover|cover-etsy|main/i.test(n) ? 0 : /preview|mockup/i.test(n) ? 1 : 2;
+function nlProduct(p, imgs, files) {
+  const o = { id: ++NLID, on: true, open: false, nazev: "", cena: "", mnozstvi: "", kategorie: "", odhad: false, stitky: "", popis: "",
+    obrazky: [], soubory: [], stav: "", vysledek: null, ...p };
+  o.obrazky = (imgs || []).sort((a, b) => imgRank(a.name) - imgRank(b.name) || a.name.localeCompare(b.name)).map(f => ({ file: f, url: URL.createObjectURL(f), on: true }));
+  // soubory: když popis mluví o ZIPu, nahrají se ZIPy, jinak PDF; ostatní zůstanou vypnuté
+  const zip = /\bzip\b/i.test(o.popis);
+  o.soubory = (files || []).sort((a, b) => a.name.localeCompare(b.name)).map(f => ({ file: f, on: zip ? /\.zip$/i.test(f.name) : !/\.zip$/i.test(f.name) }));
+  if (o.soubory.length && !o.soubory.some(f => f.on)) o.soubory.forEach(f => f.on = true);
+  if (!o.kategorie) { o.kategorie = guessCat(o); o.odhad = !!o.kategorie; }
+  return o;
+}
+async function loadFolder(fileList) {
+  const files = [...fileList], dirs = {};
+  const dirOf = f => (f.webkitRelativePath || f.name).split("/").slice(0, -1).join("/");
+  files.forEach(f => (dirs[dirOf(f)] = dirs[dirOf(f)] || []).push(f));
+  const added = [];
+  for (const [dir, list] of Object.entries(dirs).sort()) {
+    const md = list.find(f => /^(etsy-)?listing\.md$/i.test(f.name)); if (!md) continue;
+    const p = parseListingMd(await md.text());
+    added.push(nlProduct(p, list.filter(f => IMG_RE.test(f.name)), list.filter(f => /\.(zip|pdf)$/i.test(f.name))));
+  }
+  $("#nlLoadMsg").textContent = added.length ? t("nlLoaded", { n: pl(added.length, "listing") }) : t("nlNoMd");
+  NL.push(...added); renderNlList();
+}
+
+// návrh kategorie: slova z názvu kategorie, která jsou i v názvu a štítcích produktu
+const stem = w => w.toLowerCase().replace(/(ies)$/, "y").replace(/(es|s)$/, "");
+function guessCat(p) {
+  const tax = nlOpts().kategorie; if (!tax?.length) return "";
+  const words = new Set(`${p.nazev} ${p.stitky}`.split(/[^A-Za-z]+/).filter(w => w.length > 3).map(stem));
+  let best = null;
+  for (const [, path] of tax) {
+    const segs = path.split(" › "), leaf = segs[segs.length - 1].split(/[^A-Za-z]+/).filter(w => w.length > 3).map(stem);
+    const rest = segs.slice(0, -1).join(" ").split(/[^A-Za-z]+/).filter(w => w.length > 3).map(stem);
+    const hit = leaf.filter(w => words.has(w)).length; if (!hit) continue;
+    const score = hit * 2 + rest.filter(w => words.has(w)).length - (leaf.length - hit) * .5 - segs.length * .01;
+    if (!best || score > best[0]) best = [score, path];
+  }
+  return best ? best[1] : "";
+}
+const catId = path => { const c = (nlOpts().kategorie || []).find(x => x[1] === path); return c ? c[0] : null; };
+const tagList = s => s.split(",").map(x => x.trim()).filter(Boolean);
+
+function nlStatus(p) {
+  if (!p.stav) return "";
+  const cls = { run: "", err: "err", draft: "", active: "done" }[p.stav] ?? "";
+  const lbl = { run: t("nlStRun"), err: t("nlStErr"), draft: t("nlStDraft"), active: t("nlStActive"), wait: t("nlStWait") }[p.stav];
+  return `<span class="pill ${cls}">${esc(lbl)}</span>`;
+}
+function nlHead(p) {
+  const img = p.obrazky.find(i => i.on);
+  const sub = [p.cena ? fmtMoney(+String(p.cena).replace(",", ".") || 0, nlCur()) : "", p.kategorie.split(" › ").pop(), pl(tagList(p.stitky).length, "tag")].filter(Boolean).join(" · ");
+  const links = p.vysledek ? ` <a class="linkbtn" href="${esc(p.vysledek.upravit)}" target="_blank" rel="noopener">${esc(t("nlEdit"))}</a>` + (p.stav === "active" ? ` <a class="linkbtn" href="${esc(p.vysledek.url)}" target="_blank" rel="noopener">${esc(t("nlView"))}</a>` : "") : "";
+  return `<input type="checkbox" data-a="on" ${p.on ? "checked" : ""} ${p.stav === "draft" || p.stav === "active" ? "disabled" : ""} aria-label="${esc(t("nlToggle"))}">
+    ${img ? `<img class="thumb" src="${img.url}" alt="">` : `<span class="thumb">${esc((p.nazev || "?").trim()[0] || "?")}</span>`}
+    <div class="grow"><div class="t">${esc(p.nazev || t("nlUntitled"))}</div><div class="sub"><span class="s">${esc(sub)}</span>${links}</div>
+    ${p.chyby?.length ? `<div class="sub nl-bad" style="white-space:normal">${p.chyby.map(esc).join("<br>")}</div>` : ""}</div>
+    ${nlStatus(p)}
+    <button class="btn ghost" data-a="del" aria-label="${esc(t("nlRemove"))}">✕</button>
+    <svg class="i chev" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg>`;
+}
+function nlBody(p) {
+  const digital = $("#nlType").value === "digital";
+  const tags = tagList(p.stitky), long = tags.filter(x => x.length > 20), catOk = !p.kategorie || catId(p.kategorie);
+  const imgs = p.obrazky.map((im, i) => `<div class="nl-img ${im.on ? "" : "off"}" title="${esc(im.file.name)}"><img src="${im.url}" alt="">
+      ${im.on ? `<b>${p.obrazky.slice(0, i + 1).filter(x => x.on).length}</b>` : ""}
+      <button data-a="img-del" data-i="${i}" aria-label="${esc(t("nlRemove"))}">✕</button>
+      ${i ? `<button class="l" data-a="img-first" data-i="${i}" title="${esc(t("nlMoveFirst"))}">↖</button>` : ""}</div>`).join("");
+  const files = p.soubory.map((f, i) => `<li class="${f.on ? "" : "off"}"><input type="checkbox" data-a="file-on" data-i="${i}" ${f.on ? "checked" : ""}>
+      <span>${esc(f.file.name)}</span><small class="mono ${f.file.size > 20 * 1048576 ? "nl-bad" : "hint"}">${(f.file.size / 1048576).toFixed(1)} MB</small>
+      <button class="x" data-a="file-del" data-i="${i}" aria-label="${esc(t("nlRemove"))}">✕</button></li>`).join("");
+  return `<div>
+      <div class="field"><label>${esc(t("nlFTitle"))} <span class="nl-count ${p.nazev.length > 140 ? "bad" : ""}" data-c="nazev">${p.nazev.length}/140</span></label><input data-f="nazev" value="${esc(p.nazev)}"></div>
+      <div class="nl-row">
+        <div class="field"><label>${esc(t("nlFPrice", { cur: nlCur() }))}</label><input data-f="cena" inputmode="decimal" value="${esc(p.cena)}"></div>
+        <div class="field"><label>${esc(t("nlFQty"))}</label><input data-f="mnozstvi" type="number" min="1" placeholder="${digital ? 999 : 1}" value="${esc(p.mnozstvi)}"></div>
+      </div>
+      <div class="field"><label>${esc(t("nlFCat"))}</label><input data-f="kategorie" list="nlTax" autocomplete="off" placeholder="${esc(t("nlCatPh"))}" value="${esc(p.kategorie)}">
+        <p class="hint ${catOk ? "" : "nl-bad"}" data-c="kategorie">${!catOk ? esc(t("nlCatBad")) : p.odhad ? esc(t("nlCatGuess")) : ""}</p></div>
+      <div class="field"><label>${esc(t("nlFTags"))} <span class="nl-count ${tags.length > 13 ? "bad" : ""}" data-c="stitky">${tags.length}/13</span></label><textarea data-f="stitky" rows="3">${esc(p.stitky)}</textarea>
+        <p class="hint nl-bad" data-c="stitky-long">${long.length ? esc(t("nlTagsBad", { t: long.join(", ") })) : ""}</p></div>
+      <div class="field"><label>${esc(t("nlFDesc"))}</label><textarea data-f="popis" rows="12">${esc(p.popis)}</textarea></div>
+    </div><div>
+      <div class="field"><span class="flabel">${esc(t("nlFImgs"))}</span><div class="nl-imgs">${imgs}<label class="nl-add" data-a="img-add" title="${esc(t("nlFImgs"))}">+</label></div></div>
+      ${digital ? `<div class="field"><span class="flabel">${esc(t("nlFFiles"))}</span><ul class="nl-files">${files || `<li class="hint">${esc(t("nlNoFiles"))}</li>`}</ul>
+        <div class="actions left" style="margin-top:8px"><button class="btn" data-a="file-add">${esc(t("nlAddFile"))}</button></div></div>` : ""}
+    </div>`;
+}
+function renderNlItem(p) {
+  let el = document.querySelector(`.nl-item[data-id="${p.id}"]`);
+  if (!el) { el = document.createElement("div"); el.className = "card nl-item"; el.dataset.id = p.id; $("#nlList").append(el); }
+  el.classList.toggle("open", p.open);
+  el.innerHTML = `<div class="nl-head">${nlHead(p)}</div>` + (p.open ? `<div class="nl-body">${nlBody(p)}</div>` : "");
+}
+function renderNlList() {
+  $("#nlList").innerHTML = NL.length ? "" : `<div class="card nl-empty">${esc(t("nlEmpty"))}</div>`;
+  NL.forEach(renderNlItem); renderNlBar();
+}
+function renderNlBar() {
+  const sel = NL.filter(p => p.on && p.stav !== "draft" && p.stav !== "active");
+  $("#nlBar").hidden = !NL.length;
+  $("#nlSum").textContent = t("nlSum", { n: sel.length });
+  $("#nlCreate").textContent = t($("#nlAfter").value === "active" ? "nlCreatePub" : "nlCreateDraft", { n: sel.length });
+  const sh = nlShop();
+  $("#nlCreate").disabled = NLBUSY || !sel.length || !sh || !sh.zapis || !nlOpts().kategorie;
+}
+async function nlLoadOpts() {
+  const sh = nlShop(), id = $("#nlShop").value;
+  $("#nlWarn").hidden = true;
+  if (!sh) { $("#nlWarn").innerHTML = t("nlNoShops"); $("#nlWarn").hidden = false; $("#nlInfo").textContent = ""; renderNlBar(); return; }
+  if (!sh.zapis) { $("#nlWarn").innerHTML = fill(t("nlRelogin"), { shop: esc(sh.name) }); $("#nlWarn").hidden = false; }
+  if (!NLOPTS[id]) {
+    $("#nlInfo").textContent = t("nlLoadingOpts");
+    try { NLOPTS[id] = await api("/api/listing/moznosti?shop=" + encodeURIComponent(id)); }
+    catch (e) { $("#nlInfo").innerHTML = `<span class="nl-bad">${esc(t("nlOptsErr", { e: e.message }))}</span>`; renderNlBar(); return; }
+  }
+  const o = NLOPTS[id];
+  $("#nlInfo").textContent = t("nlInfo", { cur: o.mena || "?" });
+  $("#nlTax").innerHTML = (o.kategorie || []).map(([, p]) => `<option value="${esc(p)}">`).join("");
+  const opt = (list, keep) => list.map(x => `<option value="${esc(x.id)}">${esc(x.nazev)}</option>`).join("");
+  const ps = $("#nlShip").value, pp = $("#nlProc").value;
+  $("#nlShip").innerHTML = opt(o.doprava || []); $("#nlProc").innerHTML = opt(o.zpracovani || []);
+  if (ps) $("#nlShip").value = ps; if (pp) $("#nlProc").value = pp;
+  NL.forEach(p => { if (!p.kategorie || p.odhad) { p.kategorie = guessCat(p); p.odhad = !!p.kategorie; } });
+  renderNlList();
+}
+function nlTypeChanged() {
+  const phys = $("#nlType").value === "physical";
+  $("#nlShipF").hidden = $("#nlProcF").hidden = !phys;
+  LS.set("nlType_" + $("#nlShop").value, $("#nlType").value);
+  renderNlList();
+}
+function renderNew() {  // volá se i při pravidelném obnovení, rozepsané listingy nepřekresluje
+  const shops = (S?.shopy || []).filter(s => s.id);
+  const key = shops.map(s => s.id + s.zapis).join();
+  if ($("#nlShop").dataset.key !== key) {
+    const prev = $("#nlShop").value || LS.get("nlShop", "");
+    $("#nlShop").innerHTML = shops.map(s => `<option value="${esc(s.id)}">${esc(s.name)}</option>`).join("");
+    if (shops.some(s => s.id === prev)) $("#nlShop").value = prev;
+    $("#nlShop").dataset.key = key;
+    $("#nlType").value = LS.get("nlType_" + $("#nlShop").value, "digital");
+    $("#nlShipF").hidden = $("#nlProcF").hidden = $("#nlType").value !== "physical";
+    nlLoadOpts();
+  }
+  if (!$("#nlList").children.length) renderNlList();
+}
+$("#nlShop").onchange = () => { LS.set("nlShop", $("#nlShop").value); $("#nlType").value = LS.get("nlType_" + $("#nlShop").value, "digital"); nlTypeChanged(); nlLoadOpts(); };
+$("#nlType").onchange = nlTypeChanged;
+$("#nlAfter").onchange = renderNlBar;
+$("#nlFolder").onchange = e => { loadFolder(e.target.files); e.target.value = ""; };
+$("#nlAddEmpty").onclick = () => { const p = nlProduct({ open: true }); NL.push(p); renderNlList(); document.querySelector(`.nl-item[data-id="${p.id}"] input[data-f]`)?.focus(); };
+$("#nlCatAllBtn").onclick = () => {
+  const v = $("#nlCatAll").value; if (!catId(v)) { $("#nlCatAll").focus(); return; }
+  NL.forEach(p => { if (p.on && !p.vysledek) { p.kategorie = v; p.odhad = false; } }); renderNlList();
+};
+const nlFind = el => NL.find(p => p.id === +el.closest(".nl-item")?.dataset.id);
+$("#nlList").addEventListener("click", e => {
+  const p = nlFind(e.target); if (!p) return;
+  const a = e.target.closest("[data-a]")?.dataset.a, i = +e.target.closest("[data-i]")?.dataset.i;
+  if (a === "on") { p.on = e.target.checked; renderNlBar(); return; }
+  if (a === "del") { NL = NL.filter(x => x !== p); renderNlList(); return; }
+  if (a === "img-del") { p.obrazky.splice(i, 1); renderNlItem(p); return; }
+  if (a === "img-first") { p.obrazky.unshift(...p.obrazky.splice(i, 1)); renderNlItem(p); return; }
+  if (a === "file-on") { p.soubory[i].on = e.target.checked; renderNlItem(p); return; }
+  if (a === "file-del") { p.soubory.splice(i, 1); renderNlItem(p); return; }
+  if (a === "img-add" || a === "file-add") { e.preventDefault(); NLPICK = p; $(a === "img-add" ? "#nlPickImg" : "#nlPickFile").click(); return; }
+  if (e.target.closest(".nl-head") && !e.target.closest("a, button, input")) { p.open = !p.open; renderNlItem(p); }
+});
+$("#nlList").addEventListener("input", e => {
+  const f = e.target.dataset.f, p = nlFind(e.target); if (!f || !p) return;
+  p[f] = e.target.value;
+  const item = e.target.closest(".nl-item"), c = k => item.querySelector(`[data-c="${k}"]`);
+  if (f === "nazev") { c("nazev").textContent = `${p.nazev.length}/140`; c("nazev").classList.toggle("bad", p.nazev.length > 140); }
+  if (f === "stitky") {
+    const tags = tagList(p.stitky), long = tags.filter(x => x.length > 20);
+    c("stitky").textContent = `${tags.length}/13`; c("stitky").classList.toggle("bad", tags.length > 13);
+    c("stitky-long").textContent = long.length ? t("nlTagsBad", { t: long.join(", ") }) : "";
+  }
+  if (f === "kategorie") { p.odhad = false; const ok = !p.kategorie || catId(p.kategorie); c("kategorie").textContent = ok ? "" : t("nlCatBad"); c("kategorie").classList.toggle("nl-bad", !ok); }
+  item.querySelector(".nl-head .sub .s").textContent = [p.cena ? fmtMoney(+String(p.cena).replace(",", ".") || 0, nlCur()) : "", p.kategorie.split(" › ").pop(), pl(tagList(p.stitky).length, "tag")].filter(Boolean).join(" · ");
+  if (f === "nazev") item.querySelector(".nl-head .t").textContent = p.nazev || t("nlUntitled");
+});
+$("#nlPickImg").onchange = e => { if (NLPICK) { NLPICK.obrazky.push(...[...e.target.files].map(f => ({ file: f, url: URL.createObjectURL(f), on: true }))); renderNlItem(NLPICK); } e.target.value = ""; };
+$("#nlPickFile").onchange = e => { if (NLPICK) { NLPICK.soubory.push(...[...e.target.files].map(f => ({ file: f, on: true }))); renderNlItem(NLPICK); } e.target.value = ""; };
+const b64 = f => new Promise((ok, bad) => { const r = new FileReader(); r.onload = () => ok(String(r.result).split(",")[1] || ""); r.onerror = bad; r.readAsDataURL(f); });
+$("#nlCreate").onclick = async () => {
+  const sel = NL.filter(p => p.on && p.stav !== "draft" && p.stav !== "active"), pub = $("#nlAfter").value === "active";
+  const bad = sel.find(p => !catId(p.kategorie));
+  if (bad) { bad.open = true; renderNlItem(bad); alert(t("nlNeedCat", { t: bad.nazev || t("nlNeedTitle") })); return; }
+  if (pub && !confirm(t("nlConfirmPub", { n: pl(sel.length, "listing") }))) return;
+  const digital = $("#nlType").value === "digital";
+  NLBUSY = true; sel.forEach(p => { p.stav = "wait"; p.chyby = []; renderNlItem(p); }); renderNlBar();
+  let ok = 0;
+  for (const p of sel) {
+    p.stav = "run"; renderNlItem(p);
+    try {
+      const files = digital ? p.soubory.filter(f => f.on) : [];
+      const big = files.find(f => f.file.size > 20 * 1048576); if (big) throw new Error(t("nlTooBig", { f: big.file.name }));
+      const enc = async list => Promise.all(list.map(async x => ({ nazev: x.file.name, data: await b64(x.file) })));
+      const r = await api("/api/listing/vytvorit", { shop_id: $("#nlShop").value, typ: $("#nlType").value, nazev: p.nazev, popis: p.popis,
+        cena: p.cena, mnozstvi: p.mnozstvi, stitky: tagList(p.stitky), kategorie: catId(p.kategorie), zverejnit: pub,
+        doprava_id: $("#nlShip").value, zpracovani_id: $("#nlProc").value,
+        obrazky: await enc(p.obrazky.filter(i => i.on)), soubory: await enc(files) });
+      p.vysledek = r; p.chyby = r.chyby || []; p.stav = r.stav === "active" ? "active" : "draft"; p.on = false; p.open = false; ok++;
+    } catch (e) { p.stav = "err"; p.chyby = [e.message]; }
+    renderNlItem(p);
+  }
+  NLBUSY = false; renderNlBar();
+  $("#nlLoadMsg").textContent = t("nlDone", { ok, n: sel.length });
+  setTimeout(load, 4000);
+};
 
 applyStatic();
 $("#status").textContent = t("loading");
