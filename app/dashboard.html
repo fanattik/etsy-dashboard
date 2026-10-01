@@ -221,6 +221,11 @@ th.sortable:hover, th.sorted { color: var(--text); }
 .nl-bar .field { margin: 0; flex: 1 1 320px; }
 .nl-empty { text-align: center; padding: 40px 20px; color: var(--muted); }
 .pill.err { background: var(--bad-soft); color: var(--bad); }
+.lbulk { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; background: var(--panel-2); border-radius: 10px; padding: 8px 10px 8px 14px; margin: 0 0 12px; font-size: 13px; }
+.lbulk b { font-weight: 500; }
+td.sel, th.sel { width: 28px; padding-right: 0; vertical-align: middle; } td.sel input, th.sel input { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; }
+.ld-actions { margin-top: 2px; }
+#sale .field input { width: 100%; }
 .nl-body .seg button { padding: 6px 12px; }
 .nl-det { margin-top: 18px; border-top: 1px solid var(--line); padding-top: 14px; }
 .nl-det summary { cursor: pointer; font-size: 14px; }
@@ -385,6 +390,10 @@ dialog::backdrop { background: rgba(0,0,0,.4); }
             <label><span data-i18n="colStatus"></span><select id="lState"></select></label>
             <label><span data-i18n="fSort"></span><select id="lSort"></select></label>
           </div>
+          <div class="lbulk" id="lBulk" hidden><b id="lBulkN"></b><div class="spacer"></div>
+            <button class="btn" data-bulk="active" data-i18n="nlActivate"></button><button class="btn" data-bulk="inactive" data-i18n="nlDeactivate"></button>
+            <button class="btn" data-bulk="sale" data-i18n="lSale"></button><button class="btn danger" data-bulk="smazat" data-i18n="lDelete"></button>
+            <button class="btn ghost" data-bulk="clear" data-i18n="lClearSel"></button></div>
           <p class="tsum" id="lsum"></p>
           <div class="tablewrap"><table id="ltable"></table></div>
         </div>
@@ -400,13 +409,14 @@ dialog::backdrop { background: rgba(0,0,0,.4); }
         </div>
         <p class="hint" id="nlInfo"></p>
         <div class="nl-warn" id="nlWarn" hidden></div>
-        <div class="actions left">
+        <div id="nlTools"><div class="actions left">
           <label class="btn primary" for="nlFolder"><svg class="i" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg><span data-i18n="nlLoadFolder"></span></label>
           <input type="file" id="nlFolder" webkitdirectory multiple hidden>
           <button class="btn" id="nlAddEmpty"><svg class="i" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg><span data-i18n="nlAddEmpty"></span></button>
           <span class="hint" id="nlLoadMsg"></span>
         </div>
-        <p class="hint" data-i18n="nlFolderHint"></p>
+        <p class="hint" data-i18n="nlFolderHint"></p></div>
+        <p class="hint" id="nlEditMsg"></p>
       </div>
       <div id="nlList"></div>
       <div class="card nl-bar" id="nlBar" hidden>
@@ -534,6 +544,19 @@ dialog::backdrop { background: rgba(0,0,0,.4); }
 </dialog>
 <dialog id="ldetail">
   <div class="dlg" tabindex="-1" style="outline:none"><button class="btn dclose" onclick="$('#ldetail').close()" data-i18n-aria="close">✕</button><div id="ldBody"></div></div>
+</dialog>
+<dialog id="sale">
+  <div class="dlg">
+    <h3 data-i18n="saleTitle"></h3>
+    <p class="hint" id="saleFor"></p>
+    <div class="nl-row" style="grid-template-columns:1fr 1fr 1fr">
+      <div class="field"><label for="salePct" data-i18n="salePct"></label><input id="salePct" inputmode="decimal"></div>
+      <div class="field"><label for="saleFrom" data-i18n="saleFrom"></label><input id="saleFrom" type="date"></div>
+      <div class="field"><label for="saleTo" data-i18n="saleTo"></label><input id="saleTo" type="date"></div>
+    </div>
+    <p class="hint" data-i18n="saleHint"></p>
+    <div class="actions"><span class="msg" id="saleMsg"></span><button class="btn" onclick="$('#sale').close()" data-i18n="close"></button><button class="btn primary" id="saleSave" data-i18n="saleCreate"></button></div>
+  </div>
 </dialog>
 <dialog id="import">
   <div class="dlg">
@@ -1012,8 +1035,11 @@ const icon = k => `<svg class="i" viewBox="0 0 24 24">${ICON[k]}</svg>`;
 const PAGES = { prehled: "navOverview", objednavky: "tabOrders", listingy: "navListings", novy: "nlTitle", vypis: "ledgerTitle", nastaveni: "settingsTitle" };
 let page = "prehled";
 function route() {
-  const h = location.hash.slice(1);
-  page = PAGES[h] ? h : "prehled";
+  const h = location.hash.slice(1), m = h.match(/^upravit\/([^/]+)\/(\d+)$/);
+  page = m ? "novy" : PAGES[h] ? h : "prehled";
+  ["#ldetail", "#odetail", "#sale"].forEach(s => { const d = $(s); if (d && d.open) d.close(); });
+  if (m) { if (!EDIT || EDIT.shop !== m[1] || EDIT.id !== m[2]) EDIT = { shop: m[1], id: m[2], started: false }; }
+  else if (page === "novy" && EDIT) { EDIT = null; NL = []; $("#nlList").innerHTML = ""; nlSetMode(); }
   document.querySelectorAll(".nav a").forEach(a => a.classList.toggle("on", a.dataset.page === (page === "novy" ? "listingy" : page)));
   $("#page-prehled").hidden = page !== "prehled";
   $("#page-tabulka").hidden = page !== "objednavky" && page !== "vypis";
@@ -1024,7 +1050,7 @@ function route() {
   $("#filters").style.display = page === "nastaveni" || page === "novy" || (S && !S.shopy.length) ? "none" : "";
   $("#period").hidden = page === "objednavky" || page === "vypis";
   $("#search").value = "";
-  $("#pageTitle").textContent = t(PAGES[page]);
+  $("#pageTitle").textContent = t(EDIT && page === "novy" ? "nlEditTitle" : PAGES[page]);
   shown = 25;
   if (page === "nastaveni" && S) fillSettings();
   if (S) render();
@@ -1371,16 +1397,19 @@ function renderListings(f) {
 
   const multi = S.shopy.length > 1 && shopFilter === "all";
   const num = v => v === null || v === undefined ? "–" : nf(v);
-  $("#ltable").innerHTML = rows.length ? `<thead><tr>${sortTh("name", t("colListing"))}${multi ? `<th>${t("colShop")}</th>` : ""}<th>${t("colStatus")}</th>${sortTh("price", t("colPrice"), "num")}${sortTh("stock", t("colStock"), "num")}${sortTh("views", t("colViews"), "num")}${sortTh("favs", t("colFavs"), "num")}${sortTh("sold", t("colSold"), "num")}${sortTh("revenue", t("colRevenue"), "num")}</tr></thead><tbody>` +
+  const selOk = l => l.listing_id > 0 && shopIdOf(l.shop) && !S.demo, anySel = rows.some(selOk);
+  $("#ltable").innerHTML = rows.length ? `<thead><tr>${anySel ? `<th class="sel"><input type="checkbox" id="lSelAll" ${rows.filter(selOk).every(l => LSEL.has(l.listing_id)) ? "checked" : ""} aria-label="all"></th>` : ""}${sortTh("name", t("colListing"))}${multi ? `<th>${t("colShop")}</th>` : ""}<th>${t("colStatus")}</th>${sortTh("price", t("colPrice"), "num")}${sortTh("stock", t("colStock"), "num")}${sortTh("views", t("colViews"), "num")}${sortTh("favs", t("colFavs"), "num")}${sortTh("sold", t("colSold"), "num")}${sortTh("revenue", t("colRevenue"), "num")}</tr></thead><tbody>` +
     rows.map((l, i) => {
       const s = sales.get(l), r = Object.entries(s.rev);
       const title = `<span class="t">${esc(l.nazev)}</span>`;
       const img = l.obrazek ? `<img class="thumb" src="${esc(l.obrazek)}" alt="" loading="lazy">` : `<span class="thumb">${esc((l.nazev || "?").trim()[0] || "?")}</span>`;
       const meta = l.sku || "";
-      return `<tr class="click" data-i="${i}"><td><div class="lcell">${img}<div>${title}${meta ? `<div class="tags">${esc(meta)}</div>` : ""}</div></div></td>${multi ? `<td class="nw"><span class="dot" style="background:${shopColor(l.shop)}"></span> ${esc(l.shop)}</td>` : ""}<td>${listingPill(l.stav)}</td><td class="num"${origTitle(l)}>${l.cena === null ? "–" : fmtMoney(l.cena, l.mena)}</td><td class="num">${num(l.mnozstvi)}</td><td class="num">${num(l.zobrazeni)}</td><td class="num">${num(l.oblibene)}</td><td class="num">${s.q || "–"}</td><td class="num">${r.length ? r.map(([c, v]) => fmtMoney(v, c)).join("<br>") : "–"}</td></tr>`;
+      const sel = anySel ? `<td class="sel">${selOk(l) ? `<input type="checkbox" data-sel="${l.listing_id}" ${LSEL.has(l.listing_id) ? "checked" : ""}>` : ""}</td>` : "";
+      return `<tr class="click" data-i="${i}">${sel}<td><div class="lcell">${img}<div>${title}${meta ? `<div class="tags">${esc(meta)}</div>` : ""}</div></div></td>${multi ? `<td class="nw"><span class="dot" style="background:${shopColor(l.shop)}"></span> ${esc(l.shop)}</td>` : ""}<td>${listingPill(l.stav)}${salePill(l)}</td><td class="num"${origTitle(l)}>${l.cena === null ? "–" : fmtMoney(l.cena, l.mena)}</td><td class="num">${num(l.mnozstvi)}</td><td class="num">${num(l.zobrazeni)}</td><td class="num">${num(l.oblibene)}</td><td class="num">${s.q || "–"}</td><td class="num">${r.length ? r.map(([c, v]) => fmtMoney(v, c)).join("<br>") : "–"}</td></tr>`;
     }).join("") + "</tbody>" : `<tbody><tr><td class="empty">${t("nothingF")}</td></tr></tbody>`;
   $("#lExport").href = "/export/listingy.csv?lang=" + LANG;
   LROWS = rows;
+  renderBulk();
 }
 let LROWS = [];
 
@@ -1434,6 +1463,9 @@ function openListing(l) {
         ${l.url ? `<a class="btn" href="${esc(l.url)}" target="_blank" rel="noopener">${esc(t("ldOpen"))} ↗</a>` : ""}
       </div>
     </div>
+    ${ldActions(l)}
+    <div>
+    </div>
     <div class="dstats">
       ${stat(t("colPrice"), l.cena === null ? "–" : fmtMoney(l.cena, l.mena), "num")}
       ${stat(t("colStock"), nf(l.mnozstvi), "num")}
@@ -1448,11 +1480,13 @@ function openListing(l) {
     </div>
     <h4>${esc(t("ldTags"))} <small>${tags.length}/13</small></h4>
     <div class="chips">${tags.length ? tags.map(x => `<span class="chip">${esc(x)}</span>`).join("") : `<span class="hint">${esc(t("ldNoTags"))}</span>`}</div>
+    <div id="ldExtra"></div>
     ${l.popis ? `<h4>${esc(t("ldDesc"))}</h4><div class="ddesc">${esc(l.popis)}</div>` : ""}
     <h4>${esc(t("ldOrders"))}</h4>
     ${recent.length ? `<div class="tablewrap"><table><tbody>${recent.map(([r, q]) => `<tr><td class="nw">${fmtDate(r.vytvoreno_ts)}</td><td>${esc(r.zakaznik) || "–"}</td><td class="num">${q}×</td><td class="num"${origTitle(r)}>${fmtMoney(r.celkem, r.mena)}</td><td>${statusPill(r)}</td></tr>`).join("")}</tbody></table></div>` : `<p class="hint">${esc(t("ldNoOrders"))}</p>`}`;
   $("#ldetail").showModal();
   $("#ldetail .dlg").scrollTop = 0; $("#ldetail .dlg").focus();
+  LDCUR = l; listingExtra(l);
 }
 const LSTATE_ORDER = ["active", "sold_out", "inactive", "draft", "expired"];
 
@@ -1584,7 +1618,7 @@ $("#lang").onchange = () => {
   if (!S) return;
   const prev = $("#period").value; buildPeriods(); $("#period").value = prev;
   renderShopList(); buildCurrency(); renderNotif();
-  if (page === "novy" && $("#nlShop").value) { nlLoadOpts(); renderNlList(); }
+  if (page === "novy" && $("#nlShop").value) { nlSetMode(); if (!EDIT) nlLoadOpts(); renderNlList(); }
   $("#secret").placeholder = S.nastaveni.ma_secret ? t("secretSaved") : "";
   render(); syncServerLang();
 };
@@ -1617,7 +1651,7 @@ $("#fState").onchange = e => tfSet("state", e.target.value);
 $("#fSort").onchange = e => tfSet("sort", e.target.value);
 $("#fReset").onclick = () => { TF[page] = { ...TF_DEF }; $("#search").value = ""; saveTF(); shown = 25; renderTable(filtered()); };
 $("#ltable").addEventListener("click", e => {
-  if (e.target.closest("th, a")) return;
+  if (e.target.closest("th, a, td.sel")) return;
   const tr = e.target.closest("tr[data-i]"); if (tr) openListing(LROWS[+tr.dataset.i]);
 });
 $("#table").addEventListener("click", e => {
@@ -1890,9 +1924,9 @@ function attrHtml(p, pr) {
   const a = p.attrs[pr.id] || { ids: [], vals: [], scale: "" };
   const lbl = `<label>${esc(pr.nazev)}${pr.povinne ? " *" : ""}</label>`;
   if (pr.hodnoty.length && pr.vice)
-    return `<div class="field full">${lbl}<div class="chips">${pr.hodnoty.map(h => `<button class="chip ${a.ids.includes(h.id) ? "on" : ""}" data-a="attr-chip" data-p="${pr.id}" data-v="${h.id}">${esc(h.nazev)}</button>`).join("")}</div></div>`;
+    return `<div class="field full">${lbl}<div class="chips">${pr.hodnoty.map(h => `<button class="chip ${a.ids.includes(h.id) || a.vals.includes(h.nazev) ? "on" : ""}" data-a="attr-chip" data-p="${pr.id}" data-v="${h.id}">${esc(h.nazev)}</button>`).join("")}</div></div>`;
   if (pr.hodnoty.length)
-    return `<div class="field">${lbl}<select data-x="attr-sel" data-p="${pr.id}"><option value="">${t("nlNone")}</option>${pr.hodnoty.map(h => `<option value="${h.id}" ${a.ids[0] === h.id ? "selected" : ""}>${esc(h.nazev)}</option>`).join("")}</select></div>`;
+    return `<div class="field">${lbl}<select data-x="attr-sel" data-p="${pr.id}"><option value="">${t("nlNone")}</option>${pr.hodnoty.map(h => `<option value="${h.id}" ${a.ids[0] === h.id || (!pr.hodnoty.some(x => x.id === a.ids[0]) && a.vals[0] === h.nazev) ? "selected" : ""}>${esc(h.nazev)}</option>`).join("")}</select></div>`;
   const scales = pr.skaly.length ? `<select data-x="attr-scale" data-p="${pr.id}">${pr.skaly.map(s => `<option value="${s.id}" ${String(a.scale) === String(s.id) ? "selected" : ""}>${esc(s.nazev)}</option>`).join("")}</select>` : "";
   return `<div class="field">${lbl}<div class="pricerow"><input data-x="attr-text" data-p="${pr.id}" value="${esc(a.vals.join(", "))}">${scales}</div></div>`;
 }
@@ -1901,7 +1935,7 @@ function varHtml(p, v, i) {
   const opts = (Array.isArray(nlProps(p)) ? nlProps(p) : []).filter(x => x.varianta && !p.vars.some((o, j) => j !== i && String(o.pid) === String(x.id)));
   const sel = `<select data-x="var-prop" data-i="${i}">${opts.map(x => `<option value="${x.id}" ${String(v.pid) === String(x.id) ? "selected" : ""}>${esc(x.nazev)}</option>`).join("")}<option value="custom" ${v.pid === "custom" ? "selected" : ""}>${esc(t("nlVarCustom"))}</option></select>`;
   const scales = pr?.skaly.length ? `<div class="field"><label>${esc(t("nlVarScale"))}</label><select data-x="var-scale" data-i="${i}">${pr.skaly.map(s => `<option value="${s.id}" ${String(v.scale) === String(s.id) ? "selected" : ""}>${esc(s.nazev)}</option>`).join("")}</select></div>` : "";
-  const chips = pr?.hodnoty.length ? `<div class="chips" style="margin-top:8px">${pr.hodnoty.filter(h => !h.skala || !v.scale || String(h.skala) === String(v.scale)).map(h => `<button class="chip ${v.hodnoty.some(x => x.id === h.id) ? "on" : ""}" data-a="var-chip" data-i="${i}" data-v="${h.id}">${esc(h.nazev)}</button>`).join("")}</div>` : "";
+  const chips = pr?.hodnoty.length ? `<div class="chips" style="margin-top:8px">${pr.hodnoty.filter(h => !h.skala || !v.scale || String(h.skala) === String(v.scale)).map(h => `<button class="chip ${v.hodnoty.some(x => x.id === h.id || x.nazev.toLowerCase() === h.nazev.toLowerCase()) ? "on" : ""}" data-a="var-chip" data-i="${i}" data-v="${h.id}">${esc(h.nazev)}</button>`).join("")}</div>` : "";
   const flags = ["cena", "mnozstvi", "sku"].map(f => `<label class="check" style="margin:0"><input type="checkbox" data-x="var-dle" data-f="${f}" data-i="${i}" ${p.dle[f].includes(i) ? "checked" : ""}> ${esc(t({ cena: "nlVarPrice", mnozstvi: "nlVarQty", sku: "nlVarSku" }[f]))}</label>`).join("");
   return `<div class="nl-var">
       <div class="nl-varrow">
@@ -1946,8 +1980,8 @@ function renderNlExtra(p) {
 
 function nlStatus(p) {
   if (!p.stav) return "";
-  const cls = { run: "", err: "err", draft: "", active: "done" }[p.stav] ?? "";
-  const lbl = { run: t("nlStRun"), err: t("nlStErr"), draft: t("nlStDraft"), active: t("nlStActive"), wait: t("nlStWait") }[p.stav];
+  const cls = { run: "", err: "err", draft: "", active: "done", saved: "done" }[p.stav] ?? "";
+  const lbl = { run: t("nlStRun"), err: t("nlStErr"), draft: t("nlStDraft"), active: t("nlStActive"), wait: t("nlStWait"), saved: t("nlStSaved") }[p.stav];
   return `<span class="pill ${cls}">${esc(lbl)}</span>`;
 }
 function nlSub(p) {
@@ -1957,12 +1991,12 @@ function nlSub(p) {
 function nlHead(p) {
   const img = p.obrazky.find(i => i.on);
   const links = p.vysledek ? ` <a class="linkbtn" href="${esc(p.vysledek.upravit)}" target="_blank" rel="noopener">${esc(t("nlEdit"))}</a>` + (p.stav === "active" ? ` <a class="linkbtn" href="${esc(p.vysledek.url)}" target="_blank" rel="noopener">${esc(t("nlView"))}</a>` : "") : "";
-  return `<input type="checkbox" data-a="on" ${p.on ? "checked" : ""} ${p.stav === "draft" || p.stav === "active" ? "disabled" : ""} aria-label="${esc(t("nlToggle"))}">
+  return `${p.edit ? "" : `<input type="checkbox" data-a="on" ${p.on ? "checked" : ""} ${p.stav === "draft" || p.stav === "active" ? "disabled" : ""} aria-label="${esc(t("nlToggle"))}">`}
     ${img ? `<img class="thumb" src="${img.url}" alt="">` : `<span class="thumb">${esc((p.nazev || "?").trim()[0] || "?")}</span>`}
     <div class="grow"><div class="t">${esc(p.nazev || t("nlUntitled"))}</div><div class="sub"><span class="s">${esc(nlSub(p))}</span>${links}</div>
     ${p.chyby?.length ? `<div class="sub nl-bad" style="white-space:normal">${p.chyby.map(esc).join("<br>")}</div>` : ""}</div>
     ${nlStatus(p)}
-    <button class="btn ghost" data-a="del" aria-label="${esc(t("nlRemove"))}">✕</button>
+    ${p.edit ? "" : `<button class="btn ghost" data-a="del" aria-label="${esc(t("nlRemove"))}">✕</button>`}
     <svg class="i chev" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg>`;
 }
 function nlBody(p) {
@@ -1973,7 +2007,7 @@ function nlBody(p) {
       <button data-a="img-del" data-i="${i}" aria-label="${esc(t("nlRemove"))}">✕</button>
       ${i ? `<button class="l" data-a="img-first" data-i="${i}" title="${esc(t("nlMoveFirst"))}">↖</button>` : ""}</div>`).join("");
   const files = p.soubory.map((f, i) => `<li class="${f.on ? "" : "off"}"><input type="checkbox" data-a="file-on" data-i="${i}" ${f.on ? "checked" : ""}>
-      <span>${esc(f.file.name)}</span><small class="mono ${f.file.size > 20 * 1048576 ? "nl-bad" : "hint"}">${(f.file.size / 1048576).toFixed(1)} MB</small>
+      <span>${esc(f.file.name)}</span><small class="mono ${f.file.size > 20 * 1048576 ? "nl-bad" : "hint"}">${f.file.label !== undefined ? esc(f.file.label) : (f.file.size / 1048576).toFixed(1) + " MB"}</small>
       <button class="x" data-a="file-del" data-i="${i}" aria-label="${esc(t("nlRemove"))}">✕</button></li>`).join("");
   const opt = (list, cur) => list.map(x => `<option value="${esc(x.id)}" ${String(cur) === String(x.id) ? "selected" : ""}>${esc(x.nazev)}</option>`).join("");
   return `<div>
@@ -2012,9 +2046,10 @@ function renderNlBar() {
   const sel = NL.filter(p => p.on && p.stav !== "draft" && p.stav !== "active");
   $("#nlBar").hidden = !NL.length;
   $("#nlSum").textContent = t("nlSum", { n: sel.length });
-  $("#nlCreate").textContent = t($("#nlAfter").value === "active" ? "nlCreatePub" : "nlCreateDraft", { n: sel.length });
+  $("#nlCreate").textContent = EDIT ? t("nlSave") : t($("#nlAfter").value === "active" ? "nlCreatePub" : "nlCreateDraft", { n: sel.length });
+  $("#nlSum").hidden = !!EDIT;
   const sh = nlShop();
-  $("#nlCreate").disabled = NLBUSY || !sel.length || !sh || !sh.zapis || !nlOpts().kategorie;
+  $("#nlCreate").disabled = NLBUSY || (!EDIT && !sel.length) || (EDIT && !NL.length) || !sh || !sh.zapis || !nlOpts().kategorie;
 }
 function nlRefreshHead(p) {
   const item = document.querySelector(`.nl-item[data-id="${p.id}"]`); if (!item) return;
@@ -2049,8 +2084,9 @@ function renderNew() {  // volá se i při pravidelném obnovení, rozepsané li
     $("#nlShop").innerHTML = shops.map(s => `<option value="${esc(s.id)}">${esc(s.name)}</option>`).join("");
     if (shops.some(s => s.id === prev)) $("#nlShop").value = prev;
     $("#nlShop").dataset.key = key;
-    nlLoadOpts();
+    if (!EDIT) nlLoadOpts();
   }
+  if (EDIT) { if (!EDIT.started) startEdit(); return; }
   if (!$("#nlList").children.length) renderNlList();
 }
 $("#nlShop").onchange = () => { LS.set("nlShop", $("#nlShop").value); nlLoadOpts(); };
@@ -2079,7 +2115,7 @@ $("#nlList").addEventListener("click", e => {
   if (a === "attr-chip") {
     e.preventDefault();
     const pid = btn.dataset.p, v = +btn.dataset.v, pr = propOf(p, pid), at = p.attrs[pid] = p.attrs[pid] || { ids: [], vals: [], scale: "" };
-    const h = pr.hodnoty.find(x => x.id === v), k = at.ids.indexOf(v);
+    const h = pr.hodnoty.find(x => x.id === v); let k = at.ids.indexOf(v); if (k < 0) k = at.vals.indexOf(h.nazev);
     if (k >= 0) { at.ids.splice(k, 1); at.vals.splice(k, 1); } else if (!pr.max || at.ids.length < pr.max) { at.ids.push(v); at.vals.push(h.nazev); }
     p.attrsOpen = true; renderNlExtra(p); return;
   }
@@ -2096,7 +2132,7 @@ $("#nlList").addEventListener("click", e => {
   }
   if (a === "var-chip") {
     e.preventDefault();
-    const v = p.vars[i], id = +btn.dataset.v, h = propOf(p, v.pid).hodnoty.find(x => x.id === id), k = v.hodnoty.findIndex(x => x.id === id);
+    const v = p.vars[i], id = +btn.dataset.v, h = propOf(p, v.pid).hodnoty.find(x => x.id === id), k = v.hodnoty.findIndex(x => x.id === id || x.nazev.toLowerCase() === h.nazev.toLowerCase());
     if (k >= 0) v.hodnoty.splice(k, 1); else v.hodnoty.push({ id, nazev: h.nazev });
     renderNlExtra(p); nlRefreshHead(p); return;
   }
@@ -2166,6 +2202,7 @@ function nlPayload(p) {
   return { atributy: attrs, varianty };
 }
 $("#nlCreate").onclick = async () => {
+  if (EDIT) return saveEdit();
   const sel = NL.filter(p => p.on && p.stav !== "draft" && p.stav !== "active"), pub = $("#nlAfter").value === "active";
   const bad = sel.find(p => !catId(p.kategorie));
   if (bad) { bad.open = true; renderNlItem(bad); alert(t("nlNeedCat", { t: bad.nazev || t("nlNeedTitle") })); return; }
@@ -2177,13 +2214,7 @@ $("#nlCreate").onclick = async () => {
   for (const p of sel) {
     p.stav = "run"; renderNlItem(p);
     try {
-      const digital = p.typ === "digital", files = digital ? p.soubory.filter(f => f.on) : [];
-      const big = files.find(f => f.file.size > 20 * 1048576); if (big) throw new Error(t("nlTooBig", { f: big.file.name }));
-      const enc = async list => Promise.all(list.map(async x => ({ nazev: x.file.name, data: await b64(x.file) })));
-      const r = await api("/api/listing/vytvorit", { shop_id: $("#nlShop").value, typ: p.typ, nazev: p.nazev, popis: p.popis,
-        cena: p.cena, mnozstvi: p.mnozstvi, stitky: tagList(p.stitky), kategorie: catId(p.kategorie), zverejnit: pub,
-        doprava_id: p.doprava, zpracovani_id: p.zpracovani, ...nlPayload(p),
-        obrazky: await enc(p.obrazky.filter(i => i.on)), soubory: await enc(files) });
+      const r = await api("/api/listing/vytvorit", { ...(await nlBody4Api(p)), zverejnit: pub });
       p.vysledek = r; p.chyby = r.chyby || []; p.stav = r.stav === "active" ? "active" : "draft"; p.on = false; p.open = false; ok++;
     } catch (e) { p.stav = "err"; p.chyby = [e.message]; }
     renderNlItem(p);
@@ -2192,6 +2223,227 @@ $("#nlCreate").onclick = async () => {
   $("#nlLoadMsg").textContent = t("nlDone", { ok, n: sel.length });
   setTimeout(load, 4000);
 };
+
+// ---------- úpravy hotových listingů, hromadné akce a slevy
+const T5 = {
+  cs: {
+    nlEditTitle: "Upravit listing", nlEditLoading: "Načítám listing z Etsy…", nlKeepState: "Ponechat stav ({s})", nlActivate: "Aktivovat", nlDeactivate: "Deaktivovat",
+    nlSave: "Uložit změny", nlStateLabel: "Stav", nlSaved: "Uloženo na Etsy.", nlSavedErr: "Uloženo s chybami, viz u listingu.", nlStSaved: "uloženo",
+    lEdit: "Upravit", lDelete: "Smazat", lSale: "Sleva…", lSelected: "Vybráno {n}", lClearSel: "Zrušit výběr",
+    lConfirmDel: "Smazat {n} z Etsy? Nejde to vrátit.", lConfirmAct: "Aktivovat {n}? U konceptů a vypršelých listingů Etsy účtuje $0.20 za každý.",
+    lActDone: "Hotovo: {ok} z {n}.", lActErr: "Nepovedlo se:", lRelogin: "Mazání potřebuje nové přihlášení shopy v Nastavení (Etsy se zeptá i na právo mazat).",
+    ldAttrs: "Atributy", ldVars: "Varianty", ldLoading: "Načítám atributy a varianty z Etsy…", ldNoAttrs: "Žádné atributy.", ldNoVars: "Bez variant.",
+    ldSales: "Slevy", saleTitle: "Sleva", salePct: "Sleva (%)", saleFrom: "Od", saleTo: "Do (včetně)", saleCreate: "Naplánovat slevu",
+    saleHint: "Etsy API neumí slevy (Sales & Discounts), dashboard proto v den začátku sníží ceny všech variant o zadaná procenta a po konci je vrátí. Na Etsy se neukáže přeškrtnutá cena. Funguje, jen když dashboard běží (Mac je zapnutý), ceny se mění při pravidelné kontrole.",
+    saleFor: "Pro {n}", saleDone: "Sleva je naplánovaná.", saleStates: { naplanovano: "naplánovaná", bezi: "běží", hotovo: "skončila", zruseno: "zrušená" },
+    saleCancel: "Zrušit", saleConfirmCancel: "Zrušit slevu? Pokud už běží, ceny se hned vrátí.", salePill: "−{p} %",
+  },
+  en: {
+    nlEditTitle: "Edit listing", nlEditLoading: "Loading the listing from Etsy…", nlKeepState: "Keep status ({s})", nlActivate: "Activate", nlDeactivate: "Deactivate",
+    nlSave: "Save changes", nlStateLabel: "Status", nlSaved: "Saved to Etsy.", nlSavedErr: "Saved with errors, see the listing.", nlStSaved: "saved",
+    lEdit: "Edit", lDelete: "Delete", lSale: "Sale…", lSelected: "{n} selected", lClearSel: "Clear selection",
+    lConfirmDel: "Delete {n} from Etsy? This can't be undone.", lConfirmAct: "Activate {n}? Etsy charges $0.20 each for drafts and expired listings.",
+    lActDone: "Done: {ok} of {n}.", lActErr: "Failed:", lRelogin: "Deleting needs the shop signed in again in Settings (Etsy will also ask for permission to delete).",
+    ldAttrs: "Attributes", ldVars: "Variations", ldLoading: "Loading attributes and variations from Etsy…", ldNoAttrs: "No attributes.", ldNoVars: "No variations.",
+    ldSales: "Sales", saleTitle: "Sale", salePct: "Discount (%)", saleFrom: "From", saleTo: "To (inclusive)", saleCreate: "Schedule sale",
+    saleHint: "The Etsy API can't create Sales & Discounts, so on the start day the dashboard lowers the prices of all variations by the percentage and restores them after the end. Etsy won't show a crossed-out price. It only works while the dashboard runs (your Mac is on); prices change at the regular check.",
+    saleFor: "For {n}", saleDone: "The sale is scheduled.", saleStates: { naplanovano: "scheduled", bezi: "running", hotovo: "ended", zruseno: "cancelled" },
+    saleCancel: "Cancel", saleConfirmCancel: "Cancel the sale? If it's running, prices are restored right away.", salePill: "−{p}%",
+  },
+  de: {
+    nlEditTitle: "Angebot bearbeiten", nlEditLoading: "Lade das Angebot von Etsy…", nlKeepState: "Status behalten ({s})", nlActivate: "Aktivieren", nlDeactivate: "Deaktivieren",
+    nlSave: "Änderungen speichern", nlStateLabel: "Status", nlSaved: "Auf Etsy gespeichert.", nlSavedErr: "Mit Fehlern gespeichert, siehe Angebot.", nlStSaved: "gespeichert",
+    lEdit: "Bearbeiten", lDelete: "Löschen", lSale: "Rabatt…", lSelected: "{n} ausgewählt", lClearSel: "Auswahl aufheben",
+    lConfirmDel: "{n} auf Etsy löschen? Das lässt sich nicht rückgängig machen.", lConfirmAct: "{n} aktivieren? Für Entwürfe und abgelaufene Angebote berechnet Etsy je $0.20.",
+    lActDone: "Fertig: {ok} von {n}.", lActErr: "Fehlgeschlagen:", lRelogin: "Zum Löschen den Shop in den Einstellungen neu anmelden (Etsy fragt dann auch nach dem Löschrecht).",
+    ldAttrs: "Attribute", ldVars: "Varianten", ldLoading: "Lade Attribute und Varianten von Etsy…", ldNoAttrs: "Keine Attribute.", ldNoVars: "Keine Varianten.",
+    ldSales: "Rabatte", saleTitle: "Rabatt", salePct: "Rabatt (%)", saleFrom: "Von", saleTo: "Bis (einschließlich)", saleCreate: "Rabatt planen",
+    saleHint: "Die Etsy-API kann keine Sales & Discounts anlegen. Das Dashboard senkt deshalb am Starttag die Preise aller Varianten um den Prozentsatz und stellt sie nach dem Ende wieder her. Etsy zeigt keinen durchgestrichenen Preis. Funktioniert nur, solange das Dashboard läuft (Mac an); Preise ändern sich bei der regelmäßigen Prüfung.",
+    saleFor: "Für {n}", saleDone: "Der Rabatt ist geplant.", saleStates: { naplanovano: "geplant", bezi: "läuft", hotovo: "beendet", zruseno: "storniert" },
+    saleCancel: "Stornieren", saleConfirmCancel: "Rabatt stornieren? Läuft er schon, werden die Preise sofort zurückgesetzt.", salePill: "−{p} %",
+  },
+};
+for (const l in T5) Object.assign(T[l], T5[l]);
+Object.assign(T.en.errors, { listing_relogin_d: T.en.lRelogin, sale_fields: "Enter a discount between 0 and 100 % and valid dates (the end can't be in the past).", sale_overlap: "{n} of the selected listings already have a sale in that period." });
+Object.assign(T.de.errors, { listing_relogin_d: T.de.lRelogin, sale_fields: "Rabatt zwischen 0 und 100 % und gültige Daten angeben (Ende nicht in der Vergangenheit).", sale_overlap: "{n} der ausgewählten Angebote haben in diesem Zeitraum schon einen Rabatt." });
+
+const shopIdOf = name => (S?.shopy || []).find(s => s.id && s.name === name)?.id;
+const CUSTOM_PIDS = [513, 514, 516];
+let EDIT = null;
+function nlSetMode() {
+  const ed = !!EDIT;
+  $("#nlTools").hidden = ed; $("#nlCatAll").parentElement.hidden = $("#nlCatAllBtn").hidden = ed;
+  $("#nlShop").disabled = ed; if (!ed) $("#nlEditMsg").textContent = "";
+  const keep = ed && NL[0] ? t("nlKeepState", { s: tMap("lstates", NL[0].stavEtsy) || NL[0].stavEtsy || "" }) : "";
+  $("#nlAfter").innerHTML = ed ? `<option value="">${esc(keep)}</option><option value="active">${esc(t("nlActivate"))}</option><option value="inactive">${esc(t("nlDeactivate"))}</option>`
+    : `<option value="draft">${esc(t("nlKeepDraft"))}</option><option value="active">${esc(t("nlPublish"))}</option>`;
+  $("label[for=nlAfter]").textContent = t(ed ? "nlStateLabel" : "nlAfter");
+  $("#pageTitle").textContent = t(ed ? "nlEditTitle" : "nlTitle");
+}
+async function startEdit() {
+  EDIT.started = true; NL = []; nlSetMode(); $("#nlEditMsg").textContent = "";
+  $("#nlList").innerHTML = `<div class="card nl-empty">${esc(t("nlEditLoading"))}</div>`; $("#nlBar").hidden = true; $("#nlLoadMsg").textContent = "";
+  $("#nlShop").value = EDIT.shop;
+  await nlLoadOpts();
+  try {
+    const d = await api(`/api/listing/detail?shop=${encodeURIComponent(EDIT.shop)}&id=${EDIT.id}`);
+    if (!EDIT || String(d.listing_id) !== String(EDIT.id)) return;
+    NL = [detailToProduct(d)]; nlSetMode(); renderNlList();
+  } catch (e) { $("#nlList").innerHTML = `<div class="card nl-empty nl-bad">${esc(e.message)}</div>`; }
+}
+function detailToProduct(d) {
+  const o = nlOpts(), prods = d.produkty || [];
+  const p = nlProduct({ open: true, edit: true, listing_id: d.listing_id, stavEtsy: d.stav, typ: d.typ, nazev: d.nazev, popis: d.popis,
+    stitky: (d.stitky || []).join(", "), cena: String(prods[0]?.cena ?? d.cena ?? ""), mnozstvi: String(prods[0]?.mnozstvi ?? d.mnozstvi ?? ""),
+    sku: prods.length === 1 ? prods[0].sku : "", doprava: d.doprava ?? o.doprava?.[0]?.id ?? "", zpracovani: d.zpracovani ?? o.zpracovani?.[0]?.id ?? "",
+    kategorie: (o.kategorie || []).find(x => x[0] === d.kategorie)?.[1] || "", odhad: false, url: d.url });
+  p.lastCat = p.kategorie;
+  p.obrazky = (d.obrazky || []).map(i => ({ id: i.id, url: i.url, on: true, file: { name: "", size: 0 } }));
+  p.soubory = (d.soubory || []).map(f => ({ id: f.id, on: true, file: { name: f.nazev, size: 0, label: f.velikost || "" } }));
+  (d.atributy || []).forEach(a => p.attrs[a.property_id] = { ids: a.value_ids || [], vals: a.values || [], scale: a.scale_id || "" });
+  if (prods.length > 1 || prods.some(x => x.hodnoty.length)) {
+    const first = prods[0].hodnoty;
+    p.vars = first.map((h0, i) => {
+      const custom = CUSTOM_PIDS.includes(h0.property_id);
+      const v = { pid: custom ? "custom" : h0.property_id, nazev: h0.nazev, scale: h0.scale_id || "", hodnoty: [], text: "" };
+      prods.forEach(pr => { const h = pr.hodnoty[i]; if (h && !v.hodnoty.some(x => x.nazev === h.hodnota)) v.hodnoty.push({ id: custom ? null : h.value_id, nazev: h.hodnota }); });
+      return v;
+    });
+    for (const [f, key] of [["cena", "cena_dle"], ["mnozstvi", "mnozstvi_dle"], ["sku", "sku_dle"]])
+      p.dle[f] = (d[key] || []).map(pid => first.findIndex(h => h.property_id === pid)).filter(i => i >= 0);
+    const seen = new Set();
+    prods.forEach(pr => {
+      const combo = pr.hodnoty.map(h => ({ nazev: h.hodnota })), full = combo.map(h => h.nazev).join(SEP);
+      seen.add(full);
+      if (p.dle.cena.length) p.kc[subKey(p, "cena", combo)] = String(pr.cena);
+      if (p.dle.mnozstvi.length) p.kq[subKey(p, "mnozstvi", combo)] = String(pr.mnozstvi);
+      if (p.dle.sku.length) p.ks[subKey(p, "sku", combo)] = pr.sku;
+      if (!pr.aktivni) p.koff[full] = true;
+    });
+    combos(p).forEach(c => { const full = c.map(h => h.nazev).join(SEP); if (!seen.has(full)) p.koff[full] = true; });
+  }
+  return p;
+}
+async function saveEdit() {
+  const p = NL[0]; if (!p) return;
+  if (!catId(p.kategorie)) { alert(t("nlNeedCat", { t: p.nazev || t("nlNeedTitle") })); return; }
+  if (p.vars.some(v => !varValues(v).length || (v.pid === "custom" && !v.nazev.trim()))) { p.varsOpen = true; renderNlItem(p); alert(t("nlVarNoValues")); return; }
+  NLBUSY = true; p.stav = "run"; p.chyby = []; renderNlItem(p); renderNlBar();
+  try {
+    const r = await api("/api/listing/vytvorit", { ...(await nlBody4Api(p)), listing_id: p.listing_id, sku: p.sku, stav: $("#nlAfter").value });
+    p.vysledek = r; p.chyby = r.chyby || []; p.stav = "saved"; p.stavEtsy = r.stav;
+    msg($("#nlEditMsg"), p.chyby.length ? t("nlSavedErr") : t("nlSaved"), !p.chyby.length);
+    nlSetMode(); $("#nlAfter").value = "";
+  } catch (e) { p.stav = "err"; p.chyby = [e.message]; }
+  NLBUSY = false; renderNlItem(p); renderNlBar(); setTimeout(load, 4000);
+}
+async function nlBody4Api(p) {
+  const digital = p.typ === "digital", files = digital ? p.soubory.filter(f => f.on) : [];
+  const big = files.find(f => !f.id && f.file.size > 20 * 1048576); if (big) throw new Error(t("nlTooBig", { f: big.file.name }));
+  const enc = async list => Promise.all(list.map(async x => x.id ? { id: x.id } : { nazev: x.file.name, data: await b64(x.file) }));
+  return { shop_id: $("#nlShop").value, typ: p.typ, nazev: p.nazev, popis: p.popis, cena: p.cena, mnozstvi: p.mnozstvi,
+    stitky: tagList(p.stitky), kategorie: catId(p.kategorie), doprava_id: p.doprava, zpracovani_id: p.zpracovani, ...nlPayload(p),
+    obrazky: await enc(p.obrazky.filter(i => i.on)), soubory: await enc(files) };
+}
+
+// ---------- hromadné akce na stránce Listingy
+const LSEL = new Set();
+function renderBulk() {
+  const n = LSEL.size;
+  $("#lBulk").hidden = !n;
+  $("#lBulkN").textContent = t("lSelected", { n: pl(n, "listing") });
+}
+async function listingAction(stav, ids) {
+  const rows = ids.map(id => D.listingy.find(l => l.listing_id === id)).filter(Boolean);
+  if (stav === "smazat" && !confirm(t("lConfirmDel", { n: pl(rows.length, "listing") }))) return;
+  if (stav === "active" && !confirm(t("lConfirmAct", { n: pl(rows.length, "listing") }))) return;
+  const byShop = {};
+  rows.forEach(l => (byShop[shopIdOf(l.shop)] = byShop[shopIdOf(l.shop)] || []).push(l.listing_id));
+  let ok = 0; const errs = [];
+  for (const [shop_id, list] of Object.entries(byShop)) {
+    try {
+      const r = await api("/api/listing/stav", { shop_id, ids: list, stav });
+      r.vysledky.forEach(x => x.ok ? ok++ : errs.push(`${(rows.find(l => l.listing_id === +x.listing_id) || {}).nazev || x.listing_id}: ${x.chyba}`));
+    } catch (e) { errs.push(e.message); }
+  }
+  LSEL.clear();
+  alert(t("lActDone", { ok, n: rows.length }) + (errs.length ? `\n\n${t("lActErr")}\n` + errs.join("\n") : ""));
+  $("#ldetail").open && $("#ldetail").close();
+  await load(); setTimeout(load, 4000);
+}
+const salesOf = id => (RAW.slevy || []).filter(s => s.listing_id === id && (s.stav === "naplanovano" || s.stav === "bezi"));
+function salePill(l) {
+  const s = salesOf(l.listing_id)[0]; if (!s) return "";
+  return ` <span class="pill ${s.stav === "bezi" ? "done" : ""}" title="${esc(tMap("saleStates", s.stav))}: ${esc(new Date(s.od_ts * 1000).toLocaleDateString(loc()))} – ${esc(new Date((s.do_ts - 1) * 1000).toLocaleDateString(loc()))}">${esc(t("salePill", { p: +s.procento.toFixed(1) }))}</span>`;
+}
+let SALE_IDS = [];
+function openSale(ids) {
+  SALE_IDS = ids;
+  const today = new Date(), iso = d => new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+  $("#salePct").value = $("#salePct").value || "20"; $("#saleFrom").value = iso(today); $("#saleTo").value = iso(new Date(today.getTime() + 6 * 86400000));
+  $("#saleFor").textContent = t("saleFor", { n: pl(ids.length, "listing") }); $("#saleMsg").textContent = "";
+  $("#sale").showModal();
+}
+$("#saleSave").onclick = async () => {
+  const rows = SALE_IDS.map(id => D.listingy.find(l => l.listing_id === id)).filter(Boolean), byShop = {};
+  rows.forEach(l => (byShop[shopIdOf(l.shop)] = byShop[shopIdOf(l.shop)] || []).push(l.listing_id));
+  try {
+    for (const [shop_id, ids] of Object.entries(byShop))
+      await api("/api/sleva", { shop_id, ids, procento: $("#salePct").value, od: $("#saleFrom").value, do: $("#saleTo").value });
+    msg($("#saleMsg"), t("saleDone"), true); LSEL.clear();
+    setTimeout(() => { $("#sale").close(); $("#ldetail").open && $("#ldetail").close(); }, 900);
+    await load(); setTimeout(load, 5000);
+  } catch (e) { msg($("#saleMsg"), e.message); }
+};
+async function cancelSale(id) {
+  if (!confirm(t("saleConfirmCancel"))) return;
+  try { await api("/api/sleva/zrusit", { id }); $("#ldetail").close(); await load(); } catch (e) { alert(e.message); }
+}
+$("#lBulk").onclick = e => {
+  const a = e.target.closest("[data-bulk]")?.dataset.bulk; if (!a) return;
+  const ids = [...LSEL];
+  if (a === "clear") { LSEL.clear(); renderListings(filtered()); }
+  else if (a === "sale") openSale(ids);
+  else listingAction(a, ids);
+};
+$("#ltable").addEventListener("change", e => {
+  if (e.target.id === "lSelAll") { LROWS.filter(l => l.listing_id > 0 && shopIdOf(l.shop)).forEach(l => e.target.checked ? LSEL.add(l.listing_id) : LSEL.delete(l.listing_id)); renderListings(filtered()); return; }
+  const id = +e.target.dataset.sel; if (!id) return;
+  e.target.checked ? LSEL.add(id) : LSEL.delete(id); renderBulk();
+  const all = $("#lSelAll"); if (all) all.checked = LROWS.filter(l => l.listing_id > 0 && shopIdOf(l.shop)).every(l => LSEL.has(l.listing_id));
+});
+
+// detail listingu: akce, atributy, varianty a slevy
+async function listingExtra(l) {
+  const shop = shopIdOf(l.shop), box = $("#ldExtra");
+  const sales = (RAW.slevy || []).filter(s => s.listing_id === l.listing_id);
+  const salesHtml = sales.length ? `<h4>${esc(t("ldSales"))}</h4><ul class="list">${sales.map(s => `<li><span>${esc(t("salePill", { p: +s.procento.toFixed(1) }))} · ${esc(new Date(s.od_ts * 1000).toLocaleDateString(loc()))} – ${esc(new Date((s.do_ts - 1) * 1000).toLocaleDateString(loc()))} · ${esc(tMap("saleStates", s.stav) || s.stav)}${s.chyba ? ` <span class="neg">${esc(s.chyba)}</span>` : ""}</span>${s.stav === "naplanovano" || s.stav === "bezi" ? `<button class="linkbtn" data-cancel-sale="${s.id}">${esc(t("saleCancel"))}</button>` : "<span></span>"}</li>`).join("")}</ul>` : "";
+  if (!shop || !(l.listing_id > 0) || S.demo) { box.innerHTML = salesHtml; return; }
+  box.innerHTML = salesHtml + `<p class="hint">${esc(t("ldLoading"))}</p>`;
+  try {
+    const d = await api(`/api/listing/detail?shop=${encodeURIComponent(shop)}&id=${l.listing_id}`);
+    const prods = d.produkty || [], hasVar = prods.length > 1 || prods.some(x => x.hodnoty.length);
+    const attrs = (d.atributy || []).map(a => `<span class="chip"><span class="hint">${esc(a.nazev)}:</span> ${esc((a.values || []).join(", "))}${a.scale_id ? "" : ""}</span>`).join("");
+    const cols = hasVar ? prods[0].hodnoty.map(h => h.nazev) : [];
+    const vars = hasVar ? `<div class="tablewrap"><table><thead><tr>${cols.map(c => `<th>${esc(c)}</th>`).join("")}<th class="num">${esc(t("colPrice"))}</th><th class="num">${esc(t("colStock"))}</th><th>SKU</th><th>${esc(t("nlVarOn"))}</th></tr></thead><tbody>${prods.map(pr => `<tr>${pr.hodnoty.map(h => `<td>${esc(h.hodnota)}</td>`).join("")}<td class="num">${fmtMoney(pr.cena, l.mena)}</td><td class="num">${pr.mnozstvi ?? "–"}</td><td>${esc(pr.sku || "–")}</td><td>${pr.aktivni ? "✓" : "–"}</td></tr>`).join("")}</tbody></table></div>` : `<p class="hint">${esc(t("ldNoVars"))}</p>`;
+    if (!$("#ldetail").open || LDCUR !== l) return;
+    box.innerHTML = salesHtml + `<h4>${esc(t("ldAttrs"))}</h4>${attrs ? `<div class="chips">${attrs}</div>` : `<p class="hint">${esc(t("ldNoAttrs"))}</p>`}<h4>${esc(t("ldVars"))}</h4>${vars}`;
+  } catch (e) { if (LDCUR === l) box.innerHTML = salesHtml + `<p class="hint nl-bad">${esc(e.message)}</p>`; }
+}
+let LDCUR = null;
+function ldActions(l) {
+  const shop = shopIdOf(l.shop);
+  if (!shop || !(l.listing_id > 0)) return "";
+  const act = l.stav === "active" ? `<button class="btn" data-ld="inactive">${esc(t("nlDeactivate"))}</button>` : `<button class="btn" data-ld="active">${esc(t("nlActivate"))}</button>`;
+  return `<div class="actions left ld-actions"><a class="btn primary" href="#upravit/${esc(shop)}/${l.listing_id}">${esc(t("lEdit"))}</a>${act}<button class="btn" data-ld="sale">${esc(t("lSale"))}</button><button class="btn danger" data-ld="smazat">${esc(t("lDelete"))}</button></div>`;
+}
+$("#ldetail").addEventListener("click", e => {
+  const c = e.target.closest("[data-cancel-sale]"); if (c) { cancelSale(+c.dataset.cancelSale); return; }
+  const a = e.target.closest("[data-ld]")?.dataset.ld; if (!a || !LDCUR) return;
+  if (a === "sale") openSale([LDCUR.listing_id]); else listingAction(a, [LDCUR.listing_id]);
+  if (e.target.closest("a[href^='#upravit']")) $("#ldetail").close();
+});
+$("#ldetail").addEventListener("click", e => { if (e.target.closest("a[href^='#upravit']")) $("#ldetail").close(); });
 
 applyStatic();
 $("#status").textContent = t("loading");
