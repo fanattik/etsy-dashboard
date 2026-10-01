@@ -8,7 +8,7 @@ import time
 
 from zaklad import DATA_DIR, DB_PATH
 
-SCHEMA = 1  # PRAGMA user_version: 1 = katalog produktů (verze 1.24)
+SCHEMA = 2  # PRAGMA user_version: 1 = katalog produktů (verze 1.24), 2 = stavy objednávek (verze 1.27)
 _MIGRACE = threading.Lock()
 _ZKONTROLOVANO = set()
 
@@ -84,6 +84,16 @@ def db(path=None):
     con.execute("""CREATE TABLE IF NOT EXISTS obj_polozky (
         ucet_id TEXT, objednavka_id INTEGER, externi_radek_id TEXT, externi_nabidka_id TEXT, sku TEXT, nazev TEXT,
         mnozstvi INTEGER, cena REAL, mena TEXT, varianta TEXT, personalizace TEXT, PRIMARY KEY (ucet_id, externi_radek_id))""")
+    # objednávky: vlastní stavy uživatele, lokální stav objednávky (synchronizace ho nepřepíše) a pohyby skladu
+    con.execute("""CREATE TABLE IF NOT EXISTS stavy_objednavek (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, nazev TEXT, barva TEXT, poradi INTEGER, koncovy INTEGER DEFAULT 0,
+        pravidlo TEXT DEFAULT '{}', akce TEXT DEFAULT '{}')""")
+    con.execute("""CREATE TABLE IF NOT EXISTS obj_stav (
+        receipt_id INTEGER PRIMARY KEY, stav_id INTEGER, zmeneno_ts INTEGER, rucne INTEGER DEFAULT 0,
+        tracking_ts INTEGER, tracking_chyba TEXT)""")
+    con.execute("""CREATE TABLE IF NOT EXISTS sklad_pohyby (
+        ucet_id TEXT, externi_radek_id TEXT, varianta_id INTEGER, mnozstvi INTEGER, ts INTEGER,
+        PRIMARY KEY (ucet_id, externi_radek_id))""")
     if con.execute("PRAGMA user_version").fetchone()[0] < SCHEMA:
         con.execute(f"PRAGMA user_version = {SCHEMA}")
     return con

@@ -14,7 +14,7 @@ import urllib.request
 API = os.environ.get("ETSY_DASHBOARD_API") or "https://openapi.etsy.com/v3/application"
 AUTH_URL = "https://www.etsy.com/oauth/connect"
 TOKEN_URL = "https://api.etsy.com/v3/public/oauth/token"
-SCOPES = "transactions_r shops_r profile_r listings_r listings_w listings_d"
+SCOPES = "transactions_r transactions_w shops_r profile_r listings_r listings_w listings_d"
 UPDATE_BASE = os.environ.get("ETSY_DASHBOARD_UPDATE_URL") or "https://raw.githubusercontent.com/fanattik/etsy-dashboard/main/app/"
 UPDATE_EVERY = 24 * 3600
 RATES_URL = os.environ.get("ETSY_DASHBOARD_RATES_URL") or "https://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml"
@@ -54,12 +54,15 @@ STATUS = {"posledni_kontrola": None, "chyby": {}, "bezi": False}
 TEXTS = {
     "cs": {"order": "🛒 {shop}: nová objednávka {total} od {buyer} ({items})",
            "status": "🔄 {shop}: objednávka {id} je teď {status}",
+           "state": "📦 {shop}: objednávka {id} → {state}",
            "more": "… a dalších {n}", "title": "Etsy Dashboard: novinky"},
     "en": {"order": "🛒 {shop}: new order {total} from {buyer} ({items})",
            "status": "🔄 {shop}: order {id} is now {status}",
+           "state": "📦 {shop}: order {id} → {state}",
            "more": "… and {n} more", "title": "Etsy Dashboard: news"},
     "de": {"order": "🛒 {shop}: neue Bestellung {total} von {buyer} ({items})",
            "status": "🔄 {shop}: Bestellung {id} ist jetzt {status}",
+           "state": "📦 {shop}: Bestellung {id} → {state}",
            "more": "… und {n} weitere", "title": "Etsy Dashboard: Neuigkeiten"},
 }
 

@@ -174,12 +174,12 @@ def unlink_offer(body, db_path=None, demo=False):
 
 def offer_states(con, products, accounts, base_cur, rates):
     """Doplní k nabídkám živý stav listingu a seznam změn: v katalogu (k odeslání) a na Etsy (cizí úprava)."""
-    live = {str(r[0]): (r[1], r[2]) for r in con.execute("SELECT listing_id, stav, zmeneno_ts FROM listingy")}
+    live = {str(r[0]): (r[1], r[2], r[3]) for r in con.execute("SELECT listing_id, stav, zmeneno_ts, mnozstvi FROM listingy")}
     sent = {r[0]: r[1] for r in con.execute("SELECT id, odeslano FROM nabidky")}
     by_id = {a["id"]: a for a in accounts}
     for p in products:
         for n in p["nabidky"]:
-            state, modified = live.get(n["externi_id"], (None, None))
+            state, modified, qty = live.get(n["externi_id"], (None, None, None))
             if n["ucet_id"].startswith("etsy:") and state:
                 n["stav"] = state
             n["zmeny"] = []
@@ -192,5 +192,8 @@ def offer_states(con, products, accounts, base_cur, rates):
                     n["zmeny_pole"] = []
                 if n["zmeny_pole"]:
                     n["zmeny"].append("katalog")
+            stock = [v["sklad"] for v in p["varianty"] if v["aktivni"] and v["sklad"] is not None]
+            if p["vyroba"] == "sklad" and stock and qty is not None and qty != sum(stock):  # po prodeji ze skladu
+                n["zmeny"].append("sklad")
             if modified and n.get("zmeneno_v_kanalu_ts") and modified > n["zmeneno_v_kanalu_ts"] + 60:
                 n["zmeny"].append("kanal")

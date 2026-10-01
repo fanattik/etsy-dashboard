@@ -12,6 +12,10 @@ The interface is available in English, Czech and German (switch in *Settings*, w
 - Monthly revenue chart (12 months), best sellers, fee breakdown
 - Orders and payment-account tables with filters, sorting and CSV export (Excel-friendly)
 - Per-order shipping notes: carrier, tracking number and your shipping cost (kept locally, never overwritten by imports)
+- Your own order states (Settings → Order states, default New → In production → Ready → Shipped): name, color, order, final state, and a simple rule for when an order moves there on its own (paid, shipped in the channel, has tracking, has personalization, only digital products, from one account). Change a state in the order detail or for several orders at once; a state can send the tracking number to Etsy when you move orders into it by hand, and notify your phone when orders move there on their own
+- Send the carrier and tracking number to Etsy from the order detail (Etsy marks the order shipped and emails the buyer). Needs the shop signed in again once, for the new `transactions_w` permission
+- Printable production sheet for the selected orders, or for all shown orders not in a final state: totals per product and variant, then each order with variant and personalization (digital items left out)
+- Order details list each item with its variant and personalization and link to the catalog product. Products in stock mode lower their variant stock after a sale and flag their offers until the new quantity is sent through the edit form
 - Products page (catalog): every product once, with its photos, download files, variants, per-channel data and the listings that offer it. Adopt existing Etsy listings into the catalog (photos are downloaded, the Etsy data is kept as that shop's layer) or load a folder of products; neither changes anything on Etsy. Each product can be edited: general data and base price, variants with SKU and stock, photos and files, and its text, tags, category and price for all of Etsy or for one shop
 - Publish catalog products to one or more Etsy shops: the new listing form opens prefilled from the catalog (shop layer, Etsy layer, product, shop rules) with local photos and files, and the created listing is linked to the product. The catalog flags offers with unsent catalog changes (send them through the edit form) and listings changed directly on Etsy (take them into the catalog)
 - Catalog settings: base currency, catalog language and rules per sales account (price multiplier and rounding from the ECB rate, made-to-order quantity, photo limit, description footer, default shipping, processing and category)
@@ -65,6 +69,7 @@ python3 app/etsy_dashboard.py jednou   # one API sync without the UI (cron)
 | `app/katalog.py` | product catalog: adopting listings, loading product folders, media files in `data/media` |
 | `app/produkty.py` | editing catalog products, variants, media and channel layers; account rules and price calculation |
 | `app/nabidky.py` | offers: data for publishing a product to a shop, linking created listings, change detection, taking changes from Etsy |
+| `app/objednavky.py` | order states and their rules, manual state changes, sending tracking to Etsy, stock after a sale |
 | `app/prehled.py` | data for the dashboard and stats pages, CSV export, shipping notes, demo data |
 | `app/csv_import.py` | import of CSV files downloaded from Etsy |
 | `app/dashboard.html` | the dashboard UI (no build step, no external libraries) |
