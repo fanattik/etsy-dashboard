@@ -41,7 +41,7 @@ AUTH_URL = "https://www.etsy.com/oauth/connect"
 TOKEN_URL = "https://api.etsy.com/v3/public/oauth/token"
 SCOPES = "transactions_r shops_r profile_r listings_r listings_w listings_d"
 PORT = 8765
-VERSION = "1.18"
+VERSION = "1.19"
 UPDATE_BASE = os.environ.get("ETSY_DASHBOARD_UPDATE_URL") or "https://raw.githubusercontent.com/fanattik/etsy-dashboard/main/app/"
 UPDATE_EVERY = 24 * 3600
 RATES_URL = os.environ.get("ETSY_DASHBOARD_RATES_URL") or "https://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml"
@@ -524,8 +524,14 @@ def listing_options(cfg, shop_id, demo=False):
     try:
         for r in api_get(cfg, tokens, shop_id, f"/shops/{shop_id}/readiness-state-definitions").get("results", []):
             rid = r.get("readiness_state_id") or r.get("readiness_state_definition_id")
-            days = f"{r.get('min_processing_time', '?')}–{r.get('max_processing_time', '?')} {r.get('processing_time_unit', 'days')}"
-            out["zpracovani"].append({"id": rid, "nazev": f"{(r.get('readiness_state') or '').replace('_', ' ')}, {days}".strip(", ")})
+            lo = r.get("min_processing_days", r.get("min_processing_time"))
+            hi = r.get("max_processing_days", r.get("max_processing_time"))
+            unit = r.get("processing_time_unit") or "days"
+            label = r.get("processing_days_display_label") or ("" if lo is None and hi is None else
+                                                              f"{lo if lo is not None else hi}–{hi if hi is not None else lo} {unit}")
+            if lo is not None and lo == hi and not r.get("processing_days_display_label"):
+                label = f"{lo} {unit[:-1] if lo == 1 and unit.endswith('s') else unit}"
+            out["zpracovani"].append({"id": rid, "stav": r.get("readiness_state") or "", "nazev": label})
     except Exception as e:
         out["chyby"].append(str(e))
     return out
@@ -781,9 +787,13 @@ def save_listing(cfg, body):
                 errors.append(f"Atribut {pid}: {e}")
     if inventory:
         try:
-            api_send(cfg, tokens, shop_id, "PUT", f"/listings/{lid}/inventory", inventory)
+            api_send(cfg, tokens, shop_id, "PUT", f"/listings/{lid}/inventory?legacy=false", inventory)
         except Exception as e:
             errors.append(f"Varianty: {e}")
+    if isinstance(body.get("personalizace"), list):
+        err = save_personalization(cfg, tokens, shop_id, lid, body["personalizace"])
+        if err:
+            errors.append(err)
     state = listing.get("state", "draft")
     want = body.get("stav") or ("active" if body.get("zverejnit") else None)
     if want and want != state and not errors:
@@ -800,6 +810,78 @@ def save_listing(cfg, body):
             "upravit": f"https://www.etsy.com/your/shops/me/listing-editor/edit/{lid}"}
 
 
+PERSO_TYPES = ("text_input", "dropdown", "unlabeled_upload", "labeled_upload")
+
+
+def _perso_out(q):
+    return {"question_id": q.get("question_id"), "typ": q.get("question_type") or "text_input", "text": q.get("question_text") or "",
+            "instr": q.get("instructions") or "", "req": bool(q.get("required")),
+            "max": q.get("max_allowed_characters") or q.get("max_allowed_files") or None,
+            "opts": [o.get("label", "") for o in q.get("options") or []]}
+
+
+def get_personalization(cfg, tokens, shop_id, lid, listing):
+    """Vlastní volby kupujícího (personalizace). Nové API umí až 5 otázek; když není dostupné, vezmou se starší pole listingu."""
+    try:
+        r = api_get(cfg, tokens, shop_id, f"/listings/{lid}/personalization")
+        return [_perso_out(q) for q in r.get("personalization_questions") or []], True
+    except Exception:
+        pass
+    if listing.get("is_personalizable"):
+        return [{"question_id": None, "typ": "text_input", "text": "Personalization", "instr": listing.get("personalization_instructions") or "",
+                 "req": bool(listing.get("personalization_is_required")), "max": listing.get("personalization_char_count_max") or 256,
+                 "opts": []}], False
+    return [], False
+
+
+def save_personalization(cfg, tokens, shop_id, lid, items):
+    qs = []
+    for q in items[:5]:
+        typ = q.get("typ") if q.get("typ") in PERSO_TYPES else "text_input"
+        text = " ".join(str(q.get("text") or "").split())[:45]
+        if not text:
+            continue
+        o = {"question_type": typ, "question_text": text, "required": bool(q.get("req"))}
+        if q.get("question_id"):
+            o["question_id"] = int(q["question_id"])
+        opts = [{"label": str(x).strip()[:20 if typ == "dropdown" else 45]} for x in q.get("opts") or [] if str(x).strip()]
+        if typ in ("text_input", "unlabeled_upload") and str(q.get("instr") or "").strip():
+            o["instructions"] = str(q["instr"]).strip()[:120]
+        if typ == "text_input":
+            o["max_allowed_characters"] = max(1, min(1024, int(q.get("max") or 256)))
+        if typ == "unlabeled_upload":
+            o["max_allowed_files"] = max(1, min(10, int(q.get("max") or 1)))
+        if typ == "dropdown":
+            o["options"] = opts[:30]
+        if typ == "labeled_upload":
+            o["options"] = opts[:10]
+            o["max_allowed_files"] = len(o["options"])
+        if typ in ("dropdown", "labeled_upload") and not o["options"]:
+            return f"Vlastní volby: otázka „{text}“ nemá žádné možnosti."
+        qs.append(o)
+    path = f"/shops/{shop_id}/listings/{lid}/personalization?supports_multiple_personalization_questions=true"
+    try:
+        if qs:
+            api_send(cfg, tokens, shop_id, "POST", path, {"personalization_questions": qs})
+        else:
+            api_send(cfg, tokens, shop_id, "DELETE", path)
+        return None
+    except Exception as e:
+        new_err = str(e)
+    # starší způsob: jen jedno textové pole
+    if len(qs) > 1 or (qs and qs[0]["question_type"] != "text_input"):
+        return f"Vlastní volby: {new_err}"
+    legacy = {"is_personalizable": bool(qs)}
+    if qs:
+        legacy.update({"personalization_is_required": qs[0]["required"], "personalization_char_count_max": qs[0]["max_allowed_characters"],
+                       "personalization_instructions": qs[0].get("instructions") or qs[0]["question_text"]})
+    try:
+        api_send(cfg, tokens, shop_id, "PATCH", f"/shops/{shop_id}/listings/{lid}", legacy)
+        return None
+    except Exception as e:
+        return f"Vlastní volby: {new_err}; {e}"
+
+
 def _money(m):
     if isinstance(m, dict):
         return round(m.get("amount", 0) / (m.get("divisor") or 100), 2)
@@ -813,12 +895,13 @@ def listing_detail(cfg, shop_id, lid, demo=False):
     tokens = _shop_tokens(shop_id, need="r")
     lid = int(lid)
     l = api_get(cfg, tokens, shop_id, f"/listings/{lid}", {"includes": "Images"})
-    inv = l.get("inventory") or api_get(cfg, tokens, shop_id, f"/listings/{lid}/inventory")
+    inv = api_get(cfg, tokens, shop_id, f"/listings/{lid}/inventory", {"legacy": "false"})
     files = []
     if l.get("type") == "download":
         files = [{"id": f["listing_file_id"], "nazev": f.get("filename", ""), "velikost": f.get("filesize")}
                  for f in api_get(cfg, tokens, shop_id, f"/shops/{shop_id}/listings/{lid}/files").get("results", [])]
     props = api_get(cfg, tokens, shop_id, f"/shops/{shop_id}/listings/{lid}/properties").get("results", [])
+    perso, perso_new = get_personalization(cfg, tokens, shop_id, lid, l)
     products = []
     for p in inv.get("products", []):
         if p.get("is_deleted"):
@@ -841,7 +924,7 @@ def listing_detail(cfg, shop_id, lid, demo=False):
                                             "value_ids": p.get("value_ids") or [], "values": p.get("values") or [],
                                             "scale_id": p.get("scale_id")} for p in props],
             "produkty": products, "cena_dle": inv.get("price_on_property") or [], "mnozstvi_dle": inv.get("quantity_on_property") or [],
-            "sku_dle": inv.get("sku_on_property") or []}
+            "sku_dle": inv.get("sku_on_property") or [], "personalizace": perso, "personalizace_nove": perso_new}
 
 
 def listings_state(cfg, body):
@@ -957,7 +1040,7 @@ def process_discounts(cfg):
             if shop_id not in tokens:
                 continue
             try:
-                inv = api_get(cfg, tokens, shop_id, f"/listings/{lid}/inventory")
+                inv = api_get(cfg, tokens, shop_id, f"/listings/{lid}/inventory", {"legacy": "false"})
                 if stav == "naplanovano":
                     if con.execute("SELECT do_ts FROM slevy WHERE id=?", (sid,)).fetchone()[0] <= now:
                         con.execute("UPDATE slevy SET stav='hotovo' WHERE id=?", (sid,))  # termín propásnutý (Mac byl vypnutý)
@@ -968,13 +1051,13 @@ def process_discounts(cfg):
                         old[_pkey(p)] = price
                         new[_pkey(p)] = max(0.2, round(price * (1 - pct / 100), 2))
                         return new[_pkey(p)]
-                    api_send(cfg, tokens, shop_id, "PUT", f"/listings/{lid}/inventory", _inv_payload(inv, cut))
+                    api_send(cfg, tokens, shop_id, "PUT", f"/listings/{lid}/inventory?legacy=false", _inv_payload(inv, cut))
                     con.execute("UPDATE slevy SET stav='bezi', puvodni=?, nove=?, chyba=NULL WHERE id=?",
                                 (json.dumps(old), json.dumps(new), sid))
                 else:
                     old, new = json.loads(puvodni or "{}"), json.loads(nove or "{}")
                     back = lambda p, price: old[_pkey(p)] if _pkey(p) in old and abs(new.get(_pkey(p), -1) - price) < 0.005 else price
-                    api_send(cfg, tokens, shop_id, "PUT", f"/listings/{lid}/inventory", _inv_payload(inv, back))
+                    api_send(cfg, tokens, shop_id, "PUT", f"/listings/{lid}/inventory?legacy=false", _inv_payload(inv, back))
                     con.execute("UPDATE slevy SET stav='hotovo', chyba=NULL WHERE id=?", (sid,))
                 touched.add(shop_id)
             except Exception as e:

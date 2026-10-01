@@ -13,7 +13,7 @@ The interface is available in English, Czech and German (switch in *Settings*, w
 - Orders and payment-account tables with filters, sorting and CSV export (Excel-friendly)
 - Per-order shipping notes: carrier, tracking number and your shipping cost (kept locally, never overwritten by imports)
 - Listings page: price, stock, views, favorites, and units sold and revenue per listing in the selected period
-- Create new listings through the Etsy API: load a folder of products (each with an `etsy-listing.md`, images and download files), check and edit them, then create drafts or publish them in one go. Each listing can be digital (download files) or physical (shipping and processing profiles), with category attributes and up to two variations with their own price, quantity and SKU
+- Create new listings through the Etsy API: load a folder of products (each with an `etsy-listing.md`, images and download files), check and edit them, then create drafts or publish them in one go. Each listing can be digital (download files) or physical (shipping and processing profiles), with category attributes, up to two variations with their own price, quantity and SKU, and custom options for the buyer (personalization questions: text, dropdown or file upload)
 - Edit existing listings (text, price, images, files, attributes, variations), activate, deactivate or delete them, one at a time or several at once
 - Scheduled sales from a start to an end date. The Etsy API has no Sales & Discounts endpoints, so the dashboard lowers the prices on the start day and restores them after the end (only while it runs)
 - Several shops side by side, filter by shop and period
