@@ -151,6 +151,15 @@ th.sortable { cursor: pointer; user-select: none; }
 .lcell a.t { color: var(--text); text-decoration: none; } .lcell a.t:hover { text-decoration: underline; }
 .lcell .tags { color: var(--muted); font-size: 12px; margin-top: 2px; }
 .tfilters .grow { flex: 1; }
+.addship, .carrier { font-family: "Inter", ui-sans-serif, system-ui, sans-serif; font-size: 12px; } .addship { color: var(--faint); } .carrier { color: var(--muted); } tr.click:hover .addship { color: var(--text); }
+#odetail { width: min(620px, calc(100vw - 32px)); }
+#odetail h4.dsec { margin: 22px 0 0; font-size: 13px; font-weight: 500; color: var(--muted); }
+.shipform { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px; }
+.shipform .field:last-child { grid-column: 1 / -1; }
+.pricerow { display: flex; gap: 8px; } .field .pricerow input { flex: 1; min-width: 0; width: auto; } .field .pricerow select { width: 110px; flex: none; }
+.osum { display: grid; grid-template-columns: auto 1fr; gap: 6px 16px; font-size: 13.5px; margin-top: 14px; }
+.osum span { color: var(--muted); } .osum b { text-align: left; }
+@media (max-width: 600px) { .shipform { grid-template-columns: 1fr; } }
 tr.click { cursor: pointer; } tr.click:hover td { background: var(--panel-2); }
 #ldetail { width: min(720px, calc(100vw - 32px)); max-height: calc(100vh - 48px); }
 #ldetail .dlg { max-height: calc(100vh - 48px); overflow-y: auto; box-sizing: border-box; position: relative; }
@@ -410,6 +419,20 @@ dialog::backdrop { background: rgba(0,0,0,.4); }
 
 <div class="tip" id="tip"></div>
 
+<dialog id="odetail">
+  <div class="dlg" tabindex="-1" style="outline:none"><button class="btn dclose" onclick="$('#odetail').close()" data-i18n-aria="close">✕</button>
+    <div id="odBody"></div>
+    <h4 class="dsec" data-i18n="shipTitle"></h4>
+    <div class="shipform">
+      <div class="field"><label for="shCarrier" data-i18n="shipCarrier"></label><input id="shCarrier" list="carriers" autocomplete="off">
+        <datalist id="carriers"><option>Zásilkovna</option><option>Česká pošta</option><option>Balíkovna</option><option>PPL</option><option>DPD</option><option>GLS</option><option>DHL</option><option>UPS</option><option>FedEx</option><option>WE|DO</option></datalist></div>
+      <div class="field"><label for="shTrack" data-i18n="shipTrack"></label><input id="shTrack" autocomplete="off"></div>
+      <div class="field"><label for="shPrice" data-i18n="shipPrice"></label><div class="pricerow"><input id="shPrice" inputmode="decimal" autocomplete="off"><select id="shCur"></select></div></div>
+    </div>
+    <p class="hint" id="shTrackLink"></p>
+    <div class="actions"><span class="msg" id="shMsg"></span><button class="btn" id="shClear" data-i18n="shipClear"></button><button class="btn primary" id="shSave" data-i18n="save"></button></div>
+  </div>
+</dialog>
 <dialog id="ldetail">
   <div class="dlg" tabindex="-1" style="outline:none"><button class="btn dclose" onclick="$('#ldetail').close()" data-i18n-aria="close">✕</button><div id="ldBody"></div></div>
 </dialog>
@@ -568,6 +591,7 @@ const T = {
     errors: { demo: "Nothing can be changed in demo mode.", need_keys: "Enter the Keystring and Shared secret in Settings first.",
       auth_denied: "Etsy denied access: {detail}", auth_state: "This address doesn't belong to this sign-in. Click “Connect a shop” again.",
       auth_code: "The address is missing 'code'. Paste the full address you land on after clicking Grant access on Etsy.",
+      ship_bad: "The order number is missing.", ship_price: "The shipping cost must be a number.",
       auth_connect_url: "This is the Etsy sign-in link, not the address after signing in. Open it, click Grant access on Etsy and paste the address you land on (it starts with your Callback URL and contains ?code=).", no_shop: "This Etsy account has no shop.",
       import_shop: "Choose or type the shop the file belongs to.",
       import_unknown: "{soubor} doesn't look like an Etsy export (statement, Orders, Order Items or Payments)." },
@@ -639,6 +663,7 @@ const T = {
     errors: { demo: "Im Demo-Modus kann nichts geändert werden.", need_keys: "Trage zuerst Keystring und Shared secret in den Einstellungen ein.",
       auth_denied: "Etsy hat den Zugriff verweigert: {detail}", auth_state: "Diese Adresse gehört nicht zu dieser Anmeldung. Klicke erneut auf „Shop verbinden“.",
       auth_code: "In der Adresse fehlt 'code'. Füge die komplette Adresse ein, auf der du nach Grant access auf Etsy landest.",
+      ship_bad: "Die Bestellnummer fehlt.", ship_price: "Die Versandkosten müssen eine Zahl sein.",
       auth_connect_url: "Das ist der Etsy-Anmeldelink, nicht die Adresse nach der Anmeldung. Öffne ihn, klicke auf Etsy auf Grant access und füge die Adresse ein, auf der du landest (beginnt mit deiner Callback-URL und enthält ?code=).", no_shop: "Dieses Etsy-Konto hat keinen Shop.",
       import_shop: "Wähle oder tippe den Shop, zu dem die Datei gehört.",
       import_unknown: "{soubor} sieht nicht wie ein Etsy-Export aus (Kontoauszug, Orders, Order Items oder Payments)." },
@@ -659,10 +684,12 @@ const T2 = {
     colQty: "Ks", fFrom: "Od", fTo: "Do", fItem: "Položka", fAllItems: "Všechny položky", fAllStates: "Všechny stavy", fAllTypes: "Všechny typy",
     fDir: "Směr", fAllDirs: "Příjmy i výdaje", fIn: "Jen příjmy", fOut: "Jen výdaje", fSort: "Řadit", fReset: "Zrušit filtry",
     s_date_desc: "Datum: od nejnovějších", s_date_asc: "Datum: od nejstarších", s_amount_desc: "Částka: od nejvyšší", s_amount_asc: "Částka: od nejnižší",
-    s_qty_desc: "Množství: od nejvíc kusů", s_qty_asc: "Množství: od nejméně kusů", s_state_asc: "Stav: k odeslání první", s_state_desc: "Stav: k odeslání poslední",
+    s_ship_desc: "Doprava: nejdražší", s_ship_asc: "Doprava: nejlevnější", s_qty_desc: "Množství: od nejvíc kusů", s_qty_asc: "Množství: od nejméně kusů", s_state_asc: "Stav: k odeslání první", s_state_desc: "Stav: k odeslání poslední",
     s_type_asc: "Typ: A–Z", s_type_desc: "Typ: Z–A",
     tsumOrders: "{n}, {q} ks, celkem {sum}", tsumLedger: "{n}, součet {sum}", nothingF: "Filtrům nic neodpovídá.",
-    navListings: "Listingy", ldOpen: "Otevřít na Etsy", ldSoldPeriod: "Prodáno v období", ldRevPeriod: "Tržby v období", ldSoldAll: "Prodáno celkem", ldRevAll: "Tržby celkem",
+    navListings: "Listingy", colShip: "Doprava", shipAdd: "doprava", shipTitle: "Doprava", shipCarrier: "Dopravce", shipTrack: "Číslo zásilky (nepovinné)", shipPrice: "Cena dopravy",
+    shipClear: "Smazat údaje", shipTrackOpen: "Sledovat zásilku", shipGroup: "Doprava (tvoje náklady)", orderNo: "Objednávka #{n}", tsumShip: ", doprava {sum}",
+    ldOpen: "Otevřít na Etsy", ldSoldPeriod: "Prodáno v období", ldRevPeriod: "Tržby v období", ldSoldAll: "Prodáno celkem", ldRevAll: "Tržby celkem",
     ldCreated: "Vytvořeno", ldTags: "Štítky", ldNoTags: "Bez štítků.", ldDesc: "Popis", ldOrders: "Poslední objednávky", ldNoOrders: "Zatím žádná objednávka.",
     lEmptyTitle: "Zatím žádné listingy", lSearchPh: "Hledat název, štítek, SKU…",
     lEmptyText: "Listingy se stáhnou přes Etsy API při kontrole. Bez API je nahraj z Etsy: Shop Manager → Settings → Options → Download Data → Currently for Sale Listings (CSV).",
@@ -689,10 +716,12 @@ const T2 = {
     colQty: "Qty", fFrom: "From", fTo: "To", fItem: "Item", fAllItems: "All items", fAllStates: "All statuses", fAllTypes: "All types",
     fDir: "Direction", fAllDirs: "Money in and out", fIn: "Money in", fOut: "Money out", fSort: "Sort by", fReset: "Clear filters",
     s_date_desc: "Date: newest first", s_date_asc: "Date: oldest first", s_amount_desc: "Amount: highest first", s_amount_asc: "Amount: lowest first",
-    s_qty_desc: "Quantity: most first", s_qty_asc: "Quantity: fewest first", s_state_asc: "Status: to ship first", s_state_desc: "Status: to ship last",
+    s_ship_desc: "Shipping: highest first", s_ship_asc: "Shipping: lowest first", s_qty_desc: "Quantity: most first", s_qty_asc: "Quantity: fewest first", s_state_asc: "Status: to ship first", s_state_desc: "Status: to ship last",
     s_type_asc: "Type: A–Z", s_type_desc: "Type: Z–A",
     tsumOrders: "{n}, {q} pcs, total {sum}", tsumLedger: "{n}, sum {sum}", nothingF: "Nothing matches the filters.",
-    navListings: "Listings", ldOpen: "Open on Etsy", ldSoldPeriod: "Sold in period", ldRevPeriod: "Revenue in period", ldSoldAll: "Sold all time", ldRevAll: "Revenue all time",
+    navListings: "Listings", colShip: "Shipping", shipAdd: "shipping", shipTitle: "Shipping", shipCarrier: "Carrier", shipTrack: "Tracking number (optional)", shipPrice: "Shipping cost",
+    shipClear: "Clear", shipTrackOpen: "Track package", shipGroup: "Shipping (your cost)", orderNo: "Order #{n}", tsumShip: ", shipping {sum}",
+    ldOpen: "Open on Etsy", ldSoldPeriod: "Sold in period", ldRevPeriod: "Revenue in period", ldSoldAll: "Sold all time", ldRevAll: "Revenue all time",
     ldCreated: "Created", ldTags: "Tags", ldNoTags: "No tags.", ldDesc: "Description", ldOrders: "Recent orders", ldNoOrders: "No orders yet.",
     lEmptyTitle: "No listings yet", lSearchPh: "Search title, tag, SKU…",
     lEmptyText: "Listings are downloaded through the Etsy API when the dashboard checks your shop. Without the API, upload them from Etsy: Shop Manager → Settings → Options → Download Data → Currently for Sale Listings (CSV).",
@@ -719,10 +748,12 @@ const T2 = {
     colQty: "Menge", fFrom: "Von", fTo: "Bis", fItem: "Artikel", fAllItems: "Alle Artikel", fAllStates: "Alle Status", fAllTypes: "Alle Arten",
     fDir: "Richtung", fAllDirs: "Ein- und Ausgänge", fIn: "Nur Eingänge", fOut: "Nur Ausgänge", fSort: "Sortieren", fReset: "Filter zurücksetzen",
     s_date_desc: "Datum: neueste zuerst", s_date_asc: "Datum: älteste zuerst", s_amount_desc: "Betrag: höchster zuerst", s_amount_asc: "Betrag: niedrigster zuerst",
-    s_qty_desc: "Menge: meiste zuerst", s_qty_asc: "Menge: wenigste zuerst", s_state_asc: "Status: zu versenden zuerst", s_state_desc: "Status: zu versenden zuletzt",
+    s_ship_desc: "Versand: teuerster zuerst", s_ship_asc: "Versand: günstigster zuerst", s_qty_desc: "Menge: meiste zuerst", s_qty_asc: "Menge: wenigste zuerst", s_state_asc: "Status: zu versenden zuerst", s_state_desc: "Status: zu versenden zuletzt",
     s_type_asc: "Art: A–Z", s_type_desc: "Art: Z–A",
     tsumOrders: "{n}, {q} Stk., gesamt {sum}", tsumLedger: "{n}, Summe {sum}", nothingF: "Nichts entspricht den Filtern.",
-    navListings: "Angebote", ldOpen: "Auf Etsy öffnen", ldSoldPeriod: "Verkauft im Zeitraum", ldRevPeriod: "Umsatz im Zeitraum", ldSoldAll: "Verkauft gesamt", ldRevAll: "Umsatz gesamt",
+    navListings: "Angebote", colShip: "Versand", shipAdd: "Versand", shipTitle: "Versand", shipCarrier: "Versanddienst", shipTrack: "Sendungsnummer (optional)", shipPrice: "Versandkosten",
+    shipClear: "Löschen", shipTrackOpen: "Sendung verfolgen", shipGroup: "Versand (deine Kosten)", orderNo: "Bestellung #{n}", tsumShip: ", Versand {sum}",
+    ldOpen: "Auf Etsy öffnen", ldSoldPeriod: "Verkauft im Zeitraum", ldRevPeriod: "Umsatz im Zeitraum", ldSoldAll: "Verkauft gesamt", ldRevAll: "Umsatz gesamt",
     ldCreated: "Erstellt", ldTags: "Tags", ldNoTags: "Keine Tags.", ldDesc: "Beschreibung", ldOrders: "Neueste Bestellungen", ldNoOrders: "Noch keine Bestellungen.",
     lEmptyTitle: "Noch keine Angebote", lSearchPh: "Titel, Tag, SKU suchen…",
     lEmptyText: "Angebote werden bei der Prüfung über die Etsy-API geladen. Ohne API lade sie von Etsy hoch: Shop Manager → Settings → Options → Download Data → Currently for Sale Listings (CSV).",
@@ -801,7 +832,7 @@ const COMMON_CUR = ["CZK", "EUR", "USD", "GBP", "PLN", "CHF", "CAD", "AUD", "HUF
 // přepočet všech částek do zvolené měny (kurzy ECB: 1 EUR = x měny)
 function convertData() {
   const k = RATES?.kurzy;
-  if (!CUR || !k || !k[CUR]) { D = RAW; return; }
+  if (!CUR || !k || !k[CUR]) { D = RAW; attachShipping(); return; }
   const cv = (v, from) => v === null || v === undefined || !k[from] ? v : v / k[from] * k[CUR];
   const map = (r, keys) => {
     if (r.mena === CUR || !k[r.mena]) return r;
@@ -809,7 +840,20 @@ function convertData() {
     keys.forEach(x => o[x] = cv(r[x], r.mena)); return o;
   };
   D = { ...RAW, objednavky: RAW.objednavky.map(r => map(r, ["celkem"])), vypis: RAW.vypis.map(r => map(r, ["castka", "zustatek"])), listingy: (RAW.listingy || []).map(r => map(r, ["cena"])) };
+  attachShipping();
 }
+// ruční údaje o dopravě (dopravce, číslo zásilky, cena) připojené k objednávkám
+function attachShipping() {
+  const k = RATES?.kurzy, conv = CUR && k && k[CUR];
+  const m = {};
+  (RAW.doprava || []).forEach(d => {
+    const o = { ...d };
+    if (conv && d.cena !== null && d.mena && d.mena !== CUR && k[d.mena]) { o.puv = [d.cena, d.mena]; o.cena = d.cena / k[d.mena] * k[CUR]; o.mena = CUR; }
+    m[d.receipt_id] = o;
+  });
+  D = { ...D, objednavky: D.objednavky.map(r => m[r.receipt_id] ? { ...r, dop: m[r.receipt_id] } : r) };
+}
+const shipCost = r => r.dop && r.dop.cena !== null && r.dop.cena !== undefined ? r.dop.cena : null;
 function origTitle(r) { return r.puv ? ` title="${esc(t("curOrig", { v: fmtMoney(r.puv[0], r.puv[1]) }))}"` : ""; }
 function buildCurrency() {
   const k = RATES?.kurzy, list = k ? Object.keys(k).sort() : COMMON_CUR;
@@ -1035,8 +1079,14 @@ function renderTop(f) {
     : `<li class="empty">${f.pOrders.length ? t("topUnknown") : t("nothing")}</li>`;
 }
 
+function shipSum(rows) {
+  const m = {}; rows.forEach(r => { const c = shipCost(r); if (c !== null) { const cur = r.dop.mena || r.mena; m[cur] = (m[cur] || 0) + c; } });
+  return Object.entries(m).map(([c, v]) => fmtMoney(v, c)).join(" + ");
+}
 function renderFees(f) {
   const g = {};
+  f.pOrders.forEach(r => { const c = shipCost(r); if (c === null) return; const k = t("shipGroup"), cur = r.dop.mena || r.mena;
+    g[k] = g[k] || {}; g[k][cur] = (g[k][cur] || 0) - c; });
   f.pLedger.forEach(r => {
     const key = PAYOUT.test(r.typ) ? t("payoutGroup") : (tMap("types", r.typ) || tMap("types", r.typ.toLowerCase()) || r.typ || t("other"));
     g[key] = g[key] || {}; g[key][r.mena] = (g[key][r.mena] || 0) + r.castka;
@@ -1057,11 +1107,17 @@ function sortTh(key, label, cls) {  // hlavička sloupce, kliknutím řadí
   const [k, dir] = TF[page].sort.split("-"), on = k === key;
   return `<th class="sortable${on ? " sorted" : ""}${cls ? " " + cls : ""}" data-sort="${key}">${label}${on ? (dir === "asc" ? " ↑" : " ↓") : ""}</th>`;
 }
+function shipTd(r) {
+  const d = r.dop, c = shipCost(r);
+  if (!d) return `<td class="num"><span class="addship">+ ${esc(t("shipAdd"))}</span></td>`;
+  const tip = d.puv ? ` title="${esc(t("curOrig", { v: fmtMoney(d.puv[0], d.puv[1]) }))}"` : "";
+  return `<td class="num"${tip}>${c === null ? "–" : fmtMoney(c, d.mena || r.mena)}${d.dopravce ? `<div class="carrier">${esc(d.dopravce)}</div>` : ""}</td>`;
+}
 function orderRows(rows, multi, compact) {
   const shopTd = r => multi ? `<td class="nw"><span class="dot" style="background:${shopColor(r.shop)}"></span> ${esc(r.shop)}</td>` : "";
   const sk = k => compact ? "" : k;
-  return `<thead><tr>${sortTh(sk("date"), t("colDate"))}${multi && !compact ? `<th>${t("colShop")}</th>` : ""}<th>${t("colBuyer")}</th>${compact ? "" : `<th>${t("colItems")}</th>${sortTh("qty", t("colQty"), "num")}`}${sortTh(sk("amount"), t("colTotal"), "num")}${sortTh(sk("state"), t("colStatus"))}</tr></thead><tbody>` +
-    rows.map(r => `<tr class="${r.pridano_ts > lastSeen ? "new" : ""}"><td class="nw">${fmtDate(r.vytvoreno_ts)}</td>${compact ? "" : shopTd(r)}<td>${esc(r.zakaznik) || "–"}${compact ? `<div class="hint" style="margin:0">${esc(r.polozky)}</div>` : ""}</td>${compact ? "" : `<td class="items">${esc(r.polozky)}</td><td class="num">${qtyOf(r)}</td>`}<td class="num"${origTitle(r)}>${fmtMoney(r.celkem, r.mena)}</td><td>${statusPill(r)}</td></tr>`).join("") + "</tbody>";
+  return `<thead><tr>${sortTh(sk("date"), t("colDate"))}${multi && !compact ? `<th>${t("colShop")}</th>` : ""}<th>${t("colBuyer")}</th>${compact ? "" : `<th>${t("colItems")}</th>${sortTh("qty", t("colQty"), "num")}`}${sortTh(sk("amount"), t("colTotal"), "num")}${compact ? "" : sortTh("ship", t("colShip"), "num")}${sortTh(sk("state"), t("colStatus"))}</tr></thead><tbody>` +
+    rows.map(r => `<tr class="click ${r.pridano_ts > lastSeen ? "new" : ""}" data-rid="${r.receipt_id}"><td class="nw">${fmtDate(r.vytvoreno_ts)}</td>${compact ? "" : shopTd(r)}<td>${esc(r.zakaznik) || "–"}${compact ? `<div class="hint" style="margin:0">${esc(r.polozky)}</div>` : ""}</td>${compact ? "" : `<td class="items">${esc(r.polozky)}</td><td class="num">${qtyOf(r)}</td>`}<td class="num"${origTitle(r)}>${fmtMoney(r.celkem, r.mena)}</td>${compact ? "" : shipTd(r)}<td>${statusPill(r)}</td></tr>`).join("") + "</tbody>";
 }
 
 function renderRecent(f) {
@@ -1073,7 +1129,7 @@ function renderRecent(f) {
 const TF_DEF = { from: "", to: "", what: "", state: "", sort: "date-desc" };
 const TF = { objednavky: { ...TF_DEF, ...LS.get("tf_objednavky", {}) }, vypis: { ...TF_DEF, ...LS.get("tf_vypis", {}) },
   listingy: { ...TF_DEF, sort: "sold-desc", ...LS.get("tf_listingy", {}) } };
-const SORT_KEYS = { objednavky: ["date", "amount", "qty", "state"], vypis: ["date", "amount", "type"] };
+const SORT_KEYS = { objednavky: ["date", "amount", "qty", "ship", "state"], vypis: ["date", "amount", "type"] };
 const SORT_ASC_FIRST = { state: 1, type: 1, name: 1, stock: 1 };
 const L_SORTS = ["sold-desc", "revenue-desc", "views-desc", "favs-desc", "price-desc", "price-asc", "stock-asc", "name-asc"];  // text se řadí od A, čísla od největšího
 function qtyOf(r) { return (r.polozky || "").split("; ").reduce((n, it) => { const m = it.match(/^(\d+)(x | ks$)/); return n + (m ? +m[1] : it ? 1 : 0); }, 0); }
@@ -1119,7 +1175,7 @@ function renderTable(f) {
   const ts = r => orders ? r.vytvoreno_ts : r.datum_ts, amt = r => orders ? r.celkem : r.castka;
   const a = dayTs(st.from) ?? -Infinity, b = dayTs(st.to, true) ?? Infinity;
   const q = $("#search").value.trim().toLowerCase();
-  const match = r => !q || Object.values(r).some(v => String(v).toLowerCase().includes(q));
+  const match = r => !q || Object.values(r).some(v => (v && typeof v === "object" ? Object.values(v).join(" ") : String(v)).toLowerCase().includes(q));
   let rows = base.filter(r => ts(r) >= a && ts(r) < b && match(r));
   if (orders) {
     if (st.what) rows = rows.filter(r => itemNames(r).includes(st.what));
@@ -1129,13 +1185,14 @@ function renderTable(f) {
     if (st.state) rows = rows.filter(r => st.state === "in" ? r.castka > 0 : r.castka < 0);
   }
   const [key, dir] = st.sort.split("-"), sgn = dir === "asc" ? 1 : -1, coll = new Intl.Collator(loc());
-  const val = { date: ts, amount: amt, qty: qtyOf,
+  const val = { date: ts, amount: amt, qty: qtyOf, ship: r => shipCost(r) ?? -1,
     state: r => { const k = orderState(r); return (k === "_ship" ? "0" : "1") + stateLabel(k); }, type: r => typeLabel(r.typ) }[key] || ts;
   rows.sort((x, y) => { const p = val(x), o = val(y); return (typeof p === "string" ? coll.compare(p, o) : p - o) * sgn || ts(y) - ts(x); });
 
   const sum = Object.entries(sumByCur(rows, orders ? "celkem" : "castka")).map(([c, v]) => fmtMoney(v, c)).join(" + ") || "–";
   $("#tsum").innerHTML = rows.length ? (orders
-    ? t("tsumOrders", { n: pl(rows.length, "order"), q: rows.reduce((n, r) => n + qtyOf(r), 0), sum: `<b>${sum}</b>` })
+    ? t("tsumOrders", { n: pl(rows.length, "order"), q: rows.reduce((n, r) => n + qtyOf(r), 0), sum: `<b>${sum}</b>` }) +
+      (rows.some(r => shipCost(r) !== null) ? t("tsumShip", { sum: `<b>${shipSum(rows)}</b>` }) : "")
     : t("tsumLedger", { n: pl(rows.length, "move"), sum: `<b>${sum}</b>` })) : "";
 
   const multi = S.shopy.length > 1 && shopFilter === "all";
@@ -1226,6 +1283,40 @@ function renderListings(f) {
   LROWS = rows;
 }
 let LROWS = [];
+
+let ORDER = null;
+function openOrder(rid) {
+  const r = D.objednavky.find(o => o.receipt_id === rid); if (!r) return;
+  const raw = RAW.objednavky.find(o => o.receipt_id === rid) || r;
+  const d = (RAW.doprava || []).find(x => x.receipt_id === rid) || {};
+  ORDER = r;
+  $("#odBody").innerHTML = `<h3>${esc(t("orderNo", { n: rid }))}</h3>
+    <div class="osum">
+      <span>${esc(t("colDate"))}</span><b style="font-weight:400">${fmtDate(r.vytvoreno_ts)}</b>
+      <span>${esc(t("colShop"))}</span><b style="font-weight:400"><span class="dot" style="background:${shopColor(r.shop)}"></span> ${esc(r.shop)}</b>
+      <span>${esc(t("colBuyer"))}</span><b style="font-weight:400">${esc(r.zakaznik) || "–"}</b>
+      <span>${esc(t("colItems"))}</span><b style="font-weight:400">${esc(r.polozky) || "–"}</b>
+      <span>${esc(t("colTotal"))}</span><b class="num" style="font-weight:500"${origTitle(r)}>${fmtMoney(r.celkem, r.mena)}</b>
+      <span>${esc(t("colStatus"))}</span><b style="font-weight:400">${statusPill(r)}</b>
+    </div>`;
+  $("#shCarrier").value = d.dopravce || ""; $("#shTrack").value = d.cislo || "";
+  $("#shPrice").value = d.cena === null || d.cena === undefined ? "" : String(d.cena).replace(".", LANG === "en" ? "." : ",");
+  const cur = d.mena || raw.mena || "USD";
+  const list = [...new Set([cur, raw.mena, "CZK", "EUR", "USD", "GBP", "PLN"].filter(Boolean))];
+  $("#shCur").innerHTML = list.map(c => `<option>${esc(c)}</option>`).join(""); $("#shCur").value = cur;
+  trackLink(); $("#shMsg").textContent = ""; $("#shClear").hidden = !d.receipt_id;
+  $("#odetail").showModal(); $("#odetail .dlg").focus();
+}
+function trackLink() {
+  const n = $("#shTrack").value.trim();
+  $("#shTrackLink").innerHTML = n ? `<a href="https://t.17track.net/#nums=${encodeURIComponent(n)}" target="_blank" rel="noopener" style="color:var(--text);text-decoration:underline">${esc(t("shipTrackOpen"))} ↗</a>` : "";
+}
+async function saveShipping(clear) {
+  const body = clear ? { receipt_id: ORDER.receipt_id } : { receipt_id: ORDER.receipt_id, dopravce: $("#shCarrier").value,
+    cislo: $("#shTrack").value, cena: $("#shPrice").value, mena: $("#shCur").value };
+  try { await api("/api/doprava", body); $("#odetail").close(); await load(); }
+  catch (e) { msg($("#shMsg"), e.message); }
+}
 
 function openListing(l) {
   const f = filtered(), per = listingSales(f, [l]).get(l), all = listingSales({ pOrders: f.orders }, [l]).get(l);
@@ -1427,6 +1518,15 @@ $("#ltable").addEventListener("click", e => {
   if (e.target.closest("th, a")) return;
   const tr = e.target.closest("tr[data-i]"); if (tr) openListing(LROWS[+tr.dataset.i]);
 });
+$("#table").addEventListener("click", e => {
+  if (e.target.closest("th, a")) return;
+  const tr = e.target.closest("tr[data-rid]"); if (tr) openOrder(+tr.dataset.rid);
+});
+$("#recent").addEventListener("click", e => { const tr = e.target.closest("tr[data-rid]"); if (tr) openOrder(+tr.dataset.rid); });
+$("#shTrack").oninput = trackLink;
+$("#shSave").onclick = () => saveShipping(false);
+$("#shClear").onclick = () => saveShipping(true);
+$("#odetail").onclick = e => { if (e.target.id === "odetail") e.target.close(); };
 $("#ldetail").onclick = e => { if (e.target.id === "ldetail") e.target.close(); };  // klik mimo kartu
 $("#table").onclick = $("#ltable").onclick = e => {
   const th = e.target.closest("th[data-sort]"); if (!th) return;

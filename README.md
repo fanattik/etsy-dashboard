@@ -11,6 +11,7 @@ The interface is available in English, Czech and German (switch in *Settings*, w
 - Revenue, order count, average order, Etsy fees (incl. VAT), net to account, payouts, balance and orders waiting to ship
 - Monthly revenue chart (12 months), best sellers, fee breakdown
 - Orders and payment-account tables with filters, sorting and CSV export (Excel-friendly)
+- Per-order shipping notes: carrier, tracking number and your shipping cost (kept locally, never overwritten by imports)
 - Listings page: price, stock, views, favorites, and units sold and revenue per listing in the selected period
 - Several shops side by side, filter by shop and period
 - Show all amounts in one currency of your choice (converted at the daily ECB rate)
