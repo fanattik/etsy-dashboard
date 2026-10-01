@@ -16,6 +16,7 @@ The interface is available in English, Czech and German (switch in *Settings*, w
 - Create new listings through the Etsy API: load a folder of products (each with an `etsy-listing.md`, images and download files), check and edit them, then create drafts or publish them in one go. Each listing can be digital (download files) or physical (shipping and processing profiles), with category attributes, up to two variations with their own price, quantity and SKU, and custom options for the buyer (personalization questions: text, dropdown or file upload)
 - Edit existing listings (text, price, images, files, attributes, variations), activate, deactivate or delete them, one at a time or several at once
 - Scheduled sales from a start to an end date. The Etsy API has no Sales & Discounts endpoints, so the dashboard lowers the prices on the start day and restores them after the end (only while it runs)
+- Stats page: listing views, orders, conversion and revenue charts, new favorites, shop followers, reviews, repeat buyers, cities and countries, and listings ranked by views. The Etsy API only reports lifetime view counts, so the dashboard stores a daily snapshot and the history starts on the first day it runs (visits and traffic sources are not available through the API)
 - Several shops side by side, filter by shop and period
 - Show all amounts in one currency of your choice (converted at the daily ECB rate)
 - Two ways to get data:

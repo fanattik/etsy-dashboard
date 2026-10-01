@@ -100,6 +100,21 @@ input:focus, select:focus, textarea:focus { outline: 2px solid color-mix(in srgb
 .kpi .head .trend { margin-left: auto; }
 .row2 { grid-template-columns: 1.6fr 1fr; margin-bottom: 10px; }
 .halves { grid-template-columns: 1fr 1fr; margin-bottom: 10px; }
+.st-charts { grid-template-columns: 1fr 1fr; margin-bottom: 6px; }
+.st-chart .value { font-size: 26px; letter-spacing: -.02em; display: flex; align-items: center; gap: 8px; margin: 6px 0 4px; }
+.st-chart .sub { color: var(--muted); font-size: 12px; min-height: 16px; }
+.st-chart .plot { margin-top: 8px; }
+.st-chart .plot svg { display: block; width: 100%; height: auto; }
+.st-note { margin: 0 2px 18px; }
+.st-h { font-size: 18px; font-weight: 400; margin: 18px 2px 10px; letter-spacing: -.01em; }
+.st-tiles { grid-template-columns: repeat(3, 1fr); margin-bottom: 10px; }
+.st-tile .head { color: var(--muted); font-size: 13px; }
+.st-tile .value { font-size: 24px; margin: 8px 0 6px; letter-spacing: -.02em; }
+.st-tile .sub { font-size: 12.5px; color: var(--muted); line-height: 1.45; }
+.st-traffic { margin-bottom: 10px; }
+.st-traffic .hint a { color: var(--text); text-decoration: underline; }
+@media (max-width: 900px) { .st-charts { grid-template-columns: 1fr; } .st-tiles { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 520px) { .st-tiles { grid-template-columns: 1fr; } }
 .big { font-size: 30px; font-weight: 400; letter-spacing: -.03em; line-height: 1.1; }
 .headline { margin-left: auto; text-align: right; }
 .headline .lbl { font-size: 12px; color: var(--text); display: flex; align-items: center; gap: 6px; justify-content: flex-end; margin-bottom: 4px; }
@@ -317,6 +332,7 @@ dialog::backdrop { background: rgba(0,0,0,.4); }
       <a href="#prehled" data-page="prehled"><svg class="i" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg><span data-i18n="navOverview"></span></a>
       <a href="#objednavky" data-page="objednavky"><svg class="i" viewBox="0 0 24 24"><path d="M6 7h12l-1 13H7L6 7z"/><path d="M9 7a3 3 0 0 1 6 0"/></svg><span data-i18n="tabOrders"></span></a>
       <a href="#listingy" data-page="listingy"><svg class="i" viewBox="0 0 24 24"><path d="M3 12V4a1 1 0 0 1 1-1h8l9 9-9 9-9-9z"/><circle cx="8" cy="8" r="1.5"/></svg><span data-i18n="navListings"></span></a>
+      <a href="#statistiky" data-page="statistiky"><svg class="i" viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg><span data-i18n="navStats"></span></a>
       <a href="#vypis" data-page="vypis"><svg class="i" viewBox="0 0 24 24"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2V3z"/><path d="M9 8h6M9 12h6"/></svg><span data-i18n="navLedger"></span></a>
       <a href="#nastaveni" data-page="nastaveni"><svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg><span data-i18n="settingsTitle"></span></a>
     </nav>
@@ -381,6 +397,18 @@ dialog::backdrop { background: rgba(0,0,0,.4); }
     </section>
 
     <!-- listingy -->
+    <section class="page" id="page-statistiky" hidden>
+      <div class="grid st-charts" id="stCharts"></div>
+      <p class="hint st-note" id="stNote"></p>
+      <h2 class="st-h" data-i18n="stShopper"></h2>
+      <div class="grid st-tiles" id="stTiles"></div>
+      <div class="card st-traffic"><div class="card-h"><h2 data-i18n="stTrafficTitle"></h2></div><p class="hint" id="stTraffic"></p></div>
+      <div class="card">
+        <div class="card-h"><div><h2 id="stLHead"></h2><span class="note" id="stLSub"></span></div></div>
+        <div class="tablewrap"><table id="stTable"></table></div>
+        <div class="actions"><button class="btn" id="stMore" data-i18n="moreBtn"></button></div>
+      </div>
+    </section>
     <section class="page" id="page-listingy" hidden>
       <div class="card welcome" id="lEmpty" hidden><h2 data-i18n="lEmptyTitle"></h2><p data-i18n="lEmptyText"></p>
         <button class="btn primary" onclick="openImport()"><svg class="i" viewBox="0 0 24 24"><path d="M12 16V4M7 9l5-5 5 5M4 20h16"/></svg><span data-i18n="uploadCsv"></span></button>
@@ -1041,7 +1069,7 @@ const ICON = {
 const icon = k => `<svg class="i" viewBox="0 0 24 24">${ICON[k]}</svg>`;
 
 // ---------- stránky
-const PAGES = { prehled: "navOverview", objednavky: "tabOrders", listingy: "navListings", novy: "nlTitle", vypis: "ledgerTitle", nastaveni: "settingsTitle" };
+const PAGES = { prehled: "navOverview", objednavky: "tabOrders", listingy: "navListings", statistiky: "navStats", novy: "nlTitle", vypis: "ledgerTitle", nastaveni: "settingsTitle" };
 let page = "prehled";
 function route() {
   const h = location.hash.slice(1), m = h.match(/^upravit\/([^/]+)\/(\d+)$/);
@@ -1053,6 +1081,7 @@ function route() {
   $("#page-prehled").hidden = page !== "prehled";
   $("#page-tabulka").hidden = page !== "objednavky" && page !== "vypis";
   $("#page-listingy").hidden = page !== "listingy";
+  $("#page-statistiky").hidden = page !== "statistiky"; ST_SHOWN = 10;
   $("#page-novy").hidden = page !== "novy";
   $("#lsearch").value = "";
   $("#page-nastaveni").hidden = page !== "nastaveni";
@@ -1070,7 +1099,7 @@ window.addEventListener("hashchange", route);
 // ---------- období
 function buildPeriods() {
   const sel = $("#period"), opts = [
-    ["this", t("pThis")], ["last", t("pLast")], ["30", t("p30")], ["year", t("pYear")], ["all", t("pAll")]];
+    ["7", t("p7")], ["this", t("pThis")], ["last", t("pLast")], ["30", t("p30")], ["year", t("pYear")], ["all", t("pAll")]];
   const months = new Set(D.objednavky.concat(D.vypis).map(r => { const d = new Date((r.vytvoreno_ts || r.datum_ts) * 1000); return d.getFullYear() * 100 + d.getMonth(); }));
   [...months].sort((a, b) => b - a).forEach(m => opts.push([`m${m}`, monthName(m % 100, Math.floor(m / 100))]));
   const cur = LS.get("period", "this");
@@ -1083,6 +1112,7 @@ function periodRange() {
   if (v === "this") return [start(now.getFullYear(), now.getMonth()), Infinity];
   if (v === "last") return [start(now.getFullYear(), now.getMonth() - 1), start(now.getFullYear(), now.getMonth())];
   if (v === "30") return [Date.now() / 1000 - 30 * 86400, Infinity];
+  if (v === "7") { const d = new Date(); d.setHours(0, 0, 0, 0); return [d.getTime() / 1000 - 6 * 86400, Infinity]; }
   if (v === "year") return [start(now.getFullYear(), 0), Infinity];
   if (v.startsWith("m")) { const m = +v.slice(1); return [start(Math.floor(m / 100), m % 100), start(Math.floor(m / 100), m % 100 + 1)]; }
   return [0, Infinity];
@@ -1422,6 +1452,137 @@ function renderListings(f) {
 }
 let LROWS = [];
 
+// ---------- statistiky
+let ST_SHOWN = 10;
+const dayKey = ts => { const d = new Date(ts * 1000); return d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate(); };
+function statBuckets(a, b) {  // dny (do ~2 měsíců), jinak měsíce
+  const end = Math.min(b, Date.now() / 1000), st = RAW.statistiky || {};
+  if (!isFinite(a) || a <= 0) {
+    const firsts = D.objednavky.map(r => r.vytvoreno_ts).filter(Boolean);
+    if (st.od) firsts.push(new Date(st.od + "T00:00").getTime() / 1000);
+    a = firsts.length ? Math.min(...firsts) : end - 30 * 86400;
+  }
+  const out = [], s = new Date(a * 1000);
+  if ((end - a) / 86400 <= 62) {
+    s.setHours(0, 0, 0, 0);
+    for (let d = new Date(s); d.getTime() / 1000 < end; d.setDate(d.getDate() + 1)) {
+      const n = new Date(d); n.setDate(n.getDate() + 1);
+      out.push({ a: d.getTime() / 1000, b: n.getTime() / 1000, lbl: d.toLocaleDateString(loc(), { day: "numeric", month: "numeric" }), long: d.toLocaleDateString(loc(), { weekday: "short", day: "numeric", month: "long" }) });
+    }
+  } else {
+    for (let d = new Date(s.getFullYear(), s.getMonth(), 1); d.getTime() / 1000 < end; d = new Date(d.getFullYear(), d.getMonth() + 1, 1)) {
+      const n = new Date(d.getFullYear(), d.getMonth() + 1, 1);
+      out.push({ a: d.getTime() / 1000, b: n.getTime() / 1000, lbl: monthName(d.getMonth(), undefined, true), long: monthName(d.getMonth(), d.getFullYear()) });
+    }
+  }
+  return out;
+}
+function statChart(id, buckets, vals, fmt, color) {
+  const W = 560, H = 190, L = 40, R = 8, T0 = 8, B = 24, n = vals.length;
+  const max = Math.max(...vals, 0) || 1, step = niceStep(max), top = Math.ceil(max / step) * step || 1;
+  const x = i => n < 2 ? (L + W - R) / 2 : L + (W - L - R) * i / (n - 1), y = v => H - B - (v / top) * (H - B - T0);
+  let svg = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img">`;
+  for (let g = 0; g <= top + 1e-9; g += step)
+    svg += `<line x1="${L}" x2="${W - R}" y1="${y(g)}" y2="${y(g)}" stroke="var(--line)" stroke-dasharray="${g ? "2 4" : ""}"/><text x="${L - 8}" y="${y(g) + 4}" text-anchor="end">${esc(fmt(g, true))}</text>`;
+  const pts = vals.map((v, i) => [x(i), y(v)]);
+  if (n > 1) svg += `<path d="${smooth(pts)}" fill="none" stroke="${color}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>`;
+  const every = Math.ceil(n / 7);
+  pts.forEach(([px, py], i) => {
+    if (n <= 31) svg += `<circle cx="${px}" cy="${py}" r="3" fill="${color}"/>`;
+    svg += `<rect x="${px - (W - L - R) / Math.max(n, 1) / 2}" y="${T0}" width="${(W - L - R) / Math.max(n, 1)}" height="${H - B - T0}" fill="transparent"><title>${esc(buckets[i].long)}: ${esc(fmt(vals[i]))}</title></rect>`;
+    if (i % every === 0 || i === n - 1) svg += `<text x="${px}" y="${H - 6}" text-anchor="${i === 0 ? "start" : i === n - 1 ? "end" : "middle"}">${esc(buckets[i].lbl)}</text>`;
+  });
+  return svg + "</svg>";
+}
+function renderStats(f) {
+  const st = RAW.statistiky || { delty: [], sledujici: {}, recenze: [], info: {} };
+  const [a0, b0] = f.range, buckets = statBuckets(a0, b0);
+  const a = buckets.length ? buckets[0].a : a0, b = buckets.length ? buckets[buckets.length - 1].b : b0;
+  const byShop = shop => shopFilter === "all" || shop === shopFilter;
+  const lmap = new Map(D.listingy.map(l => [l.listing_id, l]));
+  const nf = v => Math.round(v).toLocaleString(loc());
+  // zobrazení a oblíbené z denních přírůstků
+  const dts = d => new Date(d + "T12:00").getTime() / 1000;
+  const deltas = (st.delty || []).filter(([d, lid]) => { const l = lmap.get(lid); return l ? byShop(l.shop) : shopFilter === "all"; }).map(([d, lid, v, fv]) => [dts(d), lid, v, fv]);
+  const inB = (ts, k) => ts >= buckets[k].a && ts < buckets[k].b;
+  const views = buckets.map((_, k) => deltas.filter(x => inB(x[0], k)).reduce((s, x) => s + x[2], 0));
+  const orders = f.orders.filter(r => r.vytvoreno_ts >= a && r.vytvoreno_ts < b);
+  const ordN = buckets.map((_, k) => orders.filter(r => inB(r.vytvoreno_ts, k)).length);
+  const cur = (orders[0] || f.orders[0] || {}).mena || "USD", oneCur = orders.every(r => r.mena === cur);
+  const rev = buckets.map((_, k) => orders.filter(r => r.mena === cur && inB(r.vytvoreno_ts, k)).reduce((s, r) => s + r.celkem, 0));
+  const conv = buckets.map((_, k) => views[k] ? orders.filter(r => inB(r.vytvoreno_ts, k) && st.od && r.vytvoreno_ts >= dts(st.od) + 43200).length / views[k] * 100 : 0);
+  const tv = views.reduce((s, v) => s + v, 0), to = orders.length, revAll = sumByCur(orders, "celkem");
+  // předchozí období stejné délky pro srovnání
+  const len = b - a, pa = a - len;
+  const pOrders = f.orders.filter(r => r.vytvoreno_ts >= pa && r.vytvoreno_ts < a);
+  const pViews = deltas.filter(x => x[0] >= pa && x[0] < a).reduce((s, x) => s + x[2], 0);
+  const hasPrevViews = st.od && dts(st.od) < pa;
+  const pct = v => (Math.round(v * 10) / 10).toLocaleString(loc()) + " %";
+  const cards = [
+    ["stViews", nf(tv), hasPrevViews ? trend(tv, pViews) : null, views, v => nf(v), "var(--brand)", tv ? t("stViewsSub") : t("stNoViews")],
+    ["stOrders", nf(to), trend(to, pOrders.length), ordN, v => nf(v), "var(--shop-2)", t("vsPrevN", { n: pOrders.length })],
+    ["stConv", tv ? pct(orders.filter(r => st.od && r.vytvoreno_ts >= dts(st.od) + 43200).length / tv * 100) : "–", null, conv, (v, ax) => ax ? Math.round(v) + "%" : pct(v), "var(--shop-3)", t("stConvSub")],
+    ["stRevenue", moneyHtml(revAll), oneCur ? trend(rev.reduce((s, v) => s + v, 0), pOrders.filter(r => r.mena === cur).reduce((s, r) => s + r.celkem, 0)) : null, rev,
+      (v, ax) => ax ? Math.round(v).toLocaleString(loc()) : fmtMoney(v, cur), "var(--shop-4)", oneCur ? "" : t("inCur", { cur })],
+  ];
+  $("#stCharts").innerHTML = cards.map(([k, val, tr, ser, fmt, col, sub]) => `<div class="card st-chart"><div class="kpi"><div class="head">${esc(t(k))}${tr ? tr.pill : ""}</div></div>
+      <div class="value">${val}</div><div class="sub">${esc(sub || "")}</div><div class="plot">${buckets.length ? statChart(k, buckets, ser, fmt, col) : ""}</div></div>`).join("");
+  $("#stNote").textContent = st.od ? t("stNote", { d: new Date(st.od + "T12:00").toLocaleDateString(loc()) }) : t("stNoHistory");
+
+  // zákazníci
+  const favs = deltas.filter(x => x[0] >= a && x[0] < b).reduce((s, x) => s + x[3], 0);
+  const shops = S.shopy.map(s => s.name).filter(byShop);
+  let fol = 0, folD = 0, folKnown = false;
+  shops.forEach(sh => {
+    const ser = (st.sledujici || {})[sh]; if (!ser || !ser.length) return; folKnown = true;
+    const last = ser[ser.length - 1][1]; fol += last;
+    const before = ser.filter(([d]) => dts(d) < a).pop() || ser[0]; folD += last - before[1];
+  });
+  const revs = (st.recenze || []).filter(r => byShop(r.shop) && r.ts >= a && r.ts < b);
+  const avgR = revs.length ? revs.reduce((s, r) => s + (r.hodnoceni || 0), 0) / revs.length : 0;
+  const info = st.info || {}, oi = r => info[r.receipt_id];
+  const firstBy = {};
+  f.orders.forEach(r => { const k = oi(r)?.[0]; if (k && (!firstBy[k] || r.vytvoreno_ts < firstBy[k])) firstBy[k] = r.vytvoreno_ts; });
+  const buyers = new Set(orders.map(r => oi(r)?.[0]).filter(Boolean));
+  const repeat = [...buyers].filter(k => firstBy[k] < a || orders.filter(r => oi(r)?.[0] === k).length > 1).length;
+  const cityCnt = {}, ctryCnt = {};
+  orders.forEach(r => { const x = oi(r); if (!x) return; if (x[1]) cityCnt[x[1] + (x[2] ? ", " + x[2] : "")] = (cityCnt[x[1] + (x[2] ? ", " + x[2] : "")] || 0) + 1; if (x[2]) ctryCnt[x[2]] = (ctryCnt[x[2]] || 0) + 1; });
+  const top3 = o => Object.entries(o).sort((p, q) => q[1] - p[1]).slice(0, 3).map(([k, v]) => `${k} (${v})`).join(", ");
+  const known = orders.some(oi);
+  const sign = v => (v > 0 ? "+" : v < 0 ? "−" : "") + nf(Math.abs(v));
+  const tiles = [
+    [t("stFavs"), deltas.length ? sign(favs) : "–", deltas.length ? t("stFavsSub") : t("stNoViews")],
+    [t("stFollows"), folKnown ? nf(fol) : "–", folKnown ? t("stFollowsSub", { n: sign(folD) }) : t("stNoHistory")],
+    [t("stReviews"), nf(revs.length), revs.length ? t("stReviewsSub", { r: avgR.toLocaleString(loc(), { maximumFractionDigits: 1 }) }) : t("stReviewsNone")],
+    [t("stRepeat"), known ? nf(repeat) : "–", known ? t("stRepeatSub", { n: nf(buyers.size) }) : t("stInfoNone")],
+    [t("stCities"), known ? nf(Object.keys(cityCnt).length) : "–", known ? (top3(cityCnt) || "–") : t("stInfoNone")],
+    [t("stCountries"), known ? nf(Object.keys(ctryCnt).length) : "–", known ? (top3(ctryCnt) || "–") : t("stInfoNone")],
+  ];
+  $("#stTiles").innerHTML = tiles.map(([h, v, sub]) => `<div class="card st-tile"><div class="head">${esc(h)}</div><div class="value">${v}</div><div class="sub">${esc(sub)}</div></div>`).join("");
+  $("#stTraffic").innerHTML = t("stTrafficText");
+
+  // listingy
+  const all = D.listingy.filter(l => byShop(l.shop));
+  const sales = listingSales({ pOrders: orders }, all);
+  const lv = {}, lf = {};
+  deltas.filter(x => x[0] >= a && x[0] < b).forEach(([, lid, v, fv]) => { lv[lid] = (lv[lid] || 0) + v; lf[lid] = (lf[lid] || 0) + fv; });
+  const rows = all.map(l => ({ l, v: lv[l.listing_id] || 0, fv: lf[l.listing_id] || 0, s: sales.get(l) }))
+    .filter(r => r.v || r.fv || r.s.q).sort((p, q) => q.v - p.v || q.s.q - p.s.q);
+  const visible = rows.slice(0, ST_SHOWN);
+  $("#stLHead").textContent = t("stLHead", { n: nf(tv) });
+  $("#stLSub").textContent = rows.length ? t("stLSub", { n: pl(rows.length, "listing") }) : "";
+  $("#stTable").innerHTML = rows.length ? `<thead><tr><th>${esc(t("colListing"))}</th><th class="num">${esc(t("colViews"))}</th><th class="num">${esc(t("colFavs"))}</th><th class="num">${esc(t("colSold"))}</th><th class="num">${esc(t("colRevenue"))}</th></tr></thead><tbody>` +
+    visible.map((r, i) => {
+      const l = r.l, img = l.obrazek ? `<img class="thumb" src="${esc(l.obrazek)}" alt="" loading="lazy">` : `<span class="thumb">${esc((l.nazev || "?").trim()[0] || "?")}</span>`, rv = Object.entries(r.s.rev);
+      return `<tr class="click" data-st="${i}"><td><div class="lcell">${img}<div><span class="t">${esc(l.nazev)}</span><div>${listingPill(l.stav)}</div></div></div></td><td class="num">${nf(r.v)}</td><td class="num">${r.fv ? sign(r.fv) : "–"}</td><td class="num">${r.s.q || "–"}</td><td class="num">${rv.length ? rv.map(([c, v]) => fmtMoney(v, c)).join("<br>") : "–"}</td></tr>`;
+    }).join("") + "</tbody>" : `<tbody><tr><td class="empty">${esc(t("stLNone"))}</td></tr></tbody>`;
+  $("#stMore").hidden = rows.length <= ST_SHOWN;
+  ST_ROWS = visible.map(r => r.l);
+}
+let ST_ROWS = [];
+$("#stTable").addEventListener("click", e => { const tr = e.target.closest("tr[data-st]"); if (tr) openListing(ST_ROWS[+tr.dataset.st]); });
+$("#stMore").onclick = () => { ST_SHOWN += 20; render(); };
+
 let ORDER = null;
 function openOrder(rid) {
   const r = D.objednavky.find(o => o.receipt_id === rid); if (!r) return;
@@ -1529,6 +1690,7 @@ function render() {
   const f = filtered();
   if (page === "prehled") { renderBanner(); renderKpis(f); renderChart(f); renderTop(f); renderRecent(f); renderFees(f); }
   else if (page === "listingy") renderListings(f);
+  else if (page === "statistiky") renderStats(f);
   else renderTable(f);
 }
 
@@ -2337,6 +2499,51 @@ const T5 = {
   },
 };
 for (const l in T5) Object.assign(T[l], T5[l]);
+const T7 = {
+  cs: {
+    navStats: "Statistiky", p7: "Posledních 7 dní",
+    stViews: "Zobrazení listingů", stOrders: "Objednávky", stConv: "Konverze", stRevenue: "Tržby",
+    stViewsSub: "kolikrát si lidé otevřeli tvoje listingy", stNoViews: "zatím bez historie, sbírá se od teď", stConvSub: "objednávky ÷ zobrazení listingů",
+    stNote: "Zobrazení a oblíbené dashboard sbírá od {d} (Etsy API dává jen celkové počty, ne historii). Etsy počítá „návštěvy“ shopy jinak, proto se čísla od Etsy liší.",
+    stNoHistory: "Zobrazení se začnou sbírat po první kontrole přes Etsy API.",
+    stShopper: "Zákazníci", stFavs: "Nové oblíbené", stFavsSub: "přírůstek oblíbených u tvých listingů", stFollows: "Sledující shopy", stFollowsSub: "{n} v tomto období",
+    stReviews: "Recenze", stReviewsSub: "průměr {r} ★", stReviewsNone: "v tomto období žádné",
+    stRepeat: "Opakovaní kupující", stRepeatSub: "z {n} kupujících v období", stInfoNone: "doplní se po další kontrole přes Etsy API",
+    stCities: "Města", stCountries: "Země",
+    stTrafficTitle: "Odkud zákazníci přišli",
+    stTrafficText: 'Zdroje návštěv (Etsy vyhledávání, reklamy, sociální sítě…), počet návštěv shopy a opuštěné košíky Etsy přes API nesdílí. Najdeš je v <a href="https://www.etsy.com/your/shops/me/stats" target="_blank" rel="noopener">Shop Manager → Stats</a>.',
+    stLHead: "Listingy si lidé zobrazili {n}×", stLSub: "{n} s aktivitou v tomto období", stLNone: "V tomto období žádná zobrazení ani prodeje.",
+  },
+  en: {
+    navStats: "Stats", p7: "Last 7 days",
+    stViews: "Listing views", stOrders: "Orders", stConv: "Conversion rate", stRevenue: "Revenue",
+    stViewsSub: "how often people opened your listings", stNoViews: "no history yet, collecting from now", stConvSub: "orders ÷ listing views",
+    stNote: "The dashboard has been collecting views and favorites since {d} (the Etsy API only gives totals, no history). Etsy counts shop \"visits\" differently, so its numbers differ.",
+    stNoHistory: "Views start being collected after the first check through the Etsy API.",
+    stShopper: "Shoppers", stFavs: "New favorites", stFavsSub: "favorites added to your listings", stFollows: "Shop followers", stFollowsSub: "{n} in this period",
+    stReviews: "Reviews", stReviewsSub: "average {r} ★", stReviewsNone: "none in this period",
+    stRepeat: "Repeat buyers", stRepeatSub: "of {n} buyers in the period", stInfoNone: "filled in after the next Etsy API check",
+    stCities: "Cities", stCountries: "Countries",
+    stTrafficTitle: "How shoppers found you",
+    stTrafficText: 'Traffic sources (Etsy search, ads, social media…), shop visits and abandoned carts are not available through the Etsy API. See them in <a href="https://www.etsy.com/your/shops/me/stats" target="_blank" rel="noopener">Shop Manager → Stats</a>.',
+    stLHead: "Shoppers viewed your listings {n} times", stLSub: "{n} with activity in this period", stLNone: "No views or sales in this period.",
+  },
+  de: {
+    navStats: "Statistik", p7: "Letzte 7 Tage",
+    stViews: "Angebotsaufrufe", stOrders: "Bestellungen", stConv: "Konversionsrate", stRevenue: "Umsatz",
+    stViewsSub: "wie oft deine Angebote geöffnet wurden", stNoViews: "noch keine Historie, wird ab jetzt gesammelt", stConvSub: "Bestellungen ÷ Angebotsaufrufe",
+    stNote: "Aufrufe und Favoriten sammelt das Dashboard seit {d} (die Etsy-API liefert nur Gesamtwerte, keine Historie). Etsy zählt Shop-„Besuche“ anders, daher weichen die Zahlen ab.",
+    stNoHistory: "Aufrufe werden nach der ersten Prüfung über die Etsy-API gesammelt.",
+    stShopper: "Käufer", stFavs: "Neue Favoriten", stFavsSub: "neu favorisierte Angebote", stFollows: "Shop-Follower", stFollowsSub: "{n} in diesem Zeitraum",
+    stReviews: "Bewertungen", stReviewsSub: "Durchschnitt {r} ★", stReviewsNone: "keine in diesem Zeitraum",
+    stRepeat: "Stammkunden", stRepeatSub: "von {n} Käufern im Zeitraum", stInfoNone: "wird nach der nächsten Etsy-API-Prüfung ergänzt",
+    stCities: "Städte", stCountries: "Länder",
+    stTrafficTitle: "Wie Käufer dich gefunden haben",
+    stTrafficText: 'Besucherquellen (Etsy-Suche, Werbung, soziale Medien…), Shop-Besuche und verlassene Warenkörbe gibt die Etsy-API nicht heraus. Du findest sie unter <a href="https://www.etsy.com/your/shops/me/stats" target="_blank" rel="noopener">Shop Manager → Stats</a>.',
+    stLHead: "Deine Angebote wurden {n}× aufgerufen", stLSub: "{n} mit Aktivität in diesem Zeitraum", stLNone: "Keine Aufrufe oder Verkäufe in diesem Zeitraum.",
+  },
+};
+for (const l in T7) Object.assign(T[l], T7[l]);
 const T6 = {
   cs: {
     mselPick: "Vybrat…", mselN: "Vybráno {n}", mselSearch: "Hledat…",

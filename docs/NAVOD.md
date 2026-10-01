@@ -89,6 +89,13 @@ Klikni na listing v tabulce. V detailu uvidíš atributy a varianty načtené z 
   kontrole). Když cenu během slevy ručně změníš, dashboard ji na konci nepřepíše.
   Běžící nebo naplánovanou slevu zrušíš v detailu listingu.
 
+## 6. Statistiky
+Stránka **Statistiky** ukazuje za zvolené období (třeba posledních 7 dní) grafy zobrazení listingů,
+objednávek, konverze a tržeb, dál nové oblíbené, sledující shopy, recenze, opakované kupující, města a země
+a tabulku listingů podle zobrazení. Etsy API dává jen celkové počty zobrazení, proto si dashboard ukládá
+denní stav a historie začíná dnem, kdy poprvé běžela verze 1.21. Návštěvy shopy, zdroje návštěv
+a opuštěné košíky Etsy přes API nesdílí, ty zůstávají jen v Shop Manager → Stats.
+
 ## Co na dashboardu najdeš
 - Přepínač shop (obě / jen jedna) a období (tento měsíc, minulý, letos, konkrétní měsíc…).
 - Tržby, počet objednávek, průměrná objednávka, poplatky Etsy, čistě na účet,
