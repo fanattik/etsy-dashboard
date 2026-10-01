@@ -66,6 +66,11 @@ Po výběru kategorie se ukážou **Atributy** (barva, materiál, svátek…, hv
 a **Varianty**: nejvýš 2, buď vlastnost z Etsy (barva, velikost), nebo vlastní název (např. „Velikost“: S, M, L).
 U každé varianty zaškrtni, jestli se podle ní liší cena, množství nebo SKU, a vyplň je v tabulce kombinací.
 Kombinaci, kterou neprodáváš, odškrtni.
+Atributy s dlouhým seznamem (třeba materiál) vybíráš v rozbalovacím seznamu se zaškrtáváním a hledáním,
+vybrané hodnoty se ukážou pod ním (křížkem je odebereš).
+**Vlastní volby (personalizace)**: až 5 otázek pro kupujícího, typ Text (např. jméno), Výběr ze seznamu,
+Nahrání souborů nebo Nahrání s popisky (nahrávání jen jedno na listing). Pokud tvoje shopa ještě nemá u Etsy
+nový systém personalizace, uloží se jen jedno textové pole.
 
 ## 5. Úpravy, mazání, hromadné akce a slevy
 Klikni na listing v tabulce. V detailu uvidíš atributy a varianty načtené z Etsy a tlačítka

@@ -233,6 +233,14 @@ td.sel, th.sel { width: 28px; padding-right: 0; vertical-align: middle; } td.sel
 .nl-det summary .hint { margin-left: 6px; }
 .nl-attrs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 14px; }
 .nl-attrs .full { grid-column: 1 / -1; }
+.msel { position: relative; max-width: 420px; }
+.msel-btn { width: 100%; display: flex; justify-content: space-between; align-items: center; gap: 8px; background: var(--panel-2); border: 1px solid transparent; border-radius: 10px; padding: 9px 12px; color: var(--text); cursor: pointer; font: inherit; }
+.msel-pop { position: absolute; z-index: 20; left: 0; right: 0; top: calc(100% + 4px); background: var(--panel); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,.18); padding: 8px; }
+.msel-pop > input { width: 100%; margin-bottom: 6px; }
+.msel-list { max-height: 260px; overflow: auto; display: grid; }
+.msel-list label.check { display: flex; align-items: center; gap: 8px; margin: 0; padding: 6px 8px; font-size: 13.5px; color: var(--text); text-transform: none; letter-spacing: 0; border-radius: 8px; cursor: pointer; } .msel-list label.check:hover { background: var(--panel-2); }
+.field .msel-list label.check { justify-content: flex-start; } .field .msel-list input[type=checkbox] { width: 16px; height: 16px; flex: 0 0 16px; margin: 0; padding: 0; accent-color: var(--accent); }
+.msel-sel { margin-top: 8px; } .msel-sel:empty { display: none; }
 button.chip { border: 1px solid transparent; cursor: pointer; color: var(--text); }
 button.chip:hover { border-color: var(--line); }
 button.chip.on { background: var(--accent); color: var(--accent-fg); }
@@ -1855,7 +1863,7 @@ const imgRank = n => /etsy-cover|cover-etsy|main/i.test(n) ? 0 : /preview|mockup
 function nlProduct(p, imgs, files) {
   const o = { id: ++NLID, on: true, open: false, typ: LS.get("nlType_" + $("#nlShop").value, "digital"), nazev: "", cena: "", mnozstvi: "",
     kategorie: "", odhad: false, stitky: "", popis: "", doprava: "", zpracovani: "", attrs: {}, vars: [], dle: { cena: [], mnozstvi: [], sku: [] },
-    kc: {}, kq: {}, ks: {}, koff: {}, obrazky: [], soubory: [], stav: "", vysledek: null, ...p };
+    kc: {}, kq: {}, ks: {}, koff: {}, perso: [], obrazky: [], soubory: [], stav: "", vysledek: null, ...p };
   o.obrazky = (imgs || []).sort((a, b) => imgRank(a.name) - imgRank(b.name) || a.name.localeCompare(b.name)).map(f => ({ file: f, url: URL.createObjectURL(f), on: true }));
   // soubory: když popis mluví o ZIPu, nahrají se ZIPy, jinak PDF; ostatní zůstanou vypnuté
   const zip = /\bzip\b/i.test(o.popis);
@@ -1923,12 +1931,47 @@ const subKey = (p, f, combo) => p.dle[f].map(i => combo[i].nazev).join(SEP);
 function attrHtml(p, pr) {
   const a = p.attrs[pr.id] || { ids: [], vals: [], scale: "" };
   const lbl = `<label>${esc(pr.nazev)}${pr.povinne ? " *" : ""}</label>`;
+  if (pr.hodnoty.length > 12 && pr.vice) {
+    const n = a.vals.length;
+    return `<div class="field full">${lbl}<div class="msel" data-p="${pr.id}">
+        <button class="msel-btn" data-a="msel-toggle" data-p="${pr.id}"><span data-c="msel-n-${pr.id}">${esc(n ? t("mselN", { n }) : t("mselPick"))}${pr.max ? ` (max ${pr.max})` : ""}</span><span>▾</span></button>
+        <div class="msel-pop" hidden><input data-x="msel-q" placeholder="${esc(t("mselSearch"))}">
+          <div class="msel-list">${pr.hodnoty.map(h => `<label class="check"><input type="checkbox" data-x="msel-ch" data-p="${pr.id}" data-v="${h.id}" ${a.ids.includes(h.id) || a.vals.includes(h.nazev) ? "checked" : ""}> <span>${esc(h.nazev)}</span></label>`).join("")}</div></div>
+      </div><div class="chips msel-sel" data-c="msel-sel-${pr.id}">${mselChips(pr, a)}</div></div>`;
+  }
   if (pr.hodnoty.length && pr.vice)
     return `<div class="field full">${lbl}<div class="chips">${pr.hodnoty.map(h => `<button class="chip ${a.ids.includes(h.id) || a.vals.includes(h.nazev) ? "on" : ""}" data-a="attr-chip" data-p="${pr.id}" data-v="${h.id}">${esc(h.nazev)}</button>`).join("")}</div></div>`;
   if (pr.hodnoty.length)
     return `<div class="field">${lbl}<select data-x="attr-sel" data-p="${pr.id}"><option value="">${t("nlNone")}</option>${pr.hodnoty.map(h => `<option value="${h.id}" ${a.ids[0] === h.id || (!pr.hodnoty.some(x => x.id === a.ids[0]) && a.vals[0] === h.nazev) ? "selected" : ""}>${esc(h.nazev)}</option>`).join("")}</select></div>`;
   const scales = pr.skaly.length ? `<select data-x="attr-scale" data-p="${pr.id}">${pr.skaly.map(s => `<option value="${s.id}" ${String(a.scale) === String(s.id) ? "selected" : ""}>${esc(s.nazev)}</option>`).join("")}</select>` : "";
   return `<div class="field">${lbl}<div class="pricerow"><input data-x="attr-text" data-p="${pr.id}" value="${esc(a.vals.join(", "))}">${scales}</div></div>`;
+}
+function mselChips(pr, a) {
+  return a.vals.map((v, k) => `<button class="chip on" data-a="attr-chip" data-p="${pr.id}" data-v="${a.ids[k] ?? (pr.hodnoty.find(h => h.nazev === v) || {}).id}" title="${esc(t("nlVarRemove"))}">${esc(v)} ✕</button>`).join("");
+}
+function persoHtml(p) {
+  const types = ["text_input", "dropdown", "unlabeled_upload", "labeled_upload"];
+  const q = (x, i) => {
+    const sel = `<select data-x="pq-typ" data-i="${i}">${types.filter(ty => ty === x.typ || !ty.endsWith("upload") || !p.perso.some((o, j) => j !== i && o.typ.endsWith("upload"))).map(ty => `<option value="${ty}" ${x.typ === ty ? "selected" : ""}>${esc(tMap("pqTypes", ty))}</option>`).join("")}</select>`;
+    const instr = x.typ === "text_input" || x.typ === "unlabeled_upload";
+    const max = x.typ === "text_input" ? t("pqMaxChars") : x.typ === "unlabeled_upload" ? t("pqMaxFiles") : "";
+    const opts = x.typ === "dropdown" || x.typ === "labeled_upload";
+    return `<div class="nl-var">
+      <div class="nl-varrow">
+        <div class="field"><label>${esc(t("pqType"))}</label>${sel}</div>
+        <div class="field" style="flex:2"><label>${esc(t("pqText"))} <span class="hint">${x.text.length}/45</span></label><input data-x="pq-text" data-i="${i}" maxlength="45" placeholder="${esc(t("pqTextPh"))}" value="${esc(x.text)}"></div>
+        <button class="btn ghost" data-a="pq-del" data-i="${i}" aria-label="${esc(t("nlVarRemove"))}" title="${esc(t("nlVarRemove"))}">✕</button>
+      </div>
+      ${instr ? `<div class="field"><label>${esc(t("pqInstr"))}</label><input data-x="pq-instr" data-i="${i}" maxlength="120" placeholder="${esc(t("pqInstrPh"))}" value="${esc(x.instr)}"></div>` : ""}
+      ${opts ? `<div class="field"><label>${esc(t(x.typ === "dropdown" ? "pqOpts" : "pqLabels"))}</label><input data-x="pq-opts" data-i="${i}" placeholder="${esc(t("pqOptsPh"))}" value="${esc(x.opts.join(", "))}"></div>` : ""}
+      <div class="nl-flags">${max ? `<label class="check" style="margin:0">${esc(max)} <input class="num" style="width:80px" inputmode="numeric" data-x="pq-max" data-i="${i}" value="${esc(x.max ?? "")}" placeholder="${x.typ === "text_input" ? 256 : 1}"></label>` : ""}
+        <label class="check" style="margin:0"><input type="checkbox" data-x="pq-req" data-i="${i}" ${x.req ? "checked" : ""}> ${esc(t("pqReq"))}</label></div>
+    </div>`;
+  };
+  return `<details class="nl-det" ${p.perso.length || p.persoOpen ? "open" : ""} data-det="perso"><summary><b>${esc(t("pqTitle"))}</b> <span class="hint">${p.perso.length || ""}</span></summary>
+      <p class="hint">${esc(t("pqHint"))}</p>
+      ${p.perso.map(q).join("")}
+      ${p.perso.length < 5 ? `<div class="actions left" style="margin-top:10px"><button class="btn" data-a="pq-add">${esc(t("pqAdd"))}</button></div>` : ""}</details>`;
 }
 function varHtml(p, v, i) {
   const pr = v.pid === "custom" ? null : propOf(p, v.pid);
@@ -1971,7 +2014,7 @@ function extraHtml(p) {
       <p class="hint">${esc(t("nlVarsHint"))}</p>
       ${p.vars.map((v, i) => varHtml(p, v, i)).join("")}
       ${p.vars.length < 2 ? `<div class="actions left" style="margin-top:10px"><button class="btn" data-a="var-add">${esc(t("nlVarAdd"))}</button></div>` : ""}
-      ${combosHtml(p)}</details>`;
+      ${combosHtml(p)}</details>${persoHtml(p)}`;
 }
 function renderNlExtra(p) {
   const el = document.querySelector(`.nl-item[data-id="${p.id}"] .nl-extra`);
@@ -2014,7 +2057,7 @@ function nlBody(p) {
       <div class="field"><span class="flabel">${esc(t("nlFType"))}</span><div class="seg"><button data-a="typ" data-v="digital" class="${digital ? "on" : ""}">${esc(t("nlDigital"))}</button><button data-a="typ" data-v="physical" class="${digital ? "" : "on"}">${esc(t("nlPhysical"))}</button></div></div>
       ${digital ? "" : `<div class="nl-row">
         <div class="field"><label>${esc(t("nlShipProfile"))}</label><select data-f="doprava">${opt(o.doprava || [], p.doprava)}</select></div>
-        <div class="field"><label>${esc(t("nlProcProfile"))}</label><select data-f="zpracovani">${opt(o.zpracovani || [], p.zpracovani)}</select></div></div>`}
+        <div class="field"><label>${esc(t("nlProcProfile"))}</label><select data-f="zpracovani">${opt((o.zpracovani || []).map(x => ({ id: x.id, nazev: [tMap("rsStates", x.stav) || (x.stav || "").replace(/_/g, " "), x.nazev].filter(Boolean).join(" · ") })), p.zpracovani)}</select></div></div>`}
       <div class="field"><label>${esc(t("nlFTitle"))} <span class="nl-count ${p.nazev.length > 140 ? "bad" : ""}" data-c="nazev">${p.nazev.length}/140</span></label><input data-f="nazev" value="${esc(p.nazev)}"></div>
       <div class="nl-row">
         <div class="field"><label>${esc(t("nlFPrice", { cur: nlCur() }))}</label><input data-f="cena" inputmode="decimal" value="${esc(p.cena)}"></div>
@@ -2119,6 +2162,14 @@ $("#nlList").addEventListener("click", e => {
     if (k >= 0) { at.ids.splice(k, 1); at.vals.splice(k, 1); } else if (!pr.max || at.ids.length < pr.max) { at.ids.push(v); at.vals.push(h.nazev); }
     p.attrsOpen = true; renderNlExtra(p); return;
   }
+  if (a === "msel-toggle") {
+    e.preventDefault(); const pop = btn.parentElement.querySelector(".msel-pop"), was = pop.hidden;
+    document.querySelectorAll(".msel-pop").forEach(x => x.hidden = true); pop.hidden = !was;
+    if (was) pop.querySelector("input").focus();
+    return;
+  }
+  if (a === "pq-add") { e.preventDefault(); p.perso.push({ question_id: null, typ: "text_input", text: "", instr: "", req: false, max: null, opts: [] }); p.persoOpen = true; renderNlExtra(p); return; }
+  if (a === "pq-del") { e.preventDefault(); p.perso.splice(i, 1); renderNlExtra(p); return; }
   if (a === "var-add") {
     e.preventDefault();
     const first = (Array.isArray(nlProps(p)) ? nlProps(p) : []).find(x => x.varianta && !p.vars.some(o => String(o.pid) === String(x.id)));
@@ -2139,6 +2190,7 @@ $("#nlList").addEventListener("click", e => {
   if (e.target.closest("summary")) { const d = e.target.closest("details"); p[d.dataset.det + "Open"] = !d.open; return; }
   if (e.target.closest(".nl-head") && !e.target.closest("a, button, input")) { p.open = !p.open; renderNlItem(p); }
 });
+document.addEventListener("click", e => { if (!e.target.closest(".msel")) document.querySelectorAll(".msel-pop").forEach(x => x.hidden = true); });
 $("#nlList").addEventListener("input", e => {
   const p = nlFind(e.target); if (!p) return;
   const x = e.target.dataset.x, i = +e.target.dataset.i, pid = e.target.dataset.p;
@@ -2147,6 +2199,25 @@ $("#nlList").addEventListener("input", e => {
     if (x === "attr-sel") { const pr = propOf(p, pid), v = e.target.value ? +e.target.value : null; const a = at(); a.ids = v === null ? [] : [v]; a.vals = v === null ? [] : [pr.hodnoty.find(h => h.id === v).nazev]; }
     else if (x === "attr-text") { const a = at(); a.vals = e.target.value.split(",").map(s => s.trim()).filter(Boolean); a.ids = []; if (!a.scale) a.scale = propOf(p, pid).skaly[0]?.id || ""; }
     else if (x === "attr-scale") at().scale = e.target.value;
+    else if (x === "msel-q") { const q = e.target.value.trim().toLowerCase(); e.target.parentElement.querySelectorAll(".msel-list label").forEach(l => l.hidden = q && !l.textContent.toLowerCase().includes(q)); return; }
+    else if (x === "msel-ch") {
+      const pr = propOf(p, pid), a = at(), v = +e.target.dataset.v, h = pr.hodnoty.find(z => z.id === v);
+      let k = a.ids.indexOf(v); if (k < 0) k = a.vals.indexOf(h.nazev);
+      if (!e.target.checked && k >= 0) { a.ids.splice(k, 1); a.vals.splice(k, 1); }
+      else if (e.target.checked && k < 0) { if (pr.max && a.vals.length >= pr.max) { e.target.checked = false; return; } a.ids.push(v); a.vals.push(h.nazev); }
+      const item = e.target.closest(".nl-item");
+      item.querySelector(`[data-c="msel-sel-${pid}"]`).innerHTML = mselChips(pr, a);
+      item.querySelector(`[data-c="msel-n-${pid}"]`).textContent = (a.vals.length ? t("mselN", { n: a.vals.length }) : t("mselPick")) + (pr.max ? ` (max ${pr.max})` : "");
+    }
+    else if (x.startsWith("pq-")) {
+      const q = p.perso[i], f = x.slice(3);
+      if (f === "typ") { q.typ = e.target.value; q.max = null; renderNlExtra(p); return; }
+      if (f === "req") q.req = e.target.checked;
+      else if (f === "max") q.max = e.target.value.replace(/\D/g, "") ? +e.target.value.replace(/\D/g, "") : null;
+      else if (f === "opts") q.opts = e.target.value.split(",").map(z => z.trim()).filter(Boolean);
+      else { q[f] = e.target.value; if (f === "text") e.target.closest(".field").querySelector(".hint").textContent = `${q.text.length}/45`; }
+      return;
+    }
     else if (x === "var-prop") {
       const v = p.vars[i], pr = propOf(p, e.target.value);
       Object.assign(v, { pid: pr ? pr.id : "custom", nazev: pr ? pr.nazev : "", scale: pr?.skaly[0]?.id || "", hodnoty: [] });
@@ -2199,7 +2270,8 @@ function nlPayload(p) {
         mnozstvi: p.dle.mnozstvi.length ? p.kq[subKey(p, "mnozstvi", c)] : null, sku: p.dle.sku.length ? p.ks[subKey(p, "sku", c)] : "",
         aktivni: !p.koff[c.map(h => h.nazev).join(SEP)] })) };
   }
-  return { atributy: attrs, varianty };
+  const personalizace = p.edit || p.perso.length ? p.perso.filter(q => q.text.trim()) : undefined;
+  return { atributy: attrs, varianty, personalizace };
 }
 $("#nlCreate").onclick = async () => {
   if (EDIT) return saveEdit();
@@ -2264,6 +2336,36 @@ const T5 = {
   },
 };
 for (const l in T5) Object.assign(T[l], T5[l]);
+const T6 = {
+  cs: {
+    mselPick: "Vybrat…", mselN: "Vybráno {n}", mselSearch: "Hledat…",
+    rsStates: { made_to_order: "Na objednávku", ready_to_ship: "Připraveno k odeslání" },
+    pqTitle: "Vlastní volby (personalizace)", pqHint: "Na co se Etsy zeptá kupujícího: text (třeba jméno), výběr ze seznamu, nebo nahrání obrázku. Nejvýš 5 otázek, nahrávání jen jedno.",
+    pqAdd: "+ Přidat otázku", pqType: "Typ", pqText: "Otázka", pqTextPh: "např. Jméno na cedulce", pqInstr: "Pokyny pro kupujícího", pqInstrPh: "nepovinné, do 120 znaků",
+    pqOpts: "Možnosti (oddělené čárkou)", pqLabels: "Popisky souborů (oddělené čárkou, každý = 1 soubor)", pqOptsPh: "např. Zlatá, Stříbrná",
+    pqMaxChars: "Max. znaků", pqMaxFiles: "Max. souborů", pqReq: "Povinné", pqNone: "Žádné vlastní volby.",
+    pqTypes: { text_input: "Text", dropdown: "Výběr ze seznamu", unlabeled_upload: "Nahrání souborů", labeled_upload: "Nahrání s popisky" },
+  },
+  en: {
+    mselPick: "Choose…", mselN: "{n} selected", mselSearch: "Search…",
+    rsStates: { made_to_order: "Made to order", ready_to_ship: "Ready to ship" },
+    pqTitle: "Custom options (personalization)", pqHint: "What Etsy asks the buyer: text (e.g. a name), a choice from a list, or an image upload. Up to 5 questions, only one upload.",
+    pqAdd: "+ Add question", pqType: "Type", pqText: "Question", pqTextPh: "e.g. Name on the sign", pqInstr: "Instructions for the buyer", pqInstrPh: "optional, up to 120 characters",
+    pqOpts: "Options (comma separated)", pqLabels: "File labels (comma separated, one per file)", pqOptsPh: "e.g. Gold, Silver",
+    pqMaxChars: "Max characters", pqMaxFiles: "Max files", pqReq: "Required", pqNone: "No custom options.",
+    pqTypes: { text_input: "Text", dropdown: "Dropdown", unlabeled_upload: "File upload", labeled_upload: "Labeled upload" },
+  },
+  de: {
+    mselPick: "Auswählen…", mselN: "{n} ausgewählt", mselSearch: "Suchen…",
+    rsStates: { made_to_order: "Auf Bestellung", ready_to_ship: "Versandbereit" },
+    pqTitle: "Eigene Optionen (Personalisierung)", pqHint: "Was Etsy den Käufer fragt: Text (z. B. ein Name), Auswahl aus einer Liste oder ein Bild-Upload. Höchstens 5 Fragen, nur ein Upload.",
+    pqAdd: "+ Frage hinzufügen", pqType: "Typ", pqText: "Frage", pqTextPh: "z. B. Name auf dem Schild", pqInstr: "Hinweise für Käufer", pqInstrPh: "optional, bis 120 Zeichen",
+    pqOpts: "Optionen (durch Komma getrennt)", pqLabels: "Dateibeschriftungen (durch Komma, je eine Datei)", pqOptsPh: "z. B. Gold, Silber",
+    pqMaxChars: "Max. Zeichen", pqMaxFiles: "Max. Dateien", pqReq: "Pflicht", pqNone: "Keine eigenen Optionen.",
+    pqTypes: { text_input: "Text", dropdown: "Auswahlliste", unlabeled_upload: "Datei-Upload", labeled_upload: "Upload mit Beschriftung" },
+  },
+};
+for (const l in T6) Object.assign(T[l], T6[l]);
 Object.assign(T.en.errors, { listing_relogin_d: T.en.lRelogin, sale_fields: "Enter a discount between 0 and 100 % and valid dates (the end can't be in the past).", sale_overlap: "{n} of the selected listings already have a sale in that period." });
 Object.assign(T.de.errors, { listing_relogin_d: T.de.lRelogin, sale_fields: "Rabatt zwischen 0 und 100 % und gültige Daten angeben (Ende nicht in der Vergangenheit).", sale_overlap: "{n} der ausgewählten Angebote haben in diesem Zeitraum schon einen Rabatt." });
 
@@ -2298,6 +2400,7 @@ function detailToProduct(d) {
     sku: prods.length === 1 ? prods[0].sku : "", doprava: d.doprava ?? o.doprava?.[0]?.id ?? "", zpracovani: d.zpracovani ?? o.zpracovani?.[0]?.id ?? "",
     kategorie: (o.kategorie || []).find(x => x[0] === d.kategorie)?.[1] || "", odhad: false, url: d.url });
   p.lastCat = p.kategorie;
+  p.perso = (d.personalizace || []).map(q => ({ ...q, opts: q.opts || [] }));
   p.obrazky = (d.obrazky || []).map(i => ({ id: i.id, url: i.url, on: true, file: { name: "", size: 0 } }));
   p.soubory = (d.soubory || []).map(f => ({ id: f.id, on: true, file: { name: f.nazev, size: 0, label: f.velikost || "" } }));
   (d.atributy || []).forEach(a => p.attrs[a.property_id] = { ids: a.value_ids || [], vals: a.values || [], scale: a.scale_id || "" });
@@ -2426,8 +2529,9 @@ async function listingExtra(l) {
     const attrs = (d.atributy || []).map(a => `<span class="chip"><span class="hint">${esc(a.nazev)}:</span> ${esc((a.values || []).join(", "))}${a.scale_id ? "" : ""}</span>`).join("");
     const cols = hasVar ? prods[0].hodnoty.map(h => h.nazev) : [];
     const vars = hasVar ? `<div class="tablewrap"><table><thead><tr>${cols.map(c => `<th>${esc(c)}</th>`).join("")}<th class="num">${esc(t("colPrice"))}</th><th class="num">${esc(t("colStock"))}</th><th>SKU</th><th>${esc(t("nlVarOn"))}</th></tr></thead><tbody>${prods.map(pr => `<tr>${pr.hodnoty.map(h => `<td>${esc(h.hodnota)}</td>`).join("")}<td class="num">${fmtMoney(pr.cena, l.mena)}</td><td class="num">${pr.mnozstvi ?? "–"}</td><td>${esc(pr.sku || "–")}</td><td>${pr.aktivni ? "✓" : "–"}</td></tr>`).join("")}</tbody></table></div>` : `<p class="hint">${esc(t("ldNoVars"))}</p>`;
+    const perso = (d.personalizace || []).length ? `<ul class="list">${d.personalizace.map(q => `<li><span><b>${esc(q.text)}</b>${q.req ? " *" : ""} <span class="hint">· ${esc(tMap("pqTypes", q.typ) || q.typ)}${q.opts.length ? ": " + esc(q.opts.join(", ")) : q.max ? ` · max ${q.max}` : ""}</span>${q.instr ? `<br><span class="hint">${esc(q.instr)}</span>` : ""}</span><span></span></li>`).join("")}</ul>` : `<p class="hint">${esc(t("pqNone"))}</p>`;
     if (!$("#ldetail").open || LDCUR !== l) return;
-    box.innerHTML = salesHtml + `<h4>${esc(t("ldAttrs"))}</h4>${attrs ? `<div class="chips">${attrs}</div>` : `<p class="hint">${esc(t("ldNoAttrs"))}</p>`}<h4>${esc(t("ldVars"))}</h4>${vars}`;
+    box.innerHTML = salesHtml + `<h4>${esc(t("ldAttrs"))}</h4>${attrs ? `<div class="chips">${attrs}</div>` : `<p class="hint">${esc(t("ldNoAttrs"))}</p>`}<h4>${esc(t("ldVars"))}</h4>${vars}<h4>${esc(t("pqTitle"))}</h4>${perso}`;
   } catch (e) { if (LDCUR === l) box.innerHTML = salesHtml + `<p class="hint nl-bad">${esc(e.message)}</p>`; }
 }
 let LDCUR = null;
