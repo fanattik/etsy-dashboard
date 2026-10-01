@@ -432,6 +432,7 @@ dialog::backdrop { background: rgba(0,0,0,.4); }
         <button class="btn" id="nlCatAllBtn" data-i18n="nlCatAllBtn"></button>
         <div class="spacer"></div>
         <span class="hint" id="nlSum"></span>
+        <span class="msg" id="nlBarMsg"></span>
         <button class="btn primary" id="nlCreate"></button>
       </div>
       <datalist id="nlTax"></datalist>
@@ -2089,7 +2090,7 @@ function renderNlBar() {
   const sel = NL.filter(p => p.on && p.stav !== "draft" && p.stav !== "active");
   $("#nlBar").hidden = !NL.length;
   $("#nlSum").textContent = t("nlSum", { n: sel.length });
-  $("#nlCreate").textContent = EDIT ? t("nlSave") : t($("#nlAfter").value === "active" ? "nlCreatePub" : "nlCreateDraft", { n: sel.length });
+  $("#nlCreate").textContent = EDIT ? t(NLBUSY ? "nlSaving" : "nlSave") : t($("#nlAfter").value === "active" ? "nlCreatePub" : "nlCreateDraft", { n: sel.length });
   $("#nlSum").hidden = !!EDIT;
   const sh = nlShop();
   $("#nlCreate").disabled = NLBUSY || (!EDIT && !sel.length) || (EDIT && !NL.length) || !sh || !sh.zapis || !nlOpts().kategorie;
@@ -2300,7 +2301,7 @@ $("#nlCreate").onclick = async () => {
 const T5 = {
   cs: {
     nlEditTitle: "Upravit listing", nlEditLoading: "Načítám listing z Etsy…", nlKeepState: "Ponechat stav ({s})", nlActivate: "Aktivovat", nlDeactivate: "Deaktivovat",
-    nlSave: "Uložit změny", nlStateLabel: "Stav", nlSaved: "Uloženo na Etsy.", nlSavedErr: "Uloženo s chybami, viz u listingu.", nlStSaved: "uloženo",
+    nlSave: "Uložit změny", nlSaving: "Ukládám na Etsy…", nlStateLabel: "Stav", nlSaved: "Uloženo na Etsy.", nlSavedErr: "Uloženo s chybami, viz u listingu.", nlStSaved: "uloženo",
     lEdit: "Upravit", lDelete: "Smazat", lSale: "Sleva…", lSelected: "Vybráno {n}", lClearSel: "Zrušit výběr",
     lConfirmDel: "Smazat {n} z Etsy? Nejde to vrátit.", lConfirmAct: "Aktivovat {n}? U konceptů a vypršelých listingů Etsy účtuje $0.20 za každý.",
     lActDone: "Hotovo: {ok} z {n}.", lActErr: "Nepovedlo se:", lRelogin: "Mazání potřebuje nové přihlášení shopy v Nastavení (Etsy se zeptá i na právo mazat).",
@@ -2312,7 +2313,7 @@ const T5 = {
   },
   en: {
     nlEditTitle: "Edit listing", nlEditLoading: "Loading the listing from Etsy…", nlKeepState: "Keep status ({s})", nlActivate: "Activate", nlDeactivate: "Deactivate",
-    nlSave: "Save changes", nlStateLabel: "Status", nlSaved: "Saved to Etsy.", nlSavedErr: "Saved with errors, see the listing.", nlStSaved: "saved",
+    nlSave: "Save changes", nlSaving: "Saving to Etsy…", nlStateLabel: "Status", nlSaved: "Saved to Etsy.", nlSavedErr: "Saved with errors, see the listing.", nlStSaved: "saved",
     lEdit: "Edit", lDelete: "Delete", lSale: "Sale…", lSelected: "{n} selected", lClearSel: "Clear selection",
     lConfirmDel: "Delete {n} from Etsy? This can't be undone.", lConfirmAct: "Activate {n}? Etsy charges $0.20 each for drafts and expired listings.",
     lActDone: "Done: {ok} of {n}.", lActErr: "Failed:", lRelogin: "Deleting needs the shop signed in again in Settings (Etsy will also ask for permission to delete).",
@@ -2324,7 +2325,7 @@ const T5 = {
   },
   de: {
     nlEditTitle: "Angebot bearbeiten", nlEditLoading: "Lade das Angebot von Etsy…", nlKeepState: "Status behalten ({s})", nlActivate: "Aktivieren", nlDeactivate: "Deaktivieren",
-    nlSave: "Änderungen speichern", nlStateLabel: "Status", nlSaved: "Auf Etsy gespeichert.", nlSavedErr: "Mit Fehlern gespeichert, siehe Angebot.", nlStSaved: "gespeichert",
+    nlSave: "Änderungen speichern", nlSaving: "Speichere auf Etsy…", nlStateLabel: "Status", nlSaved: "Auf Etsy gespeichert.", nlSavedErr: "Mit Fehlern gespeichert, siehe Angebot.", nlStSaved: "gespeichert",
     lEdit: "Bearbeiten", lDelete: "Löschen", lSale: "Rabatt…", lSelected: "{n} ausgewählt", lClearSel: "Auswahl aufheben",
     lConfirmDel: "{n} auf Etsy löschen? Das lässt sich nicht rückgängig machen.", lConfirmAct: "{n} aktivieren? Für Entwürfe und abgelaufene Angebote berechnet Etsy je $0.20.",
     lActDone: "Fertig: {ok} von {n}.", lActErr: "Fehlgeschlagen:", lRelogin: "Zum Löschen den Shop in den Einstellungen neu anmelden (Etsy fragt dann auch nach dem Löschrecht).",
@@ -2375,7 +2376,7 @@ let EDIT = null;
 function nlSetMode() {
   const ed = !!EDIT;
   $("#nlTools").hidden = ed; $("#nlCatAll").parentElement.hidden = $("#nlCatAllBtn").hidden = ed;
-  $("#nlShop").disabled = ed; if (!ed) $("#nlEditMsg").textContent = "";
+  $("#nlShop").disabled = ed; if (!ed) $("#nlEditMsg").textContent = $("#nlBarMsg").textContent = "";
   const keep = ed && NL[0] ? t("nlKeepState", { s: tMap("lstates", NL[0].stavEtsy) || NL[0].stavEtsy || "" }) : "";
   $("#nlAfter").innerHTML = ed ? `<option value="">${esc(keep)}</option><option value="active">${esc(t("nlActivate"))}</option><option value="inactive">${esc(t("nlDeactivate"))}</option>`
     : `<option value="draft">${esc(t("nlKeepDraft"))}</option><option value="active">${esc(t("nlPublish"))}</option>`;
@@ -2383,7 +2384,7 @@ function nlSetMode() {
   $("#pageTitle").textContent = t(ed ? "nlEditTitle" : "nlTitle");
 }
 async function startEdit() {
-  EDIT.started = true; NL = []; nlSetMode(); $("#nlEditMsg").textContent = "";
+  EDIT.started = true; NL = []; nlSetMode(); $("#nlEditMsg").textContent = $("#nlBarMsg").textContent = "";
   $("#nlList").innerHTML = `<div class="card nl-empty">${esc(t("nlEditLoading"))}</div>`; $("#nlBar").hidden = true; $("#nlLoadMsg").textContent = "";
   $("#nlShop").value = EDIT.shop;
   await nlLoadOpts();
@@ -2432,12 +2433,16 @@ async function saveEdit() {
   if (!catId(p.kategorie)) { alert(t("nlNeedCat", { t: p.nazev || t("nlNeedTitle") })); return; }
   if (p.vars.some(v => !varValues(v).length || (v.pid === "custom" && !v.nazev.trim()))) { p.varsOpen = true; renderNlItem(p); alert(t("nlVarNoValues")); return; }
   NLBUSY = true; p.stav = "run"; p.chyby = []; renderNlItem(p); renderNlBar();
+  const bar = $("#nlBarMsg"); bar.className = "msg"; bar.textContent = t("nlSaving"); $("#nlEditMsg").textContent = "";
+  clearTimeout(saveEdit.timer);
   try {
     const r = await api("/api/listing/vytvorit", { ...(await nlBody4Api(p)), listing_id: p.listing_id, sku: p.sku, stav: $("#nlAfter").value });
     p.vysledek = r; p.chyby = r.chyby || []; p.stav = "saved"; p.stavEtsy = r.stav;
-    msg($("#nlEditMsg"), p.chyby.length ? t("nlSavedErr") : t("nlSaved"), !p.chyby.length);
+    const text = p.chyby.length ? t("nlSavedErr") : `✓ ${t("nlSaved")} ${new Date().toLocaleTimeString(loc(), { hour: "2-digit", minute: "2-digit" })}`;
+    msg($("#nlEditMsg"), text, !p.chyby.length); msg(bar, text, !p.chyby.length);
+    if (!p.chyby.length) saveEdit.timer = setTimeout(() => { bar.textContent = ""; }, 8000);
     nlSetMode(); $("#nlAfter").value = "";
-  } catch (e) { p.stav = "err"; p.chyby = [e.message]; }
+  } catch (e) { p.stav = "err"; p.chyby = [e.message]; msg(bar, e.message, false); msg($("#nlEditMsg"), e.message, false); }
   NLBUSY = false; renderNlItem(p); renderNlBar(); setTimeout(load, 4000);
 }
 async function nlBody4Api(p) {
