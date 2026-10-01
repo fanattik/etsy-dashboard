@@ -39,9 +39,9 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 API = os.environ.get("ETSY_DASHBOARD_API") or "https://openapi.etsy.com/v3/application"
 AUTH_URL = "https://www.etsy.com/oauth/connect"
 TOKEN_URL = "https://api.etsy.com/v3/public/oauth/token"
-SCOPES = "transactions_r shops_r profile_r listings_r listings_w"
+SCOPES = "transactions_r shops_r profile_r listings_r listings_w listings_d"
 PORT = 8765
-VERSION = "1.16"
+VERSION = "1.17"
 UPDATE_BASE = os.environ.get("ETSY_DASHBOARD_UPDATE_URL") or "https://raw.githubusercontent.com/fanattik/etsy-dashboard/main/app/"
 UPDATE_EVERY = 24 * 3600
 RATES_URL = os.environ.get("ETSY_DASHBOARD_RATES_URL") or "https://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml"
@@ -70,6 +70,7 @@ DEFAULT_CONFIG = {
 }
 
 LOCK = threading.Lock()  # jedna kontrola / zápis tokenů naráz
+DISCOUNT_LOCK = threading.Lock()  # slevy se spouští / ukončují jen jednou naráz
 STATUS = {"posledni_kontrola": None, "chyby": {}, "bezi": False}
 
 # Texty, které posílá server (upozornění na telefon). Dashboard má vlastní překlady.
@@ -176,7 +177,8 @@ def http_json(method, url, headers=None, form=None, body=None, ctype=None):
         req.add_header("Content-Type", ctype or "application/x-www-form-urlencoded")
     try:
         with urllib.request.urlopen(req, timeout=60, context=SSL_CTX) as resp:
-            return json.loads(resp.read().decode("utf-8"))
+            raw = resp.read().decode("utf-8")
+            return json.loads(raw) if raw.strip() else {}  # DELETE vrací 204 bez obsahu
     except urllib.error.HTTPError as e:
         body = e.read().decode("utf-8", "replace")
         raise RuntimeError(f"Etsy vrátilo chybu {e.code}: {body[:300]}") from None
@@ -221,7 +223,7 @@ def api_send(cfg, tokens, shop_id, method, path, data=None, files=None):
     """Zápis do Etsy: data jako JSON, nebo se soubory (files = {pole: (název, bajty)}) jako multipart."""
     headers = api_key_header(cfg)
     headers["Authorization"] = "Bearer " + access_token(cfg, tokens, shop_id)
-    if files:
+    if files is not None:
         boundary = "----etsydashboard" + secrets.token_hex(12)
         parts = []
         for k, v in (data or {}).items():
@@ -329,6 +331,9 @@ def db(path=None):
     con.execute("""CREATE TABLE IF NOT EXISTS doprava (
         receipt_id INTEGER PRIMARY KEY, dopravce TEXT, cislo TEXT, cena REAL, mena TEXT,
         zmeneno_ts INTEGER)""")  # ruční údaje, import ani synchronizace je nepřepíšou
+    con.execute("""CREATE TABLE IF NOT EXISTS slevy (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, shop_id TEXT, listing_id INTEGER, procento REAL, od_ts INTEGER,
+        do_ts INTEGER, stav TEXT, puvodni TEXT, nove TEXT, chyba TEXT, vytvoreno_ts INTEGER)""")
     con.execute("""CREATE TABLE IF NOT EXISTS csv_polozky (
         receipt_id INTEGER PRIMARY KEY, polozky TEXT)""")
     con.execute("""CREATE TABLE IF NOT EXISTS stav (
@@ -463,6 +468,10 @@ def sync_listings(cfg, tokens, con, shop_id, name, now):
 
 def can_write(tok):
     return "listings_w" in (tok.get("scope") or "").split()
+
+
+def can_delete(tok):
+    return "listings_d" in (tok.get("scope") or "").split()
 
 
 def taxonomy(cfg, tokens, shop_id):
@@ -623,15 +632,49 @@ def _decode_files(items, what):
     return out
 
 
-def create_listing(cfg, body):
-    """Založí koncept listingu, nahraje obrázky a soubory ke stažení, případně ho zveřejní.
-    Když selže až nahrávání, koncept na Etsy zůstane a vrátí se seznam chyb."""
-    shop_id = str(body.get("shop_id") or "")
+def _shop_tokens(shop_id, need="w"):
     tokens = load_tokens()
     if shop_id not in tokens:
         raise AppError("listing_no_shop", "Tahle shopa není přihlášená přes Etsy API.")
-    if not can_write(tokens[shop_id]):
+    if need == "w" and not can_write(tokens[shop_id]):
         raise AppError("listing_relogin", "Shopa je přihlášená bez práva vytvářet listingy. V Nastavení ji přihlas znovu.")
+    if need == "d" and not can_delete(tokens[shop_id]):
+        raise AppError("listing_relogin_d", "Shopa je přihlášená bez práva mazat listingy. V Nastavení ji přihlas znovu.")
+    return tokens
+
+
+def refresh_listings(cfg, shop_id):
+    """Po změně přes API stáhne listingy shopy znovu, aby stránka Listingy hned ukazovala novinky."""
+    def run():
+        with LOCK:
+            try:
+                tokens = load_tokens()
+                con = db()
+                sync_listings(cfg, tokens, con, shop_id, tokens[shop_id].get("shop_name", shop_id), int(time.time()))
+                con.commit()
+                con.close()
+            except Exception as e:
+                print(f"⚠️  listingy: {e}")
+    threading.Thread(target=run, daemon=True).start()
+
+
+def _image_items(items):
+    """Obrázky v novém pořadí: {"id": …} je už nahraný na Etsy, {"nazev", "data"} je nový."""
+    out = []
+    for it in items or []:
+        if it.get("id"):
+            out.append(("id", int(it["id"])))
+        else:
+            out.append(("new", _decode_files([it], "image")[0]))
+    return out
+
+
+def save_listing(cfg, body):
+    """Založí nový listing (bez listing_id), nebo upraví existující. Nahraje obrázky, soubory ke stažení,
+    atributy a varianty, případně změní stav. Když selže až některý krok, listing zůstane a vrátí se seznam chyb."""
+    shop_id = str(body.get("shop_id") or "")
+    tokens = _shop_tokens(shop_id)
+    lid = int(body["listing_id"]) if body.get("listing_id") else None
     digital = body.get("typ") != "physical"
     title = " ".join(str(body.get("nazev") or "").split())
     tags = [" ".join(str(t).split()) for t in body.get("stitky") or [] if str(t).strip()]
@@ -645,74 +688,302 @@ def create_listing(cfg, body):
         raise AppError("listing_fields", "Vyplň název (max 140 znaků), cenu a množství.")
     if len(tags) > 13 or any(len(t) > 20 for t in tags):
         raise AppError("listing_tags", "Etsy povoluje nejvýš 13 štítků, každý do 20 znaků.")
-    images = _decode_files(body.get("obrazky"), "image")
-    files = _decode_files(body.get("soubory"), "file") if digital else []
+    images = _image_items(body.get("obrazky"))
+    files = _image_items(body.get("soubory")) if digital else []  # stejný tvar: {"id"} nebo nový soubor
+    for kind, val in files:
+        if kind == "new" and len(val[1]) > MAX_FILE:
+            raise AppError("listing_file_big", f"Soubor {val[0]} má víc než 20 MB, Etsy ho nepřijme.", soubor=val[0])
     if len(files) > 5:
         raise AppError("listing_files_many", "Digitální listing může mít nejvýš 5 souborů.")
-    data = {"title": title, "description": str(body.get("popis") or "").strip() or title, "price": price,
-            "quantity": qty, "who_made": body.get("who_made") or "i_did", "when_made": body.get("when_made") or "made_to_order",
-            "taxonomy_id": tax, "is_supply": False, "tags": tags}
-    if digital:
-        data["type"] = "download"
-    else:
-        data["type"] = "physical"
-        for key, src in (("shipping_profile_id", "doprava_id"), ("readiness_state_id", "zpracovani_id")):
-            if not body.get(src):
-                raise AppError("listing_physical", "Fyzický listing potřebuje profil dopravy a zpracování.")
-            data[key] = int(body[src])
-    inventory = build_inventory(body, price, qty, data.get("readiness_state_id"))
+    data = {"title": title, "description": str(body.get("popis") or "").strip() or title,
+            "who_made": body.get("who_made") or "i_did", "when_made": body.get("when_made") or "made_to_order",
+            "taxonomy_id": tax, "is_supply": False, "tags": tags, "type": "download" if digital else "physical"}
+    readiness = None
+    if not digital:
+        if not body.get("doprava_id") or not body.get("zpracovani_id"):
+            raise AppError("listing_physical", "Fyzický listing potřebuje profil dopravy a zpracování.")
+        data["shipping_profile_id"] = int(body["doprava_id"])
+        readiness = int(body["zpracovani_id"])
+    inventory = build_inventory(body, price, qty, readiness)
     base = f"/shops/{shop_id}/listings"
-    listing = api_send(cfg, tokens, shop_id, "POST", base, data)
-    lid = listing["listing_id"]
     errors = []
-    for rank, (name, content) in enumerate(images, 1):
+    if lid is None:
+        create = dict(data, price=price, quantity=qty)
+        if readiness:
+            create["readiness_state_id"] = readiness
+        listing = api_send(cfg, tokens, shop_id, "POST", base, create)
+        lid = listing["listing_id"]
+        old_images, old_files, old_props = [], [], []
+        if not inventory:
+            inventory = None  # cena a množství jsou už v konceptu
+    else:
+        listing = api_send(cfg, tokens, shop_id, "PATCH", f"{base}/{lid}", data)
+        old_images = [i["listing_image_id"] for i in sorted(api_get(cfg, tokens, shop_id, f"/listings/{lid}/images").get("results", []),
+                                                            key=lambda i: i.get("rank", 0))]
+        old_files = [f["listing_file_id"] for f in api_get(cfg, tokens, shop_id, f"{base}/{lid}/files").get("results", [])] \
+            if digital or listing.get("type") == "download" else []
+        old_props = [p["property_id"] for p in api_get(cfg, tokens, shop_id, f"{base}/{lid}/properties").get("results", [])]
+        if not inventory:  # bez variant: jeden produkt s cenou a množstvím
+            offering = {"price": price, "quantity": qty, "is_enabled": True}
+            if readiness:
+                offering["readiness_state_id"] = readiness
+            inventory = {"products": [{"sku": str(body.get("sku") or "").strip(), "property_values": [], "offerings": [offering]}],
+                         "price_on_property": [], "quantity_on_property": [], "sku_on_property": []}
+    # obrázky: smazat odebrané, nahrát nové a seřadit
+    keep = {v for k, v in images if k == "id"}
+    for iid in old_images:
+        if iid not in keep:
+            try:
+                api_send(cfg, tokens, shop_id, "DELETE", f"{base}/{lid}/images/{iid}")
+            except Exception as e:
+                errors.append(f"Obrázek {iid}: {e}")
+    for rank, (kind, val) in enumerate(images, 1):
         try:
-            api_send(cfg, tokens, shop_id, "POST", f"{base}/{lid}/images", {"rank": rank}, {"image": (name, content)})
+            if kind == "id":
+                if val not in old_images or old_images.index(val) + 1 != rank:
+                    api_send(cfg, tokens, shop_id, "POST", f"{base}/{lid}/images", {"listing_image_id": val, "rank": rank}, {})
+            else:
+                api_send(cfg, tokens, shop_id, "POST", f"{base}/{lid}/images", {"rank": rank}, {"image": val})
         except Exception as e:
-            errors.append(f"{name}: {e}")
-    for rank, (name, content) in enumerate(files, 1):
-        try:
-            api_send(cfg, tokens, shop_id, "POST", f"{base}/{lid}/files", {"name": name, "rank": rank}, {"file": (name, content)})
-        except Exception as e:
-            errors.append(f"{name}: {e}")
-    for a in body.get("atributy") or []:  # atributy (barva, materiál, svátek…)
+            errors.append(f"{val[0] if kind == 'new' else val}: {e}")
+    keep = {v for k, v in files if k == "id"}
+    for fid in old_files:
+        if fid not in keep:
+            try:
+                api_send(cfg, tokens, shop_id, "DELETE", f"{base}/{lid}/files/{fid}")
+            except Exception as e:
+                errors.append(f"Soubor {fid}: {e}")
+    for rank, (kind, val) in enumerate(files, 1):
+        if kind == "new":
+            try:
+                api_send(cfg, tokens, shop_id, "POST", f"{base}/{lid}/files", {"name": val[0], "rank": rank}, {"file": val})
+            except Exception as e:
+                errors.append(f"{val[0]}: {e}")
+    # atributy (barva, materiál, svátek…): nastavit vyplněné, smazat vyprázdněné
+    new_props = set()
+    for a in body.get("atributy") or []:
         vals = {"value_ids": [int(x) for x in a.get("value_ids") or []], "values": [str(x) for x in a.get("values") or []]}
         if not vals["value_ids"] and not vals["values"]:
             continue
         if a.get("scale_id"):
             vals["scale_id"] = int(a["scale_id"])
+        new_props.add(int(a["property_id"]))
         try:
             api_send(cfg, tokens, shop_id, "PUT", f"{base}/{lid}/properties/{int(a['property_id'])}", vals)
         except Exception as e:
             errors.append(f"{a.get('nazev') or a.get('property_id')}: {e}")
+    var_props = {pv["property_id"] for p in (inventory or {}).get("products", []) for pv in p["property_values"]}
+    for pid in old_props:
+        if pid not in new_props and pid not in var_props:
+            try:
+                api_send(cfg, tokens, shop_id, "DELETE", f"{base}/{lid}/properties/{pid}")
+            except Exception as e:
+                errors.append(f"Atribut {pid}: {e}")
     if inventory:
         try:
             api_send(cfg, tokens, shop_id, "PUT", f"/listings/{lid}/inventory", inventory)
         except Exception as e:
             errors.append(f"Varianty: {e}")
-    state = "draft"
-    if body.get("zverejnit") and not errors:
-        if not images or (digital and not files):
-            errors.append("Ke zveřejnění chybí obrázek nebo soubor ke stažení, listing zůstal jako koncept.")
+    state = listing.get("state", "draft")
+    want = body.get("stav") or ("active" if body.get("zverejnit") else None)
+    if want and want != state and not errors:
+        if want == "active" and (not images or (digital and not files)):
+            errors.append("Ke zveřejnění chybí obrázek nebo soubor ke stažení, stav se nezměnil.")
         else:
             try:
-                state = api_send(cfg, tokens, shop_id, "PATCH", f"{base}/{lid}", {"state": "active"}).get("state", "active")
+                state = api_send(cfg, tokens, shop_id, "PATCH", f"{base}/{lid}", {"state": want}).get("state", want)
             except Exception as e:
                 errors.append(str(e))
-
-    def refresh():  # nový listing hned i na stránce Listingy
-        with LOCK:
-            try:
-                con = db()
-                sync_listings(cfg, load_tokens(), con, shop_id, tokens[shop_id].get("shop_name", shop_id), int(time.time()))
-                con.commit()
-                con.close()
-            except Exception as e:
-                print(f"⚠️  listingy: {e}")
-    threading.Thread(target=refresh, daemon=True).start()
+    refresh_listings(cfg, shop_id)
     return {"listing_id": lid, "stav": state, "chyby": errors,
             "url": listing.get("url") or f"https://www.etsy.com/listing/{lid}",
             "upravit": f"https://www.etsy.com/your/shops/me/listing-editor/edit/{lid}"}
+
+
+def _money(m):
+    if isinstance(m, dict):
+        return round(m.get("amount", 0) / (m.get("divisor") or 100), 2)
+    return float(m or 0)
+
+
+def listing_detail(cfg, shop_id, lid, demo=False):
+    """Všechno, co editor potřebuje k existujícímu listingu: texty, obrázky, soubory, atributy a varianty."""
+    if demo:
+        raise AppError("demo", "V ukázkovém režimu nejde nic měnit.")
+    tokens = _shop_tokens(shop_id, need="r")
+    lid = int(lid)
+    l = api_get(cfg, tokens, shop_id, f"/listings/{lid}", {"includes": "Images,Inventory"})
+    inv = l.get("inventory") or api_get(cfg, tokens, shop_id, f"/listings/{lid}/inventory")
+    files = []
+    if l.get("type") == "download":
+        files = [{"id": f["listing_file_id"], "nazev": f.get("filename", ""), "velikost": f.get("filesize")}
+                 for f in api_get(cfg, tokens, shop_id, f"/shops/{shop_id}/listings/{lid}/files").get("results", [])]
+    props = api_get(cfg, tokens, shop_id, f"/shops/{shop_id}/listings/{lid}/properties").get("results", [])
+    products = []
+    for p in inv.get("products", []):
+        if p.get("is_deleted"):
+            continue
+        o = (p.get("offerings") or [{}])[0]
+        products.append({"sku": p.get("sku") or "", "hodnoty": [{"property_id": v["property_id"], "nazev": v.get("property_name", ""),
+                                                                 "scale_id": v.get("scale_id"), "value_id": (v.get("value_ids") or [None])[0],
+                                                                 "hodnota": (v.get("values") or [""])[0]} for v in p.get("property_values") or []],
+                         "cena": _money(o.get("price")), "mnozstvi": o.get("quantity"), "aktivni": o.get("is_enabled", True),
+                         "zpracovani": o.get("readiness_state_id")})
+    first = products[0] if products else {}
+    return {"listing_id": lid, "shop_id": shop_id, "stav": l.get("state"), "typ": "digital" if l.get("type") == "download" else "physical",
+            "nazev": html.unescape(l.get("title") or ""), "popis": html.unescape(l.get("description") or ""),
+            "stitky": [html.unescape(t) for t in l.get("tags") or []], "kategorie": l.get("taxonomy_id"),
+            "cena": first.get("cena", _money(l.get("price"))), "mnozstvi": l.get("quantity"),
+            "doprava": l.get("shipping_profile_id"), "zpracovani": first.get("zpracovani") or l.get("readiness_state_id"),
+            "url": l.get("url"), "obrazky": [{"id": i["listing_image_id"], "url": i.get("url_570xN") or i.get("url_fullxfull", "")}
+                                             for i in sorted(l.get("images") or [], key=lambda i: i.get("rank", 0))],
+            "soubory": files, "atributy": [{"property_id": p["property_id"], "nazev": p.get("property_name", ""),
+                                            "value_ids": p.get("value_ids") or [], "values": p.get("values") or [],
+                                            "scale_id": p.get("scale_id")} for p in props],
+            "produkty": products, "cena_dle": inv.get("price_on_property") or [], "mnozstvi_dle": inv.get("quantity_on_property") or [],
+            "sku_dle": inv.get("sku_on_property") or []}
+
+
+def listings_state(cfg, body):
+    """Hromadná změna stavu (active / inactive) nebo smazání (stav "smazat")."""
+    shop_id, want = str(body.get("shop_id") or ""), body.get("stav")
+    if want not in ("active", "inactive", "smazat"):
+        raise AppError("listing_fields", "Neznámá akce.")
+    tokens = _shop_tokens(shop_id, need="d" if want == "smazat" else "w")
+    out = []
+    for lid in body.get("ids") or []:
+        try:
+            if want == "smazat":
+                api_send(cfg, tokens, shop_id, "DELETE", f"/listings/{int(lid)}")
+                con = db()
+                con.execute("DELETE FROM listingy WHERE listing_id=?", (int(lid),))
+                con.commit()
+                con.close()
+            else:
+                api_send(cfg, tokens, shop_id, "PATCH", f"/shops/{shop_id}/listings/{int(lid)}", {"state": want})
+            out.append({"listing_id": lid, "ok": True})
+        except Exception as e:
+            out.append({"listing_id": lid, "ok": False, "chyba": str(e)})
+    refresh_listings(cfg, shop_id)
+    return {"vysledky": out}
+
+
+# ------------------------------------------------------------------ slevy
+# Etsy API neumí Sales & Discounts ani kupóny. Sleva se proto dělá změnou ceny: v den začátku
+# dashboard sníží ceny všech variant o zadaná procenta, po konci je vrátí (jen ty, které mezitím nikdo nezměnil).
+
+def _inv_payload(inv, price_fn):
+    products = []
+    for p in inv.get("products", []):
+        if p.get("is_deleted"):
+            continue
+        offerings = []
+        for o in p.get("offerings") or []:
+            if o.get("is_deleted"):
+                continue
+            off = {"price": price_fn(p, _money(o.get("price"))), "quantity": o.get("quantity", 0), "is_enabled": o.get("is_enabled", True)}
+            if o.get("readiness_state_id"):
+                off["readiness_state_id"] = o["readiness_state_id"]
+            offerings.append(off)
+        products.append({"sku": p.get("sku") or "", "offerings": offerings,
+                         "property_values": [{k: v[k] for k in ("property_id", "property_name", "scale_id", "value_ids", "values") if v.get(k) is not None}
+                                             for v in p.get("property_values") or []]})
+    out = {"products": products}
+    for k in ("price_on_property", "quantity_on_property", "sku_on_property", "readiness_state_on_property"):
+        if inv.get(k) is not None:
+            out[k] = inv[k]
+    return out
+
+
+def _pkey(p):
+    return json.dumps([[v.get("property_id"), v.get("values")] for v in p.get("property_values") or []])
+
+
+def add_discount(cfg, body, db_path=None):
+    shop_id = str(body.get("shop_id") or "")
+    _shop_tokens(shop_id)
+    try:
+        pct = float(str(body.get("procento")).replace(",", "."))
+        start = int(datetime.strptime(body["od"], "%Y-%m-%d").timestamp())
+        end = int((datetime.strptime(body["do"], "%Y-%m-%d") + timedelta(days=1)).timestamp())  # včetně posledního dne
+    except (KeyError, TypeError, ValueError):
+        raise AppError("sale_fields", "Vyplň slevu v procentech a data od a do.")
+    if not 0 < pct < 100 or end <= start or end <= time.time():
+        raise AppError("sale_fields", "Sleva musí být mezi 0 a 100 % a konec nesmí být před začátkem ani v minulosti.")
+    ids = [int(x) for x in body.get("ids") or []]
+    con = db(db_path)
+    try:
+        busy = [lid for lid in ids if con.execute("SELECT 1 FROM slevy WHERE listing_id=? AND stav IN ('naplanovano','bezi') "
+                                                  "AND od_ts < ? AND do_ts > ?", (lid, end, start)).fetchone()]
+        if busy:
+            raise AppError("sale_overlap", f"{len(busy)} z vybraných listingů už má v tomhle termínu slevu.", n=len(busy))
+        for lid in ids:
+            con.execute("INSERT INTO slevy (shop_id, listing_id, procento, od_ts, do_ts, stav, vytvoreno_ts) VALUES (?,?,?,?,?,?,?)",
+                        (shop_id, lid, pct, start, end, "naplanovano", int(time.time())))
+        con.commit()
+    finally:
+        con.close()
+    threading.Thread(target=process_discounts, args=(cfg,), daemon=True).start()
+    return {"ok": True, "pocet": len(ids)}
+
+
+def cancel_discount(cfg, body, db_path=None):
+    con = db(db_path)
+    try:
+        row = con.execute("SELECT stav FROM slevy WHERE id=?", (int(body.get("id")),)).fetchone()
+        if row and row[0] == "naplanovano":
+            con.execute("UPDATE slevy SET stav='zruseno' WHERE id=?", (int(body["id"]),))
+        elif row and row[0] == "bezi":
+            con.execute("UPDATE slevy SET do_ts=? WHERE id=?", (int(time.time()), int(body["id"])))  # ukončí se hned
+        con.commit()
+    finally:
+        con.close()
+    process_discounts(cfg)
+    return {"ok": True}
+
+
+def process_discounts(cfg):
+    """Spustí naplánované slevy a ukončí ty, kterým vypršel termín. Volá se při každé kontrole."""
+    if not config_ready(cfg):
+        return
+    with DISCOUNT_LOCK:
+        con = db()
+        tokens = load_tokens()
+        now = int(time.time())
+        touched = set()
+        for sid, shop_id, lid, pct, stav, puvodni, nove in con.execute(
+                "SELECT id, shop_id, listing_id, procento, stav, puvodni, nove FROM slevy WHERE "
+                "(stav='naplanovano' AND od_ts<=?) OR (stav='bezi' AND do_ts<=?)", (now, now)).fetchall():
+            if shop_id not in tokens:
+                continue
+            try:
+                inv = api_get(cfg, tokens, shop_id, f"/listings/{lid}/inventory")
+                if stav == "naplanovano":
+                    if con.execute("SELECT do_ts FROM slevy WHERE id=?", (sid,)).fetchone()[0] <= now:
+                        con.execute("UPDATE slevy SET stav='hotovo' WHERE id=?", (sid,))  # termín propásnutý (Mac byl vypnutý)
+                        continue
+                    old, new = {}, {}
+
+                    def cut(p, price):
+                        old[_pkey(p)] = price
+                        new[_pkey(p)] = max(0.2, round(price * (1 - pct / 100), 2))
+                        return new[_pkey(p)]
+                    api_send(cfg, tokens, shop_id, "PUT", f"/listings/{lid}/inventory", _inv_payload(inv, cut))
+                    con.execute("UPDATE slevy SET stav='bezi', puvodni=?, nove=?, chyba=NULL WHERE id=?",
+                                (json.dumps(old), json.dumps(new), sid))
+                else:
+                    old, new = json.loads(puvodni or "{}"), json.loads(nove or "{}")
+                    back = lambda p, price: old[_pkey(p)] if _pkey(p) in old and abs(new.get(_pkey(p), -1) - price) < 0.005 else price
+                    api_send(cfg, tokens, shop_id, "PUT", f"/listings/{lid}/inventory", _inv_payload(inv, back))
+                    con.execute("UPDATE slevy SET stav='hotovo', chyba=NULL WHERE id=?", (sid,))
+                touched.add(shop_id)
+            except Exception as e:
+                con.execute("UPDATE slevy SET chyba=? WHERE id=?", (str(e)[:300], sid))
+            con.commit()
+        con.commit()
+        con.close()
+    for shop_id in touched:
+        refresh_listings(cfg, shop_id)
 
 
 def run_check(cfg):
@@ -737,6 +1008,10 @@ def run_check(cfg):
             STATUS["posledni_kontrola"] = int(time.time())
         finally:
             STATUS["bezi"] = False
+    try:
+        process_discounts(cfg)
+    except Exception as e:
+        print(f"⚠️  slevy: {e}")
     if all_news:
         notify(cfg, all_news)
     return all_news
@@ -855,6 +1130,8 @@ def dashboard_data(db_path=None):
         "vypis": rows_as_dicts(con, "SELECT * FROM vypis ORDER BY datum_ts DESC, entry_id DESC"),
         "listingy": rows_as_dicts(con, "SELECT * FROM listingy ORDER BY nazev"),
         "doprava": rows_as_dicts(con, "SELECT * FROM doprava"),
+        "slevy": rows_as_dicts(con, "SELECT id, shop_id, listing_id, procento, od_ts, do_ts, stav, chyba FROM slevy "
+                                    "WHERE stav IN ('naplanovano','bezi') OR do_ts > strftime('%s','now') - 30*86400 ORDER BY od_ts"),
     }
     con.close()
     return data
@@ -1301,9 +1578,9 @@ class Handler(BaseHTTPRequestHandler):
         cfg = load_config()
         tokens = load_tokens()
         if self.demo:
-            shops = [{"id": "1", "name": "DemoPrintables", "zapis": True}, {"id": "2", "name": "DemoHandmade", "zapis": True}]
+            shops = [{"id": "1", "name": "DemoPrintables", "zapis": True, "mazani": True}, {"id": "2", "name": "DemoHandmade", "zapis": True, "mazani": True}]
         else:
-            shops = [{"id": k, "name": v.get("shop_name", k), "zapis": can_write(v)} for k, v in tokens.items()]
+            shops = [{"id": k, "name": v.get("shop_name", k), "zapis": can_write(v), "mazani": can_delete(v)} for k, v in tokens.items()]
             con = db(self.db_path)
             names = {r[0] for r in con.execute("SELECT shop FROM objednavky UNION SELECT shop FROM vypis UNION SELECT shop FROM listingy")}
             con.close()
@@ -1332,6 +1609,12 @@ class Handler(BaseHTTPRequestHandler):
             return self.send(200, dashboard_data(self.db_path))
         if path == "/api/kurzy":
             return self.send(200, get_rates())
+        if path == "/api/listing/detail":
+            q = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+            try:
+                return self.send(200, listing_detail(load_config(), q.get("shop", [""])[0], q.get("id", ["0"])[0], self.demo))
+            except Exception as e:
+                return self.send(400, {"chyba": str(e), "kod": getattr(e, "kod", None), "param": getattr(e, "param", {})})
         if path == "/api/listing/vlastnosti":
             q = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
             try:
@@ -1391,7 +1674,13 @@ class Handler(BaseHTTPRequestHandler):
             if path == "/api/aktualizace":
                 return self.send(200, check_update())
             if path == "/api/listing/vytvorit":
-                return self.send(200, create_listing(load_config(), body))
+                return self.send(200, save_listing(load_config(), body))
+            if path == "/api/listing/stav":
+                return self.send(200, listings_state(load_config(), body))
+            if path == "/api/sleva":
+                return self.send(200, add_discount(load_config(), body, self.db_path))
+            if path == "/api/sleva/zrusit":
+                return self.send(200, cancel_discount(load_config(), body, self.db_path))
             if path == "/api/doprava":
                 return self.send(200, save_shipping(body, self.db_path))
             if path == "/api/import":

@@ -67,6 +67,23 @@ a **Varianty**: nejvýš 2, buď vlastnost z Etsy (barva, velikost), nebo vlastn
 U každé varianty zaškrtni, jestli se podle ní liší cena, množství nebo SKU, a vyplň je v tabulce kombinací.
 Kombinaci, kterou neprodáváš, odškrtni.
 
+## 5. Úpravy, mazání, hromadné akce a slevy
+Klikni na listing v tabulce. V detailu uvidíš atributy a varianty načtené z Etsy a tlačítka
+**Upravit**, **Aktivovat / Deaktivovat**, **Sleva…** a **Smazat**.
+- **Upravit** otevře stejný formulář jako u nového listingu: změníš název, popis, cenu, štítky,
+  kategorii, obrázky, soubory, atributy i varianty a klikneš **Uložit změny**. V poli Stav
+  můžeš listing rovnou aktivovat nebo deaktivovat.
+- **Hromadně**: zaškrtni v tabulce víc listingů (nebo všechny v záhlaví) a nahoře se objeví lišta
+  s akcemi Aktivovat, Deaktivovat, Sleva a Smazat.
+- **Mazání** potřebuje nové právo. Shopy přihlášené před verzí 1.17 v Nastavení jednou přihlas znovu,
+  Etsy se zeptá i na právo mazat. Smazání nejde vrátit.
+- **Aktivace** konceptu nebo vypršelého listingu stojí u Etsy $0.20.
+- **Sleva od–do**: zadej procenta a data (konec je včetně). Etsy API neumí vytvořit Sale ani kupon,
+  takže dashboard v den začátku sníží ceny všech variant a po konci je vrátí. Na Etsy se proto
+  neukáže přeškrtnutá cena a funguje to jen, když je Mac zapnutý (ceny se mění při pravidelné
+  kontrole). Když cenu během slevy ručně změníš, dashboard ji na konci nepřepíše.
+  Běžící nebo naplánovanou slevu zrušíš v detailu listingu.
+
 ## Co na dashboardu najdeš
 - Přepínač shop (obě / jen jedna) a období (tento měsíc, minulý, letos, konkrétní měsíc…).
 - Tržby, počet objednávek, průměrná objednávka, poplatky Etsy, čistě na účet,
