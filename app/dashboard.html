@@ -556,6 +556,12 @@ dialog::backdrop { background: rgba(0,0,0,.4); }
             <h4 class="dsec" data-i18n="rTitle"></h4>
             <div id="acctRules"></div>
           </div>
+          <div class="card" id="apiSettings">
+            <h2 data-i18n="apiShopsTitle"></h2>
+            <p class="hint" data-i18n="apiShopsHint"></p>
+            <div id="apiList"></div>
+            <div class="actions left"><button class="btn" id="apiAdd" data-i18n="apiAdd"></button></div>
+          </div>
           <div class="card" id="ostSettings">
             <h2 data-i18n="ostTitle"></h2>
             <p class="hint" data-i18n="ostHint"></p>
@@ -651,6 +657,7 @@ dialog::backdrop { background: rgba(0,0,0,.4); }
     <h3 data-i18n="pubTitle"></h3>
     <p class="hint" id="pubFor"></p>
     <div id="pubAccts"></div>
+    <div class="field" id="pubApiState" hidden><label for="pubStav" data-i18n="pubApiState"></label><select id="pubStav"><option value="active" data-i18n="pubApiActive"></option><option value="draft" data-i18n="pubApiDraft"></option></select></div>
     <p class="hint" data-i18n="pubHint"></p>
     <div class="actions"><span class="msg" id="pubMsg"></span><button class="btn" onclick="$('#publish').close()" data-i18n="close"></button><button class="btn primary" id="pubGo" data-i18n="pubGo"></button></div>
   </div>
@@ -1350,7 +1357,7 @@ function renderFees(f) {
 }
 
 function statusPill(r) {
-  const s = stOf(r); if (s) return ostPill(s, "Etsy: " + etsyState(r));
+  const s = stOf(r); if (s) return ostPill(s, chanLbl(r) + ": " + etsyState(r));
   if (r.zaplaceno && r.odeslano === 0) return `<span class="pill ship">${t("kToShip")}</span>`;
   return `<span class="pill ${r.odeslano ? "done" : ""}">${esc(tMap("statuses", r.stav) || r.stav)}</span>`;
 }
@@ -1394,6 +1401,7 @@ function stOf(r) { const o = RAW.obj_stav?.[r.receipt_id]; return o ? (RAW.stavy
 function orderState(r) { const s = stOf(r); return s ? "#" + s.id : r.zaplaceno && r.odeslano === 0 ? "_ship" : r.stav || ""; }
 function stateLabel(k) { if (k[0] === "#") return (RAW.stavy || []).find(s => "#" + s.id === k)?.nazev || "–"; return k === "_ship" ? t("kToShip") : tMap("statuses", k) || k || "–"; }
 function stateRank(k) { return k[0] === "#" ? (RAW.stavy || []).find(s => "#" + s.id === k)?.poradi ?? 999 : k === "_ship" ? -1 : 1000; }
+function chanLbl(r) { return r.receipt_id >= 1e15 ? t("chanApi") : "Etsy"; }
 function etsyState(r) { return r.zaplaceno && r.odeslano === 0 ? t("kToShip") : tMap("statuses", r.stav) || r.stav || ""; }
 function ostPill(s, title) { return `<span class="pill ost"${title ? ` title="${esc(title)}"` : ""}><span class="dot" style="background:${esc(s.barva || "#8a8f98")}"></span>${esc(s.nazev)}</span>`; }
 function typeLabel(k) { return tMap("types", k) || tMap("types", (k || "").toLowerCase()) || k || "–"; }
@@ -1695,14 +1703,14 @@ function openOrder(rid) {
   const raw = RAW.objednavky.find(o => o.receipt_id === rid) || r;
   const d = (RAW.doprava || []).find(x => x.receipt_id === rid) || {};
   ORDER = r;
-  $("#odBody").innerHTML = `<h3>${esc(t("orderNo", { n: rid }))}</h3>
+  $("#odBody").innerHTML = `<h3>${esc(t("orderNo", { n: ordNo(r) }))}</h3>
     <div class="osum">
       <span>${esc(t("colDate"))}</span><b style="font-weight:400">${fmtDate(r.vytvoreno_ts)}</b>
       <span>${esc(t("colShop"))}</span><b style="font-weight:400"><span class="dot" style="background:${shopColor(r.shop)}"></span> ${esc(r.shop)}</b>
       <span>${esc(t("colBuyer"))}</span><b style="font-weight:400">${esc(r.zakaznik) || "–"}</b>
       <span>${esc(t("colItems"))}</span><b style="font-weight:400">${orderItemsHtml(r)}</b>
       <span>${esc(t("colTotal"))}</span><b class="num" style="font-weight:500"${origTitle(r)}>${fmtMoney(r.celkem, r.mena)}</b>
-      <span>Etsy</span><b style="font-weight:400"><span class="pill ${r.odeslano ? "done" : r.zaplaceno ? "ship" : ""}">${esc(etsyState(r))}</span></b>
+      <span>${esc(chanLbl(r))}</span><b style="font-weight:400"><span class="pill ${r.odeslano ? "done" : r.zaplaceno ? "ship" : ""}">${esc(etsyState(r))}</span></b>
       ${(RAW.stavy || []).length ? `<span>${esc(t("odState"))}</span><b style="font-weight:400"><select id="odState">${(RAW.stavy || []).map(s => `<option value="${s.id}" ${stOf(r)?.id === s.id ? "selected" : ""}>${esc(s.nazev)}</option>`).join("")}</select> <span class="msg" id="odStateMsg"></span></b>` : ""}
     </div>`;
   $("#shCarrier").value = d.dopravce || ""; $("#shTrack").value = d.cislo || "";
@@ -1843,7 +1851,7 @@ function fillSettings() {
   $("#secret").placeholder = n.ma_secret ? t("secretSaved") : "";
   $("#redirect").value = n.redirect_uri || ""; $("#interval").value = n.interval_minut || 15; $("#ntfy").value = n.ntfy_topic || "";
   $("#verze").textContent = S.verze || "";
-  renderShopList(); buildCurrency(); renderNotif(); applyTheme(); if (K) renderCatalogSettings(); renderOrderStates();
+  renderShopList(); buildCurrency(); renderNotif(); applyTheme(); if (K) renderCatalogSettings(); renderOrderStates(); if (!APIS) loadApiShops(); else renderApiShops();
 }
 function renderShopList() {
   $("#shopList").innerHTML = S.shopy.length ? S.shopy.map(s =>
@@ -3143,6 +3151,59 @@ Object.assign(T.en.errors, { states_empty: "Keep at least one state.", states_na
 Object.assign(T.de.errors, { states_empty: "Lass mindestens einen Status übrig.", states_name: "Jeder Status braucht einen Namen.", state_missing: "Der gewählte Status existiert nicht mehr.",
   track_missing: "Die Bestellung hat keine Sendungsnummer.", track_relogin: "Der Shop ist ohne das Recht verbunden, Sendungen zu melden. Melde ihn in den Einstellungen neu an.", track_failed: "Etsy hat die Sendungsnummer nicht angenommen: {e}" });
 
+const T12 = {
+  cs: {
+    offChgApi: "změněno v e-shopu", offTakeApi: "Převzít z e-shopu", pdLayerHintApi: "Texty a cena jen pro tenhle e-shop. Prázdné pole se převezme z produktu.",
+    pubApiState: "Nové produkty v e-shopu", pubApiActive: "rovnou zveřejnit", pubApiDraft: "uložit jako koncept",
+    apiPubMany: "Poslat {n} do {s}? E-shop je hned uloží.", apiPubRun: "Posílám do {s} ({i}/{n})…", apiPubDone: "Do e-shopů odesláno {ok} z {n}.",
+    apiPubConfirm: "Vystavit {n} do {s}? E-shop produkt hned uloží.", apiSendConfirm: "Poslat aktuální údaje produktu {n} do {s}? Přepíšou to, co je teď v e-shopu.",
+    apiSending: "Posílám do {s}…", apiSent: "Změny odeslány do {s}.", apiPublished: "Vystaveno do {s}.",
+    trackPushApi: "Odeslat tracking do e-shopu", trackSentApi: "Tracking odeslán do e-shopu {d}.", chanApi: "E-shop",
+    trackConfirmApi: "Poslat dopravce a číslo zásilky do e-shopu? E-shop objednávku označí jako odeslanou.",
+    apiShopsTitle: "E-shopy přes vlastní API", apiShopsHint: "Tvůj e-shop může prodávat produkty z katalogu stejně jako Etsy, když implementuje jednoduché API. Dashboard z něj stahuje objednávky při každé kontrole a posílá do něj jen to, co odešleš tlačítkem.",
+    apiDoc: "Specifikace API", apiAdd: "Přidat e-shop", apiChannel: "vlastní API", apiNew: "Nový e-shop", apiName: "Název", apiUrl: "Adresa API",
+    apiKey: "API klíč", apiCur: "Měna", apiLang: "Jazyk", apiLast: "Poslední stažení {d}.", apiTest: "Otestovat spojení",
+    apiTestOk: "Spojení funguje: {n}, měna {c}.", apiDelConfirm: "Odebrat e-shop {s}? Jeho nabídky se od produktů odpojí, v e-shopu se nic nesmaže a objednávky zůstanou.",
+  },
+  en: {
+    offChgApi: "changed in the shop", offTakeApi: "Take from the shop", pdLayerHintApi: "Texts and price for this shop only. Empty fields come from the product.",
+    pubApiState: "New products in web shops", pubApiActive: "publish right away", pubApiDraft: "save as draft",
+    apiPubMany: "Send {n} to {s}? The shop stores them right away.", apiPubRun: "Sending to {s} ({i}/{n})…", apiPubDone: "Sent to web shops: {ok} of {n}.",
+    apiPubConfirm: "Publish {n} to {s}? The shop stores the product right away.", apiSendConfirm: "Send the current data of {n} to {s}? It replaces what the shop has now.",
+    apiSending: "Sending to {s}…", apiSent: "Changes sent to {s}.", apiPublished: "Published to {s}.",
+    trackPushApi: "Send tracking to the shop", trackSentApi: "Tracking sent to the shop on {d}.", chanApi: "Shop",
+    trackConfirmApi: "Send the carrier and tracking number to the shop? The shop marks the order as shipped.",
+    apiShopsTitle: "Web shops via custom API", apiShopsHint: "Your own web shop can sell catalog products just like Etsy once it implements a small API. The dashboard downloads its orders on every check and sends it only what you send with a button.",
+    apiDoc: "API specification", apiAdd: "Add web shop", apiChannel: "custom API", apiNew: "New web shop", apiName: "Name", apiUrl: "API address",
+    apiKey: "API key", apiCur: "Currency", apiLang: "Language", apiLast: "Last download {d}.", apiTest: "Test connection",
+    apiTestOk: "Connection works: {n}, currency {c}.", apiDelConfirm: "Remove web shop {s}? Its offers get unlinked from products, nothing is deleted in the shop and orders stay.",
+  },
+  de: {
+    offChgApi: "im Webshop geändert", offTakeApi: "Aus dem Webshop übernehmen", pdLayerHintApi: "Texte und Preis nur für diesen Webshop. Leere Felder kommen vom Produkt.",
+    pubApiState: "Neue Produkte im Webshop", pubApiActive: "sofort veröffentlichen", pubApiDraft: "als Entwurf speichern",
+    apiPubMany: "{n} an {s} senden? Der Webshop speichert sie sofort.", apiPubRun: "Sende an {s} ({i}/{n})…", apiPubDone: "An Webshops gesendet: {ok} von {n}.",
+    apiPubConfirm: "{n} in {s} einstellen? Der Webshop speichert das Produkt sofort.", apiSendConfirm: "Aktuelle Daten von {n} an {s} senden? Sie ersetzen, was jetzt im Webshop ist.",
+    apiSending: "Sende an {s}…", apiSent: "Änderungen an {s} gesendet.", apiPublished: "In {s} eingestellt.",
+    trackPushApi: "Sendungsnummer an den Webshop senden", trackSentApi: "Sendungsnummer am {d} an den Webshop gesendet.", chanApi: "Webshop",
+    trackConfirmApi: "Versanddienst und Sendungsnummer an den Webshop senden? Der Webshop markiert die Bestellung als versandt.",
+    apiShopsTitle: "Webshops über eigene API", apiShopsHint: "Dein eigener Webshop kann Katalogprodukte wie Etsy verkaufen, sobald er eine kleine API umsetzt. Das Dashboard lädt bei jeder Prüfung seine Bestellungen und sendet ihm nur, was du per Knopf sendest.",
+    apiDoc: "API-Spezifikation", apiAdd: "Webshop hinzufügen", apiChannel: "eigene API", apiNew: "Neuer Webshop", apiName: "Name", apiUrl: "API-Adresse",
+    apiKey: "API-Schlüssel", apiCur: "Währung", apiLang: "Sprache", apiLast: "Zuletzt geladen {d}.", apiTest: "Verbindung testen",
+    apiTestOk: "Verbindung klappt: {n}, Währung {c}.", apiDelConfirm: "Webshop {s} entfernen? Seine Angebote werden von den Produkten getrennt, im Webshop wird nichts gelöscht und Bestellungen bleiben.",
+  },
+};
+for (const l in T12) Object.assign(T[l], T12[l]);
+Object.assign(T.en.errors, { api_url: "The API address must start with https:// (http:// only for localhost).", api_account: "This web shop isn't in the app.",
+  api_failed: "{shop}: {e}", api_key: "Enter the API key.", api_name: "The web shop needs a name.", api_currency: "Choose the currency the shop sells in.",
+  api_sku: "The product has no SKU. Add one in the product detail; the shop recognizes the product by it.", api_sku_taken: "Another catalog product already uses this SKU in this shop.",
+  api_price: "The product has no price for this shop. Add a base price or a price in the shop's layer.", api_gone: "The product is no longer in the shop.",
+  track_failed_api: "The shop didn't accept the tracking: {e}" });
+Object.assign(T.de.errors, { api_url: "Die API-Adresse muss mit https:// beginnen (http:// nur für localhost).", api_account: "Dieser Webshop ist nicht in der App.",
+  api_failed: "{shop}: {e}", api_key: "Gib den API-Schlüssel ein.", api_name: "Der Webshop braucht einen Namen.", api_currency: "Wähle die Währung, in der der Shop verkauft.",
+  api_sku: "Das Produkt hat keine SKU. Ergänze sie im Produktdetail; der Shop erkennt das Produkt daran.", api_sku_taken: "Ein anderes Katalogprodukt nutzt diese SKU schon in diesem Shop.",
+  api_price: "Das Produkt hat keinen Preis für diesen Shop. Ergänze einen Grundpreis oder einen Preis in der Ebene des Shops.", api_gone: "Das Produkt ist nicht mehr im Shop.",
+  track_failed_api: "Der Webshop hat die Sendungsnummer nicht angenommen: {e}" });
+
 let K = null, PROWS = [];
 const acctName = id => (K?.ucty || []).find(u => u.id === id)?.nazev || id;
 let LINKS = [null, null];
@@ -3162,7 +3223,7 @@ function renderProducts() {
   const outside = (RAW.listingy || []).filter(l => l.listing_id > 0 && !links.has(l.shop + "/" + l.listing_id)).length;
   $("#pAdoptBtn").disabled = $("#pFolderBtn").disabled = !!S.demo;
   $("#pAdoptBtn").title = $("#pFolderBtn").title = S.demo ? t("pDemo") : "";
-  const fopts = [["", t("fAllProducts")], ["zmeny", t("fChanges")]].concat(etsyAccts().map(u => ["bez:" + u.id, t("fNoOffer", { s: u.nazev })]));
+  const fopts = [["", t("fAllProducts")], ["zmeny", t("fChanges")]].concat(allAccts().map(u => ["bez:" + u.id, t("fNoOffer", { s: u.nazev })]));
   const fv = fopts.some(o => o[0] === $("#pFilter").value) ? $("#pFilter").value : "";
   $("#pFilter").innerHTML = fopts.map(([v, x]) => `<option value="${esc(v)}">${esc(x)}</option>`).join(""); $("#pFilter").value = fv;
   const q = $("#psearch").value.trim().toLowerCase();
@@ -3170,7 +3231,7 @@ function renderProducts() {
     (!fv || (fv === "zmeny" ? p.nabidky.some(n => n.zmeny?.length) : !p.nabidky.some(n => n.ucet_id === fv.slice(4)))));
   $("#psum").innerHTML = all.length ? esc(t("pSum", { n: pl(all.length, "product") })) + (outside ? ` · <a class="linkbtn" href="#" id="pOutside">${esc(t("pOutside", { n: pl(outside, "listing") }))}</a>` : "") : "";
   const offerPill = n => {
-    const warn = n.zmeny?.length, tip = [tMap("lstates", n.stav) || n.stav || ""].concat((n.zmeny || []).map(z => t(OFF_CHG[z])));
+    const warn = n.zmeny?.length, tip = [tMap("lstates", n.stav) || n.stav || ""].concat((n.zmeny || []).map(z => offChg(z, n.ucet_id)));
     return `<span class="pill ${warn ? "ship" : n.stav === "active" ? "done" : ""}" title="${esc(tip.filter(Boolean).join(" · "))}">${warn ? "⚠ " : ""}${esc(acctName(n.ucet_id))}</span>`;
   };
   [...PSEL].forEach(id => { if (!all.some(p => p.id === id)) PSEL.delete(id); });
@@ -3208,6 +3269,10 @@ let PD = null;
 const pdProduct = () => (K?.produkty || []).find(x => x.id === PD.id) || null;
 const shopOfAcct = id => String(id).startsWith("etsy:") ? String(id).slice(5) : "";
 const etsyAccts = () => (K?.ucty || []).filter(u => u.kanal === "etsy");
+const apiAccts = () => (K?.ucty || []).filter(u => u.kanal === "api");
+const allAccts = () => (K?.ucty || []).filter(u => u.kanal === "etsy" || u.kanal === "api");
+const isApi = id => String(id).startsWith("api:");
+const offChg = (z, ucet) => t(z === "kanal" && isApi(ucet) ? "offChgApi" : OFF_CHG[z]);
 function openProduct(p, tab) {
   PD = { id: p ? p.id : null, tab: tab || "general", scope: "etsy" };
   renderPD(); $("#pdetail").showModal();
@@ -3301,20 +3366,20 @@ function pdLayer(p, scope) {
   return p.vrstvy.find(l => l.rozsah === scope && l.jazyk === lang) || p.vrstvy.find(l => l.rozsah === scope) || null;
 }
 function pdChannels(p) {
-  const accts = etsyAccts(), scopes = [["etsy", t("pdLayerAll")]].concat(accts.map(u => [u.id, u.nazev]));
+  const accts = allAccts(), scopes = [["etsy", t("pdLayerAll")]].concat(accts.map(u => [u.id, u.nazev])), api = isApi(PD.scope);
   if (!scopes.some(s => s[0] === PD.scope)) PD.scope = "etsy";
-  const L = pdLayer(p, PD.scope) || {}, up = PD.scope === "etsy" ? null : pdLayer(p, "etsy") || {};
+  const L = pdLayer(p, PD.scope) || {}, up = PD.scope === "etsy" || api ? null : pdLayer(p, "etsy") || {};
   const inh = (k, prodVal) => (up && up[k]) || prodVal || "";
   const acct = accts.find(u => u.id === PD.scope), cur = acct ? acct.mena : L.mena || accts[0]?.mena || K.zakladni_mena || "USD";
   const tagsInh = (up && up.stitky?.length ? up.stitky : []).join(", ");
   const priceHint = acct ? t("pdLayerPriceHint", { p: priceSrc(p.ceny?.[acct.id]) }) : t("pdLayerPriceAll");
   const extra = L.atributy?.length || Object.keys(L.extra || {}).length;
   return `<div class="seg" style="margin-top:16px">${scopes.map(([k, n]) => `<button data-scope="${esc(k)}" class="${k === PD.scope ? "on" : ""}">${esc(n)}</button>`).join("")}</div>
-    <p class="hint">${esc(t(PD.scope === "etsy" ? "pdLayerHintAll" : "pdLayerHintShop"))}</p>
-    ${pfld(t("pdLayerTitle"), pinp("plNazev", L.nazev, `maxlength="140" placeholder="${esc(inh("nazev", p.nazev))}"`))}
+    <p class="hint">${esc(t(PD.scope === "etsy" ? "pdLayerHintAll" : api ? "pdLayerHintApi" : "pdLayerHintShop"))}</p>
+    ${pfld(t("pdLayerTitle"), pinp("plNazev", L.nazev, `${api ? "" : 'maxlength="140" '}placeholder="${esc(inh("nazev", p.nazev))}"`))}
     ${pfld(t("pdLayerTags"), pinp("plStitky", (L.stitky || []).join(", "), `placeholder="${esc(tagsInh || t("pdLayerTagsPh"))}"`))}
     <div class="nl-row">
-      ${pfld(t("pdLayerCat"), `<input id="plKat" list="pTax" autocomplete="off" data-id="${esc(numStr(L.kategorie_id))}" placeholder="${esc(up && up.kategorie_id ? String(up.kategorie_id) : t("pdLayerCatPh"))}">`)}
+      ${api ? "" : pfld(t("pdLayerCat"), `<input id="plKat" list="pTax" autocomplete="off" data-id="${esc(numStr(L.kategorie_id))}" placeholder="${esc(up && up.kategorie_id ? String(up.kategorie_id) : t("pdLayerCatPh"))}">`)}
       ${pfld(t("pdLayerPrice"), `<div class="pricerow">${pinp("plCena", numStr(L.cena), 'inputmode="decimal"')}<select id="plMena" ${acct ? "disabled" : ""}>${[...new Set([cur, ...COMMON_CUR])].map(c => `<option ${c === (L.mena || cur) ? "selected" : ""}>${c}</option>`).join("")}</select></div><p class="hint">${esc(priceHint)}</p>`)}
     </div>
     ${pfld(t("pdLayerDesc"), `<textarea id="plPopis" rows="8" placeholder="${esc(inh("popis", p.popis).slice(0, 400))}">${esc(L.popis || "")}</textarea>`)}
@@ -3335,16 +3400,17 @@ function pdOffers(p) {
   const shops = S?.shopy || [];
   const fields = n => (n.zmeny_pole || []).map(f => t("fld_" + f)).join(", ");
   const offer = n => {
-    const url = n.ucet_id.startsWith("etsy:") ? `https://www.etsy.com/listing/${encodeURIComponent(n.externi_id)}` : "";
-    const shop = shopOfAcct(n.ucet_id), can = !S.demo && shops.some(x => x.id === shop && x.zapis);
-    const chg = (n.zmeny || []).map(z => `<span class="pill ship">${esc(t(OFF_CHG[z]))}${z === "katalog" && fields(n) ? `: ${esc(fields(n))}` : ""}</span>`).join(" ");
+    const api = isApi(n.ucet_id), url = api ? n.url : n.ucet_id.startsWith("etsy:") ? `https://www.etsy.com/listing/${encodeURIComponent(n.externi_id)}` : "";
+    const shop = shopOfAcct(n.ucet_id), can = !S.demo && (api || shops.some(x => x.id === shop && x.zapis));
+    const chg = (n.zmeny || []).map(z => `<span class="pill ship">${esc(offChg(z, n.ucet_id))}${z === "katalog" && fields(n) ? `: ${esc(fields(n))}` : ""}</span>`).join(" ");
+    const send = can && (n.zmeny?.includes("katalog") || n.zmeny?.includes("sklad"));
     return `<tr class="offrow"><td>${esc(acctName(n.ucet_id))}<div>${listingPill(n.stav)} ${chg}</div>${n.posledni_chyba ? `<div class="hint err">${esc(n.posledni_chyba)}</div>` : ""}</td>` +
-      `<td class="nw" style="text-align:right">${can && (n.zmeny?.includes("katalog") || n.zmeny?.includes("sklad")) ? `<a class="btn" href="#upravit/${esc(shop)}/${esc(n.externi_id)}/katalog/${p.id}">${esc(t("offSend"))}</a> ` : ""}` +
-      `${can && n.zmeny?.includes("kanal") ? `<button class="btn" data-pa="offTake" data-id="${n.id}">${esc(t("offTake"))}</button> ` : ""}` +
+      `<td class="nw" style="text-align:right">${send && api ? `<button class="btn" data-pa="offPush" data-id="${esc(n.ucet_id)}">${esc(t("offSend"))}</button> ` : send ? `<a class="btn" href="#upravit/${esc(shop)}/${esc(n.externi_id)}/katalog/${p.id}">${esc(t("offSend"))}</a> ` : ""}` +
+      `${can && n.zmeny?.includes("kanal") ? `<button class="btn" data-pa="offTake" data-id="${n.id}">${esc(t(api ? "offTakeApi" : "offTake"))}</button> ` : ""}` +
       `${url ? `<a class="btn ghost" href="${url}" target="_blank" rel="noopener">${esc(t("ldOpen"))} ↗</a>` : esc(n.externi_id)} ` +
       `${S.demo ? "" : `<button class="btn ghost" data-pa="offUnlink" data-id="${n.id}" title="${esc(t("offUnlink"))}">✕</button>`}</td></tr>`;
   };
-  const free = etsyAccts().filter(u => !p.nabidky.some(n => n.ucet_id === u.id));
+  const free = allAccts().filter(u => !p.nabidky.some(n => n.ucet_id === u.id));
   return (p.nabidky.length ? `<div class="tablewrap" style="margin-top:12px"><table><tbody>${p.nabidky.map(offer).join("")}</tbody></table></div>` : `<p class="hint">${esc(t("pdNoOffers"))}</p>`) +
     (free.length && !S.demo ? `<div class="actions left">${free.map(u => `<button class="btn" data-pa="offPublish" data-id="${esc(u.id)}">${esc(t("offPublishTo", { s: u.nazev }))}</button>`).join("")}</div>` : "") +
     `<span class="msg" id="pdMsg"></span>`;
@@ -3397,10 +3463,17 @@ async function pdAction(a, el) {
     if (!confirm(t("offUnlinkConfirm"))) return;
     return pdRun(() => api("/api/nabidka/odpojit", { id: +el.dataset.id }));
   }
+  if (a === "offPublish" && isApi(el.dataset.id)) a = "offPush";
+  if (a === "offPush") {
+    const u = el.dataset.id, has = p.nabidky.some(n => n.ucet_id === u);
+    if (!confirm(t(has ? "apiSendConfirm" : "apiPubConfirm", { s: acctName(u), n: p.nazev }))) return;
+    el.disabled = true; pdMsg(t("apiSending", { s: acctName(u) }), true);
+    return pdRun(() => api("/api/nabidka/odeslat", { ucet_id: u, produkt_id: p.id }), t(has ? "apiSent" : "apiPublished", { s: acctName(u) }));
+  }
   if (a === "offPublish") { $("#pdetail").close(); pubStart([el.dataset.id], [p.id]); return; }
   if (a === "saveLayer") {
     const o = NLOPTS[shopOfAcct((etsyAccts().find(u => u.id === PD.scope) || etsyAccts()[0] || {}).id || "")] || {};
-    const kat = v("#plKat").trim(), katId = kat ? catIdOf(o, kat) : null;
+    const kat = $("#plKat") ? v("#plKat").trim() : "", katId = kat ? catIdOf(o, kat) : null;
     if (kat && !katId) { pdMsg(t("pdLayerCatBad")); return; }
     const L = pdLayer(p, PD.scope);
     return pdRun(() => api("/api/produkt/vrstva", { produkt_id: p.id, rozsah: PD.scope, jazyk: L?.jazyk || K.jazyk || "en", nazev: v("#plNazev"),
@@ -3413,20 +3486,37 @@ $("#pNewBtn").onclick = () => openProduct(null);
 let PUB = null, PUB_PIDS = [];
 function openPublish(pids) {
   PUB_PIDS = pids; $("#pubMsg").textContent = "";
-  const prods = (K?.produkty || []).filter(p => pids.includes(p.id)), accts = etsyAccts();
+  const prods = (K?.produkty || []).filter(p => pids.includes(p.id)), accts = allAccts();
+  $("#pubGo").disabled = false; $("#pubApiState").hidden = !apiAccts().length;
   $("#pubFor").textContent = t("pubFor", { n: pl(prods.length, "product") });
   $("#pubAccts").innerHTML = accts.length ? accts.map(u => {
-    const shop = (S?.shopy || []).find(x => x.id === shopOfAcct(u.id)), can = shop && shop.zapis;
+    const shop = (S?.shopy || []).find(x => x.id === shopOfAcct(u.id)), can = !S.demo && (u.kanal === "api" || (shop && shop.zapis));
     const has = prods.filter(p => p.nabidky.some(n => n.ucet_id === u.id)).length;
     return `<label class="check"><input type="checkbox" value="${esc(u.id)}" ${can && has < prods.length ? "checked" : ""} ${can ? "" : "disabled"}> <b>${esc(u.nazev)}</b>` +
       `<span class="hint">${esc([u.mena, has ? t("pubHas", { n: pl(has, "product") }) : "", can ? "" : t("pubNoWrite")].filter(Boolean).join(" · "))}</span></label>`;
   }).join("") : `<p class="hint">${esc(t("rNoAccts"))}</p>`;
   $("#publish").showModal();
 }
-$("#pubGo").onclick = () => {
+$("#pubGo").onclick = async () => {
   const ucty = [...$("#pubAccts").querySelectorAll("input:checked")].map(i => i.value);
   if (!ucty.length) { msg($("#pubMsg"), t("pubPick")); return; }
-  $("#publish").close(); PSEL.clear(); pubStart(ucty, PUB_PIDS);
+  const etsy = ucty.filter(u => !isApi(u)), apis = ucty.filter(isApi);
+  if (apis.length) {  // e-shopy přes Vlastní API: rovnou odeslat, bez formuláře
+    const has = (pid, u) => ((K?.produkty || []).find(p => p.id === pid)?.nabidky || []).some(n => n.ucet_id === u);
+    const jobs = apis.flatMap(u => PUB_PIDS.filter(pid => !has(pid, u)).map(pid => [u, pid]));
+    if (jobs.length && !confirm(t("apiPubMany", { n: pl(jobs.length, "product"), s: apis.map(acctName).join(", ") }))) return;
+    $("#pubGo").disabled = true;
+    let ok = 0; const errs = [];
+    for (const [i, [u, pid]] of jobs.entries()) {
+      $("#pubMsg").className = "msg"; $("#pubMsg").textContent = t("apiPubRun", { i: i + 1, n: jobs.length, s: acctName(u) });
+      try { await api("/api/nabidka/odeslat", { ucet_id: u, produkt_id: pid, stav: $("#pubStav").value }); ok++; }
+      catch (e) { errs.push(`${(K.produkty.find(p => p.id === pid) || {}).nazev || pid}: ${e.message}`); }
+    }
+    await reloadCatalog();
+    const done = t("apiPubDone", { ok, n: jobs.length });
+    if (errs.length || !etsy.length) { $("#pubGo").disabled = false; $("#pubMsg").className = errs.length ? "msg err" : "msg ok"; $("#pubMsg").innerHTML = esc(done) + errs.map(x => `<br>${esc(x)}`).join(""); if (!etsy.length) { $("#pubAccts").querySelectorAll("input").forEach(i => { if (isApi(i.value)) i.checked = false; }); return; } if (errs.length) return; }
+  }
+  $("#publish").close(); PSEL.clear(); pubStart(etsy, PUB_PIDS);
 };
 function pubStart(ucty, pids) {
   EDIT = null; PUB = { ucty, pids, i: 0 };
@@ -3480,23 +3570,23 @@ function renderCatalogSettings() {
   const accts = K?.ucty || [];
   $("#acctRules").innerHTML = accts.length ? accts.map(u => {
     const r = u.pravidla || {};
-    return `<details class="acct" data-acct="${esc(u.id)}"><summary><b>${esc(u.nazev)}</b> <span class="hint">${esc([u.kanal === "etsy" ? "Etsy" : u.kanal, u.mena].filter(Boolean).join(" · "))}</span></summary>
+    return `<details class="acct" data-acct="${esc(u.id)}"><summary><b>${esc(u.nazev)}</b> <span class="hint">${esc([u.kanal === "etsy" ? "Etsy" : u.kanal === "api" ? t("apiChannel") : u.kanal, u.mena].filter(Boolean).join(" · "))}</span></summary>
       <div class="nl-row">
         ${pfld(t("rCoef"), `<input data-r="koeficient" inputmode="decimal" value="${esc(numStr(r.koeficient ?? 1))}">`)}
         ${pfld(t("rRound"), `<select data-r="zaokrouhleni">${["", "99", "90", "00"].map(x => `<option value="${x}" ${x === (r.zaokrouhleni || "") ? "selected" : ""}>${esc(t("rRound_" + (x || "none")))}</option>`).join("")}</select>`)}
         ${pfld(t("rQty"), `<input data-r="mnozstvi" inputmode="numeric" value="${esc(numStr(r.mnozstvi))}" placeholder="${esc(t("rQtyPh"))}">`)}
         ${pfld(t("rPhotos"), `<input data-r="max_fotek" inputmode="numeric" value="${esc(numStr(r.max_fotek ?? 10))}">`)}
-        ${pfld(t("rShip"), `<select data-r="doprava_id" data-v="${esc(numStr(r.doprava_id))}"><option value="">–</option></select>`)}
-        ${pfld(t("rProc"), `<select data-r="zpracovani_id" data-v="${esc(numStr(r.zpracovani_id))}"><option value="">–</option></select>`)}
+        ${u.kanal === "etsy" ? pfld(t("rShip"), `<select data-r="doprava_id" data-v="${esc(numStr(r.doprava_id))}"><option value="">–</option></select>`) : ""}
+        ${u.kanal === "etsy" ? pfld(t("rProc"), `<select data-r="zpracovani_id" data-v="${esc(numStr(r.zpracovani_id))}"><option value="">–</option></select>`) : ""}
       </div>
-      ${pfld(t("rCat"), `<input data-r="kategorie_id" list="rTax" autocomplete="off" data-v="${esc(numStr(r.kategorie_id))}">`)}
+      ${u.kanal === "etsy" ? pfld(t("rCat"), `<input data-r="kategorie_id" list="rTax" autocomplete="off" data-v="${esc(numStr(r.kategorie_id))}">`) : ""}
       ${pfld(t("rFooter"), `<textarea data-r="paticka" rows="3" placeholder="${esc(t("rFooterPh"))}">${esc(r.paticka || "")}</textarea>`)}
       <p class="hint">${esc(t("rHint", { c: base || "?", m: u.mena || "?" }))}</p>
       <div class="actions"><span class="msg" data-rmsg></span><button class="btn primary" data-rsave>${esc(t("save"))}</button></div></details>`;
   }).join("") + `<datalist id="rTax"></datalist>` : `<p class="hint">${esc(t("rNoAccts"))}</p>`;
 }
 $("#acctRules").addEventListener("toggle", async e => {
-  const d = e.target; if (!d.open || d.dataset.loaded) return;
+  const d = e.target; if (!d.open || d.dataset.loaded || !d.dataset.acct?.startsWith("etsy:")) return;
   d.dataset.loaded = "1";
   const o = await shopOpts(shopOfAcct(d.dataset.acct));
   const fillSel = (k, items) => { const s = d.querySelector(`[data-r="${k}"]`); s.innerHTML = `<option value="">–</option>` + (items || []).map(x => `<option value="${x.id}" ${String(x.id) === s.dataset.v ? "selected" : ""}>${esc(x.nazev)}</option>`).join(""); };
@@ -3590,6 +3680,7 @@ async function importFolder(files) {
 
 // objednávky: položky, ruční stav, tracking na Etsy, hromadná změna stavu, výrobní list
 let ORDER_ROWS = [];
+const ordNo = r => RAW.cisla?.[r.receipt_id] || r.receipt_id;
 function itemsOf(rid) { return (RAW.polozky || []).filter(i => i.receipt_id === rid); }
 function orderItemsHtml(r) {
   const items = itemsOf(r.receipt_id);
@@ -3601,18 +3692,19 @@ function orderItemsHtml(r) {
   }).join("")}</ul>`;
 }
 function renderPush(r, d) {
-  const o = RAW.obj_stav?.[r.receipt_id] || {}, shop = (S.shopy || []).find(x => x.name === r.shop && x.id);
+  const o = RAW.obj_stav?.[r.receipt_id] || {}, apiOrd = !!RAW.cisla?.[r.receipt_id] && !S.demo;
+  const shop = apiOrd ? { name: r.shop, expedice: true } : (S.shopy || []).find(x => x.name === r.shop && x.id);
   let h = "";
-  if (o.tracking_ts) h = `<p class="hint">✓ ${esc(t("trackSent", { d: fmtDate(o.tracking_ts) }))}</p>`;
+  if (o.tracking_ts) h = `<p class="hint">✓ ${esc(t(apiOrd ? "trackSentApi" : "trackSent", { d: fmtDate(o.tracking_ts) }))}</p>`;
   else if (r.odeslano) h = d.cislo ? `<p class="hint">${esc(t("trackShipped"))}</p>` : "";
   else if (!d.cislo) h = shop ? `<p class="hint">${esc(t("trackSaveFirst"))}</p>` : "";
   else if (shop && !shop.expedice) h = `<p class="hint">${esc(t("trackRelogin", { s: shop.name }))}</p>`;
-  else if (shop) h = `<div class="actions left"><button class="btn" id="shPushBtn">${esc(t("trackPush"))}</button><span class="msg" id="shPushMsg"></span></div>`;
+  else if (shop) h = `<div class="actions left"><button class="btn" id="shPushBtn">${esc(t(apiOrd ? "trackPushApi" : "trackPush"))}</button><span class="msg" id="shPushMsg"></span></div>`;
   if (o.tracking_chyba && !o.tracking_ts) h += `<p class="err">${esc(t("trackErr", { e: o.tracking_chyba }))}</p>`;
   $("#shPush").innerHTML = h;
 }
 $("#shPush").addEventListener("click", async e => {
-  if (!e.target.closest("#shPushBtn") || !confirm(t("trackConfirm"))) return;
+  if (!e.target.closest("#shPushBtn") || !confirm(t(RAW.cisla?.[ORDER.receipt_id] ? "trackConfirmApi" : "trackConfirm"))) return;
   const b = $("#shPushBtn"); b.disabled = true;
   try { await api("/api/objednavka/tracking", { receipt_id: ORDER.receipt_id }); await load(); openOrder(ORDER.receipt_id); }
   catch (err) { msg($("#shPushMsg"), err.message); b.disabled = false; await load(); }
@@ -3671,11 +3763,55 @@ function productionSheet(rows) {
   <h1>${esc(t("sheetTitle"))}</h1><div class="muted">${esc(new Date().toLocaleString(loc()))} · ${esc(pl(orders.length, "order"))}${skipped ? " · " + esc(t("sheetDigital")) : ""}</div>
   ${orders.length ? `<h2>${esc(t("sheetSum"))}</h2><table><tbody>${[...sum].sort((a, b) => a[0].localeCompare(b[0])).map(([k, q]) => { const [n, v] = k.split("\u0000"); return `<tr><td class="q">${q}×</td><td>${esc(n)}${v ? `<div class="muted">${esc(v)}</div>` : ""}</td></tr>`; }).join("")}</tbody></table>
   <h2>${esc(t("tabOrders"))}</h2><table><thead><tr><th></th><th>${esc(t("colItems"))}</th><th>${esc(t("colBuyer"))}</th><th>${esc(t("colStatus"))}</th></tr></thead><tbody>${orders.map(([r, items]) =>
-    `<tr class="o"><td><span class="box"></span></td><td><b>${esc(t("orderNo", { n: r.receipt_id }))}</b> <span class="muted">${esc(fmtDate(r.vytvoreno_ts))} · ${esc(r.shop)}</span>${items.map(i =>
+    `<tr class="o"><td><span class="box"></span></td><td><b>${esc(t("orderNo", { n: ordNo(r) }))}</b> <span class="muted">${esc(fmtDate(r.vytvoreno_ts))} · ${esc(r.shop)}</span>${items.map(i =>
       `<div>${i.mnozstvi === "" ? "" : `<b>${i.mnozstvi}×</b> `}${esc(i.nazev)}${i.varianta ? ` <span class="muted">(${esc(i.varianta)})</span>` : ""}${i.personalizace ? `<div>✎ ${esc(i.personalizace)}</div>` : ""}</div>`).join("")}</td><td>${esc(r.zakaznik || "")}</td><td>${esc(st(r))}</td></tr>`).join("")}</tbody></table>`
     : `<p>${esc(t("sheetNone"))}</p>`}</body></html>`);
   w.document.close();
 }
+
+// nastavení: e-shopy přes Vlastní API
+const API_DOC = "https://github.com/fanattik/etsy-dashboard/blob/main/docs/custom-api.md";
+let APIS = null, APINEW = false;
+async function loadApiShops() { try { APIS = (await api("/api/kanaly")).ucty; } catch { APIS = APIS || []; } renderApiShops(); }
+function apiForm(a) {
+  const cur = a.mena || K?.zakladni_mena || "CZK", list = [...new Set([cur, ...COMMON_CUR])];
+  return `<details class="acct" data-api="${esc(a.id || "")}" ${a.id ? "" : "open"}><summary><b>${esc(a.nazev || t("apiNew"))}</b> <span class="hint">${esc([a.url ? new URL(a.url).host : "", a.mena].filter(Boolean).join(" · "))}</span></summary>
+    <div class="nl-row">${pfld(t("apiName"), `<input data-k="nazev" value="${esc(a.nazev || "")}" maxlength="60">`)}
+      ${pfld(t("apiUrl"), `<input data-k="url" value="${esc(a.url || "")}" placeholder="https://shop.example.com/api/dashboard" autocomplete="off">`)}</div>
+    <div class="nl-row">${pfld(t("apiKey"), `<input data-k="klic" type="password" autocomplete="off" placeholder="${esc(a.ma_klic ? t("secretSaved") : "")}">`)}
+      <div class="nl-row">${pfld(t("apiCur"), `<select data-k="mena">${list.map(c => `<option ${c === cur ? "selected" : ""}>${c}</option>`).join("")}</select>`)}
+      ${pfld(t("apiLang"), `<select data-k="jazyk">${CAT_LANGS.map(l => `<option value="${l}" ${l === (a.jazyk || K?.jazyk || "cs") ? "selected" : ""}>${l.toUpperCase()}</option>`).join("")}</select>`)}</div></div>
+    ${a.posledni ? `<p class="hint">${esc(t("apiLast", { d: fmtDate(a.posledni) }))}</p>` : ""}
+    <div class="actions"><span class="msg" data-amsg></span>${a.id ? `<button class="btn danger" data-aa="del">${esc(t("remove"))}</button>` : ""}<button class="btn" data-aa="test">${esc(t("apiTest"))}</button><button class="btn primary" data-aa="save">${esc(t("save"))}</button></div></details>`;
+}
+function renderApiShops() {
+  if (document.activeElement?.closest?.("#apiList")) return;
+  const list = (APIS || []).map(apiForm).join("") + (APINEW ? apiForm({}) : "");
+  $("#apiList").innerHTML = list || "";
+  $("#apiAdd").hidden = APINEW || !!S?.demo;
+  $("#apiSettings .hint").innerHTML = esc(t("apiShopsHint")) + ` <a href="${API_DOC}" target="_blank" rel="noopener" style="color:var(--text);text-decoration:underline">${esc(t("apiDoc"))} ↗</a>`;
+}
+$("#apiAdd").onclick = () => { APINEW = true; renderApiShops(); $("#apiList details:last-child [data-k=nazev]").focus(); };
+$("#apiList").addEventListener("click", async e => {
+  const b = e.target.closest("[data-aa]"); if (!b) return;
+  const d = b.closest("details"), m = d.querySelector("[data-amsg]"), id = d.dataset.api || null, body = { id };
+  d.querySelectorAll("[data-k]").forEach(i => body[i.dataset.k] = i.value);
+  b.disabled = true;
+  try {
+    if (b.dataset.aa === "test") {
+      const r = await api("/api/kanal/test", body);
+      msg(m, t("apiTestOk", { n: r.info.name || "?", c: r.info.currency || "?" }), true);
+      if (r.info.currency && !id) d.querySelector("[data-k=mena]").value = r.info.currency;
+    } else if (b.dataset.aa === "save") {
+      await api("/api/kanal/ulozit", body); APINEW = false; document.activeElement?.blur();
+      await loadApiShops(); await reloadCatalog(); renderCatalogSettings(); msg($("#apiList").querySelector(`[data-api="${CSS.escape(id || "")}"] [data-amsg]`) || m, t("saved"), true);
+    } else if (b.dataset.aa === "del") {
+      if (!confirm(t("apiDelConfirm", { s: body.nazev }))) { b.disabled = false; return; }
+      await api("/api/kanal/odebrat", { id }); document.activeElement?.blur(); await loadApiShops(); await reloadCatalog(); renderCatalogSettings();
+    }
+  } catch (err) { msg(m, err.message); }
+  b.disabled = false;
+});
 
 // nastavení: vlastní stavy objednávek
 let OSTE = null;  // rozpracovaný seznam stavů

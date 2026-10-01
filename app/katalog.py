@@ -278,14 +278,20 @@ def store_etsy_layer(con, pid, ucet, det, now):
                  json.dumps(extra, ensure_ascii=False), now, lay))
 
 
-def store_snapshot(con, ucet, lid, sent, pushed=False):
-    """Co je teď v kanálu (odesláno nebo načteno), aby šly poznat změny v katalogu i na Etsy.
-    Po vlastním odeslání se čas změny v kanálu posune, aby se naše úprava nehlásila jako cizí."""
-    snap = {k: v for k, v in sent.items() if k not in ("url", "obrazky", "soubory")}
-    if pushed:
+def store_snapshot(con, ucet, lid, sent, pushed=False, modified=None):
+    """Co je teď v kanálu (odesláno nebo načteno), aby šly poznat změny v katalogu i v kanálu.
+    Po vlastním odeslání se čas změny v kanálu posune, aby se naše úprava nehlásila jako cizí;
+    kanál, který čas změny vrátí (Vlastní API), ho dá přesně."""
+    snap = {k: v for k, v in sent.items() if k not in ("url", "obrazky", "soubory", "produkty")}
+    if modified:
+        modified = int(modified)
+    elif pushed:
         modified = int(time.time()) + 120
-    else:
+    elif str(ucet).startswith("etsy:"):
         row = con.execute("SELECT zmeneno_ts FROM listingy WHERE listing_id=?", (int(lid),)).fetchone()
+        modified = row[0] if row else None
+    else:
+        row = con.execute("SELECT zmeneno_ts FROM kanal_produkty WHERE ucet_id=? AND externi_id=?", (ucet, str(lid))).fetchone()
         modified = row[0] if row else None
     con.execute("UPDATE nabidky SET odeslano=?, hash=?, zmeneno_v_kanalu_ts=?, posledni_chyba=NULL WHERE ucet_id=? AND externi_id=?",
                 (json.dumps(snap, ensure_ascii=False), _snapshot_hash(snap), modified, ucet, str(lid)))

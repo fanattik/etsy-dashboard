@@ -8,7 +8,7 @@ import time
 
 from zaklad import DATA_DIR, DB_PATH
 
-SCHEMA = 2  # PRAGMA user_version: 1 = katalog produktů (verze 1.24), 2 = stavy objednávek (verze 1.27)
+SCHEMA = 3  # PRAGMA user_version: 1 = katalog produktů (1.24), 2 = stavy objednávek (1.27), 3 = kanál Vlastní API (1.28)
 _MIGRACE = threading.Lock()
 _ZKONTROLOVANO = set()
 
@@ -91,6 +91,14 @@ def db(path=None):
     con.execute("""CREATE TABLE IF NOT EXISTS obj_stav (
         receipt_id INTEGER PRIMARY KEY, stav_id INTEGER, zmeneno_ts INTEGER, rucne INTEGER DEFAULT 0,
         tracking_ts INTEGER, tracking_chyba TEXT)""")
+    # další kanály (Vlastní API): přístup k účtu, co je teď v kanálu a čísla objednávek z kanálu
+    if "pristup" not in {r[1] for r in con.execute("PRAGMA table_info(kanal_ucty)")}:
+        con.execute("ALTER TABLE kanal_ucty ADD COLUMN pristup TEXT")
+    con.execute("""CREATE TABLE IF NOT EXISTS kanal_produkty (
+        ucet_id TEXT, externi_id TEXT, nazev TEXT, stav TEXT, cena REAL, mena TEXT, mnozstvi INTEGER, url TEXT,
+        zmeneno_ts INTEGER, PRIMARY KEY (ucet_id, externi_id))""")
+    con.execute("""CREATE TABLE IF NOT EXISTS obj_kanal (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, ucet_id TEXT, externi_id TEXT, cislo TEXT, UNIQUE (ucet_id, externi_id))""")
     con.execute("""CREATE TABLE IF NOT EXISTS sklad_pohyby (
         ucet_id TEXT, externi_radek_id TEXT, varianta_id INTEGER, mnozstvi INTEGER, ts INTEGER,
         PRIMARY KEY (ucet_id, externi_radek_id))""")

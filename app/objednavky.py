@@ -7,6 +7,7 @@ import time
 from zaklad import AppError, load_tokens, LOCK, tr
 from databaze import db, last_ts, rows_as_dicts, set_last_ts
 from etsy_api import api_send, can_ship
+from kanal_api import order_numbers, order_ref, ship as api_ship
 
 # Výchozí sada pro novou instalaci. Jde přejmenovat, doplnit nebo smazat v Nastavení.
 DEFAULT_STATES = {
@@ -170,11 +171,14 @@ def push_tracking(cfg, rid, db_path=None):
     try:
         ship = con.execute("SELECT dopravce, cislo FROM doprava WHERE receipt_id=?", (rid,)).fetchone()
         tokens = load_tokens()
-        shop_id = _shop_of(con, tokens, rid)
+        ref = order_ref(con, rid)  # objednávka z e-shopu přes Vlastní API
+        shop_id = None if ref else _shop_of(con, tokens, rid)
     finally:
         con.close()
     if not ship or not (ship[1] or "").strip():
         raise AppError("track_missing", "Objednávka nemá vyplněné číslo zásilky.")
+    if ref:
+        return _record_tracking(cfg, rid, db_path, lambda: _api_ship(ref, ship, db_path), "api")
     if not shop_id or shop_id not in tokens:
         raise AppError("listing_no_shop", "Tahle shopa není připojená přes Etsy API.")
     if not can_ship(tokens[shop_id]):
@@ -182,9 +186,22 @@ def push_tracking(cfg, rid, db_path=None):
     data = {"tracking_code": ship[1].strip(), "send_bcc": False}
     if (ship[0] or "").strip():
         data["carrier_name"] = ship[0].strip()
+    return _record_tracking(cfg, rid, db_path, lambda: api_send(cfg, tokens, shop_id, "POST", f"/shops/{shop_id}/receipts/{rid}/tracking", data))
+
+
+def _api_ship(ref, ship, db_path):
+    con = db(db_path)
+    try:
+        api_ship(con, ref[0], ref[1], (ship[0] or "").strip(), ship[1].strip())
+    finally:
+        con.close()
+
+
+def _record_tracking(cfg, rid, db_path, send, kanal="etsy"):
+    """Odešle tracking do kanálu a zapíše výsledek: úspěch označí objednávku jako odeslanou, chyba zůstane u objednávky."""
     err = None
     try:
-        api_send(cfg, tokens, shop_id, "POST", f"/shops/{shop_id}/receipts/{rid}/tracking", data)
+        send()
     except Exception as e:
         err = str(e)
     now = int(time.time())
@@ -202,6 +219,8 @@ def push_tracking(cfg, rid, db_path=None):
         finally:
             con.close()
     if err:
+        if kanal == "api":
+            raise AppError("track_failed_api", f"E-shop tracking nepřijal: {err}", e=err)
         raise AppError("track_failed", f"Etsy tracking nepřijala: {err}", e=err)
     return {"ok": True}
 
@@ -296,4 +315,4 @@ def orders_data(con, lang="cs"):
     return {"stavy": states(con),
             "obj_stav": {r[0]: {"stav_id": r[1], "zmeneno_ts": r[2], "rucne": bool(r[3]), "tracking_ts": r[4], "tracking_chyba": r[5]}
                          for r in con.execute("SELECT receipt_id, stav_id, zmeneno_ts, rucne, tracking_ts, tracking_chyba FROM obj_stav")},
-            "polozky": items}
+            "polozky": items, "cisla": order_numbers(con)}

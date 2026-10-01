@@ -9,6 +9,7 @@ from databaze import db
 from katalog import catalog_data, store_etsy_layer, store_snapshot
 from etsy_listingy import listing_detail
 from produkty import account_price, cached_rates, convert, round_price
+from kanal_api import is_api, readopt
 
 CUSTOM_PIDS = (513, 514)  # vlastní varianty na Etsy (první a druhá vlastnost)
 
@@ -144,6 +145,9 @@ def readopt_offer(cfg, body, db_path=None, demo=False):
         pid, ucet, lid = _offer(con, body.get("id"))
     finally:
         con.close()
+    if is_api(ucet):
+        readopt(pid, ucet, lid, db_path)
+        return {"ok": True}
     det = listing_detail(cfg, ucet.split(":", 1)[1], lid)
     with LOCK:
         con = db(db_path)
@@ -174,14 +178,18 @@ def unlink_offer(body, db_path=None, demo=False):
 
 def offer_states(con, products, accounts, base_cur, rates):
     """Doplní k nabídkám živý stav listingu a seznam změn: v katalogu (k odeslání) a na Etsy (cizí úprava)."""
-    live = {str(r[0]): (r[1], r[2], r[3]) for r in con.execute("SELECT listing_id, stav, zmeneno_ts, mnozstvi FROM listingy")}
+    live = {("etsy", str(r[0])): (r[1], r[2], r[3], None) for r in con.execute("SELECT listing_id, stav, zmeneno_ts, mnozstvi FROM listingy")}
+    live.update({(r[0], r[1]): (r[2], r[3], r[4], r[5]) for r in con.execute(
+        "SELECT ucet_id, externi_id, stav, zmeneno_ts, mnozstvi, url FROM kanal_produkty")})
     sent = {r[0]: r[1] for r in con.execute("SELECT id, odeslano FROM nabidky")}
     by_id = {a["id"]: a for a in accounts}
     for p in products:
         for n in p["nabidky"]:
-            state, modified, qty = live.get(n["externi_id"], (None, None, None))
-            if n["ucet_id"].startswith("etsy:") and state:
+            key = ("etsy", n["externi_id"]) if n["ucet_id"].startswith("etsy:") else (n["ucet_id"], n["externi_id"])
+            state, modified, qty, url = live.get(key, (None, None, None, None))
+            if state:
                 n["stav"] = state
+            n["url"] = url or ""
             n["zmeny"] = []
             acct = by_id.get(n["ucet_id"])
             raw = sent.get(n["id"])
@@ -195,5 +203,5 @@ def offer_states(con, products, accounts, base_cur, rates):
             stock = [v["sklad"] for v in p["varianty"] if v["aktivni"] and v["sklad"] is not None]
             if p["vyroba"] == "sklad" and stock and qty is not None and qty != sum(stock):  # po prodeji ze skladu
                 n["zmeny"].append("sklad")
-            if modified and n.get("zmeneno_v_kanalu_ts") and modified > n["zmeneno_v_kanalu_ts"] + 60:
+            if modified and n.get("zmeneno_v_kanalu_ts") and modified > n["zmeneno_v_kanalu_ts"] + (0 if is_api(n["ucet_id"]) else 60):
                 n["zmeny"].append("kanal")
