@@ -47,7 +47,7 @@ from produkty import delete_product, media_action, save_layer, save_product, sav
 
 
 PORT = 8765
-VERSION = "1.28"
+VERSION = "1.29"
 zaklad.VERSION = VERSION  # User-Agent v HTTP požadavcích
 
 
