@@ -166,7 +166,7 @@ th.sortable { cursor: pointer; user-select: none; }
 .tfilters .grow { flex: 1; }
 .addship, .carrier { font-family: "Inter", ui-sans-serif, system-ui, sans-serif; font-size: 12px; } .addship { color: var(--faint); } .carrier { color: var(--muted); } tr.click:hover .addship { color: var(--text); }
 #odetail { width: min(620px, calc(100vw - 32px)); }
-#odetail h4.dsec { margin: 22px 0 0; font-size: 13px; font-weight: 500; color: var(--muted); }
+#odetail h4.dsec, #catSettings h4.dsec { margin: 22px 0 0; font-size: 13px; font-weight: 500; color: var(--muted); }
 .shipform { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px; }
 .shipform .field:last-child { grid-column: 1 / -1; }
 .pricerow { display: flex; gap: 8px; } .field .pricerow input { flex: 1; min-width: 0; width: auto; } .field .pricerow select { width: 110px; flex: none; }
@@ -188,6 +188,13 @@ span.dimg { font-size: 42px; }
 .dstat span { color: var(--muted); font-size: 12px; } .dstat b { text-align: left; font-weight: 500; font-size: 14px; overflow-wrap: anywhere; }
 #ldetail h4, #pdetail h4 { margin: 22px 0 10px; font-size: 13px; font-weight: 500; color: var(--muted); }
 #ldetail h4 small, #pdetail h4 small { font-family: var(--mono); color: var(--faint); margin-left: 4px; }
+.field.span2 { grid-column: 1 / -1; }
+.plist { grid-template-columns: auto 1fr; padding: 0; margin: 0; } .plist li { display: contents; }
+.pmi { display: flex; flex-direction: column; gap: 4px; align-items: center; } .pmb { display: flex; gap: 2px; } .pmb .btn { padding: 2px 7px; }
+#pdBody .list li { display: flex; align-items: center; gap: 8px; } #pdBody .list li .btn { margin-left: auto; padding: 2px 8px; }
+.vtable input { width: 100%; min-width: 70px; background: var(--panel-2); border-color: transparent; padding: 6px 8px; } .vtable th input { font-weight: 500; }
+#pdTabs { margin-top: 6px; }
+details.acct { border-top: 1px solid var(--line); padding: 10px 0; } details.acct summary { cursor: pointer; } details.acct summary .hint { margin-left: 6px; }
 .pgal { display: flex; flex-wrap: wrap; gap: 8px; } .pgal img { width: 92px; height: 92px; object-fit: cover; border-radius: 8px; background: var(--panel-2); }
 .offers { display: flex; flex-wrap: wrap; gap: 4px; }
 #adBody select { max-width: 220px; } #adBody td { vertical-align: middle; }
@@ -415,7 +422,8 @@ dialog::backdrop { background: rgba(0,0,0,.4); }
         <div class="card-h">
           <input class="search" id="psearch" data-i18n-ph="pSearchPh">
           <div class="spacer"></div>
-          <button class="btn primary" id="pAdoptBtn"><svg class="i" viewBox="0 0 24 24"><path d="M12 4v12M7 11l5 5 5-5M4 20h16"/></svg><span data-i18n="pAdopt"></span></button>
+          <button class="btn primary" id="pNewBtn"><svg class="i" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg><span data-i18n="pNew"></span></button>
+          <button class="btn" id="pAdoptBtn"><svg class="i" viewBox="0 0 24 24"><path d="M12 4v12M7 11l5 5 5-5M4 20h16"/></svg><span data-i18n="pAdopt"></span></button>
           <button class="btn" id="pFolderBtn"><svg class="i" viewBox="0 0 24 24"><path d="M3 6a1 1 0 0 1 1-1h5l2 2h9a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V6z"/></svg><span data-i18n="pFolder"></span></button>
           <input type="file" id="pFolder" webkitdirectory multiple hidden>
         </div>
@@ -517,6 +525,17 @@ dialog::backdrop { background: rgba(0,0,0,.4); }
             <div class="field"><label for="currency" data-i18n="curLabel"></label><select id="currency"></select><p class="hint" id="curHint"></p></div>
             <div class="field"><span class="flabel" data-i18n="theme"></span>
               <div class="seg" id="themeSeg"><button data-theme="auto" data-i18n="themeAuto"></button><button data-theme="light" data-i18n="themeLight"></button><button data-theme="dark" data-i18n="themeDark"></button></div></div>
+          </div>
+          <div class="card" id="catSettings">
+            <h2 data-i18n="catTitle"></h2>
+            <p class="hint" data-i18n="catHint"></p>
+            <div class="nl-row">
+              <div class="field"><label for="baseCur" data-i18n="catBaseCur"></label><select id="baseCur"></select></div>
+              <div class="field"><label for="catLang" data-i18n="catLang"></label><select id="catLang"></select></div>
+            </div>
+            <div class="actions"><span class="msg" id="catMsg"></span><button class="btn primary" id="catSave" data-i18n="save"></button></div>
+            <h4 class="dsec" data-i18n="rTitle"></h4>
+            <div id="acctRules"></div>
           </div>
           <div class="card">
             <h2 data-i18n="secData"></h2>
@@ -1731,7 +1750,8 @@ async function load() {
   try {
     S = await api("/api/stav");
     RAW = await api("/api/data");
-    K = await api("/api/katalog").catch(() => K);
+    const hadK = !!K; K = await api("/api/katalog").catch(() => K);
+    if (!hadK && K && page === "nastaveni") renderCatalogSettings();
     if (!RATES || Date.now() / 1000 - (RATES.stazeno || 0) > 12 * 3600) RATES = await api("/api/kurzy").catch(() => RATES);
     convertData();
     const prev = $("#period").value; buildPeriods(); if (prev) $("#period").value = prev;
@@ -1765,7 +1785,7 @@ function fillSettings() {
   $("#secret").placeholder = n.ma_secret ? t("secretSaved") : "";
   $("#redirect").value = n.redirect_uri || ""; $("#interval").value = n.interval_minut || 15; $("#ntfy").value = n.ntfy_topic || "";
   $("#verze").textContent = S.verze || "";
-  renderShopList(); buildCurrency(); renderNotif(); applyTheme();
+  renderShopList(); buildCurrency(); renderNotif(); applyTheme(); if (K) renderCatalogSettings();
 }
 function renderShopList() {
   $("#shopList").innerHTML = S.shopy.length ? S.shopy.map(s =>
@@ -2807,9 +2827,9 @@ const T8 = {
     pSum: "{n} v katalogu", pOutside: "{n} z Etsy zatím mimo katalog", pEmpty: "Katalog je prázdný. Začni převzetím listingů z Etsy nebo načtením složky s produkty.",
     colProduct: "Produkt", colOffers: "Nabídky", colMedia: "Fotky a soubory", pDigital: "digitální", pPhysical: "fyzický",
     pNoOffer: "bez nabídky", lOutside: "mimo katalog",
-    pdPhotos: "Fotky", pdFiles: "Soubory", pdEtsyOnly: "jen na Etsy, nahraj ho přes složku", pdVariants: "Varianty", pdLayers: "Údaje pro kanály",
-    pdLayerAll: "Etsy · všechny shopy", pdOffers: "Nabídky", pdNoOffers: "Produkt zatím nikde nenabízíš.", pdFolder: "Složka", pdSold: "Prodáno celkem",
-    pdCreated: "V katalogu od", pdOwnTitle: "Vlastní název", pdOwnDesc: "vlastní popis", pdNoLayers: "Zatím žádné.",
+    pdPhotos: "Fotky", pdFiles: "Soubory", pdEtsyOnly: "jen na Etsy, nahraj ho přes složku",
+    pdLayerAll: "Etsy · všechny shopy", pdNoOffers: "Produkt zatím nikde nenabízíš.", pdSold: "Prodáno celkem",
+   
     adTitle: "Převzít listingy do katalogu", adHint: "Ke každému listingu se založí produkt, nebo se spáruje s existujícím. Fotky se stáhnou do počítače, údaje z Etsy se uloží jako vrstva pro danou shopu. Na Etsy se nic nemění.",
     adGo: "Převzít vybrané", adNone: "Všechny listingy z připojených shop už jsou v katalogu.", adNew: "Nový produkt", adSame: "Stejný jako „{n}“",
     adWhySku: "stejné SKU", adWhyName: "stejný název", adRun: "převádím…", adOk: "hotovo", adPhotoErr: "{n} fotek se nestáhlo",
@@ -2822,9 +2842,9 @@ const T8 = {
     pSum: "{n} in the catalog", pOutside: "{n} from Etsy not in the catalog yet", pEmpty: "The catalog is empty. Start by adopting your Etsy listings or loading a product folder.",
     colProduct: "Product", colOffers: "Offers", colMedia: "Photos and files", pDigital: "digital", pPhysical: "physical",
     pNoOffer: "no offer", lOutside: "not in catalog",
-    pdPhotos: "Photos", pdFiles: "Files", pdEtsyOnly: "only on Etsy, add it through a folder", pdVariants: "Variants", pdLayers: "Channel data",
-    pdLayerAll: "Etsy · all shops", pdOffers: "Offers", pdNoOffers: "This product isn't offered anywhere yet.", pdFolder: "Folder", pdSold: "Sold in total",
-    pdCreated: "In catalog since", pdOwnTitle: "Own title", pdOwnDesc: "own description", pdNoLayers: "None yet.",
+    pdPhotos: "Photos", pdFiles: "Files", pdEtsyOnly: "only on Etsy, add it through a folder",
+    pdLayerAll: "Etsy · all shops", pdNoOffers: "This product isn't offered anywhere yet.", pdSold: "Sold in total",
+   
     adTitle: "Adopt listings into the catalog", adHint: "Each listing creates a product or joins an existing one. Photos are downloaded to this computer and the Etsy data is saved as that shop's layer. Nothing changes on Etsy.",
     adGo: "Adopt selected", adNone: "All listings from your connected shops are already in the catalog.", adNew: "New product", adSame: "Same as “{n}”",
     adWhySku: "same SKU", adWhyName: "same title", adRun: "adopting…", adOk: "done", adPhotoErr: "{n} photos failed to download",
@@ -2837,9 +2857,9 @@ const T8 = {
     pSum: "{n} im Katalog", pOutside: "{n} von Etsy noch nicht im Katalog", pEmpty: "Der Katalog ist leer. Übernimm zuerst deine Etsy-Angebote oder lade einen Produktordner.",
     colProduct: "Produkt", colOffers: "Angebote", colMedia: "Fotos und Dateien", pDigital: "digital", pPhysical: "physisch",
     pNoOffer: "kein Angebot", lOutside: "nicht im Katalog",
-    pdPhotos: "Fotos", pdFiles: "Dateien", pdEtsyOnly: "nur auf Etsy, über einen Ordner hinzufügen", pdVariants: "Varianten", pdLayers: "Daten je Kanal",
-    pdLayerAll: "Etsy · alle Shops", pdOffers: "Angebote", pdNoOffers: "Dieses Produkt wird noch nirgends angeboten.", pdFolder: "Ordner", pdSold: "Insgesamt verkauft",
-    pdCreated: "Im Katalog seit", pdOwnTitle: "Eigener Titel", pdOwnDesc: "eigene Beschreibung", pdNoLayers: "Noch keine.",
+    pdPhotos: "Fotos", pdFiles: "Dateien", pdEtsyOnly: "nur auf Etsy, über einen Ordner hinzufügen",
+    pdLayerAll: "Etsy · alle Shops", pdNoOffers: "Dieses Produkt wird noch nirgends angeboten.", pdSold: "Insgesamt verkauft",
+   
     adTitle: "Angebote in den Katalog übernehmen", adHint: "Jedes Angebot legt ein Produkt an oder wird einem bestehenden zugeordnet. Fotos werden auf diesen Computer geladen, die Etsy-Daten als Ebene des Shops gespeichert. Auf Etsy ändert sich nichts.",
     adGo: "Auswahl übernehmen", adNone: "Alle Angebote der verbundenen Shops sind schon im Katalog.", adNew: "Neues Produkt", adSame: "Wie „{n}“",
     adWhySku: "gleiche SKU", adWhyName: "gleicher Titel", adRun: "wird übernommen…", adOk: "fertig", adPhotoErr: "{n} Fotos nicht geladen",
@@ -2855,6 +2875,100 @@ Object.assign(T.en.errors, { media_big: "The file is larger than 50 MB.", adopt_
   adopt_product: "The chosen product isn't in the catalog.", folder_title: "etsy-listing.md has no title." });
 Object.assign(T.de.errors, { media_big: "Die Datei ist größer als 50 MB.", adopt_done: "Dieses Angebot ist schon im Katalog.",
   adopt_product: "Das gewählte Produkt ist nicht im Katalog.", folder_title: "In etsy-listing.md fehlt der Titel." });
+
+const T9 = {
+  cs: {
+    pNew: "Nový produkt", pdNewTitle: "Nový produkt", pdTab_general: "Obecné", pdTab_variants: "Varianty", pdTab_media: "Fotky a soubory",
+    pdTab_channels: "Kanály", pdTab_offers: "Nabídky",
+    pdPriceNone: "bez ceny", pdPriceNoRate: "chybí kurz pro přepočet", pdSrc_ucet: "cena pro tento shop", pdSrc_kanal: "cena pro celé Etsy", pdSrc_vypocet: "vypočteno ze základní ceny",
+    pdName: "Název", pdSkuAuto: "doplní se samo", pdBasePrice: "Základní cena ({c})", pdType: "Typ", pdMake: "Výroba", pdMakeOrder: "Na objednávku", pdMakeStock: "Ze skladu",
+    pdCategory: "Kategorie v katalogu", pdCategoryPh: "např. Plánovače", pdWeight: "Hmotnost (g)", pdSize: "Rozměry (mm)", pdLen: "délka", pdWid: "šířka", pdHei: "výška",
+    pdDesc: "Popis", pdNoBase: "Základní měnu katalogu nastavíš v <a href=\"#nastaveni\">Nastavení</a>.", pdPrices: "Cena v prodejních účtech",
+    pdDelete: "Smazat produkt", pdCreate: "Založit produkt",
+    pdDelConfirm: "Smazat „{n}“ z katalogu i s fotkami a soubory v počítači?",
+    pdDelConfirmOffers: "Smazat „{n}“ z katalogu i s fotkami a soubory v počítači? {o} na Etsy zůstane, jen přestane být propojený s katalogem.",
+    pdVarHint: "Vlastnosti jako barva nebo velikost. Každý řádek je jedna kombinace se svým SKU, příplatkem k základní ceně a skladem.",
+    pdVarProp: "Vlastnost {n}", pdVarExtra: "Příplatek {c}", pdVarOn: "Aktivní", pdVarAdd: "Přidat variantu", pdVarNoProps: "Každá varianta potřebuje aspoň jednu vlastnost.",
+    pdAddPhotos: "Přidat fotky", pdAddFiles: "Přidat soubory", pdUploading: "Nahrávám…",
+    pdMediaHint: "První fotka je hlavní. Etsy vezme nejvýš 10 fotek a 5 souborů do 20 MB.",
+    pdLayerHintAll: "Texty pro všechny Etsy shopy. Prázdné pole převezme údaj z produktu (šedě).",
+    pdLayerHintShop: "Jen pro tento shop. Prázdné pole převezme údaj pro celé Etsy, případně z produktu (šedě).",
+    pdLayerTitle: "Název (max 140 znaků)", pdLayerTags: "Štítky (max 13, oddělené čárkou)", pdLayerTagsPh: "zatím žádné",
+    pdLayerCat: "Kategorie na Etsy", pdLayerCatPh: "začni psát název kategorie", pdLayerCatBad: "Takovou kategorii Etsy nezná, vyber ji ze seznamu.",
+    pdLayerPrice: "Pevná cena", pdLayerPriceHint: "Bez pevné ceny: {p}", pdLayerPriceAll: "Platí pro shopy, které nemají vlastní cenu.",
+    pdLayerDesc: "Popis", pdLayerExtra: "Atributy, personalizace a doprava převzaté z Etsy zůstávají uložené. Upravíš je ve formuláři při vystavení nabídky.",
+    catTitle: "Katalog a prodejní účty", catHint: "Ceny produktů zadáváš v základní měně. Každý účet prodává ve své měně a cena se přepočítá kurzem ECB podle pravidel účtu.",
+    catBaseCur: "Základní měna", catLang: "Jazyk textů v katalogu",
+    rTitle: "Pravidla účtů", rCoef: "Koeficient ceny", rRound: "Zaokrouhlení", rRound_none: "na haléře/centy", rRound_99: "na ,99", rRound_90: "na ,90", rRound_00: "na celé",
+    rQty: "Množství u výroby na objednávku", rQtyPh: "např. 10", rPhotos: "Nejvýš fotek", rShip: "Výchozí doprava", rProc: "Výchozí doba zpracování",
+    rCat: "Výchozí kategorie", rFooter: "Patička popisu", rFooterPh: "Text, který se přidá na konec každého popisu v tomto účtu",
+    rHint: "Cena = základní cena v {c} přepočtená na {m} × koeficient, pak zaokrouhlená. Pevná cena u produktu má přednost.",
+    rNoAccts: "Zatím žádné účty. Připoj Etsy shop níže.",
+  },
+  en: {
+    pNew: "New product", pdNewTitle: "New product", pdTab_general: "General", pdTab_variants: "Variants", pdTab_media: "Photos and files",
+    pdTab_channels: "Channels", pdTab_offers: "Offers",
+    pdPriceNone: "no price", pdPriceNoRate: "no exchange rate to convert", pdSrc_ucet: "price for this shop", pdSrc_kanal: "price for all of Etsy", pdSrc_vypocet: "calculated from the base price",
+    pdName: "Title", pdSkuAuto: "filled in automatically", pdBasePrice: "Base price ({c})", pdType: "Type", pdMake: "Production", pdMakeOrder: "Made to order", pdMakeStock: "From stock",
+    pdCategory: "Catalog category", pdCategoryPh: "e.g. Planners", pdWeight: "Weight (g)", pdSize: "Dimensions (mm)", pdLen: "length", pdWid: "width", pdHei: "height",
+    pdDesc: "Description", pdNoBase: "Set the catalog's base currency in <a href=\"#nastaveni\">Settings</a>.", pdPrices: "Price in each sales account",
+    pdDelete: "Delete product", pdCreate: "Create product",
+    pdDelConfirm: "Delete “{n}” from the catalog, including its photos and files on this computer?",
+    pdDelConfirmOffers: "Delete “{n}” from the catalog, including its photos and files on this computer? {o} on Etsy stays, it just won't be linked to the catalog.",
+    pdVarHint: "Properties such as color or size. Each row is one combination with its own SKU, surcharge on the base price and stock.",
+    pdVarProp: "Property {n}", pdVarExtra: "Surcharge {c}", pdVarOn: "Active", pdVarAdd: "Add variant", pdVarNoProps: "Every variant needs at least one property.",
+    pdAddPhotos: "Add photos", pdAddFiles: "Add files", pdUploading: "Uploading…",
+    pdMediaHint: "The first photo is the main one. Etsy takes at most 10 photos and 5 files up to 20 MB.",
+    pdLayerHintAll: "Text for all Etsy shops. An empty field uses the product's value (grey).",
+    pdLayerHintShop: "Only for this shop. An empty field uses the value for all of Etsy, or the product's (grey).",
+    pdLayerTitle: "Title (max 140 characters)", pdLayerTags: "Tags (max 13, comma separated)", pdLayerTagsPh: "none yet",
+    pdLayerCat: "Etsy category", pdLayerCatPh: "start typing a category name", pdLayerCatBad: "Etsy doesn't know that category, pick one from the list.",
+    pdLayerPrice: "Fixed price", pdLayerPriceHint: "Without a fixed price: {p}", pdLayerPriceAll: "Applies to shops without their own price.",
+    pdLayerDesc: "Description", pdLayerExtra: "Attributes, personalization and shipping adopted from Etsy stay saved. You edit them in the form when publishing an offer.",
+    catTitle: "Catalog and sales accounts", catHint: "Product prices are entered in the base currency. Each account sells in its own currency and the price is converted at the ECB rate using the account's rules.",
+    catBaseCur: "Base currency", catLang: "Catalog text language",
+    rTitle: "Account rules", rCoef: "Price multiplier", rRound: "Rounding", rRound_none: "to the cent", rRound_99: "to .99", rRound_90: "to .90", rRound_00: "to whole",
+    rQty: "Quantity for made-to-order items", rQtyPh: "e.g. 10", rPhotos: "Max photos", rShip: "Default shipping", rProc: "Default processing time",
+    rCat: "Default category", rFooter: "Description footer", rFooterPh: "Text added to the end of every description in this account",
+    rHint: "Price = base price in {c} converted to {m} × multiplier, then rounded. A fixed price on the product wins.",
+    rNoAccts: "No accounts yet. Connect an Etsy shop below.",
+  },
+  de: {
+    pNew: "Neues Produkt", pdNewTitle: "Neues Produkt", pdTab_general: "Allgemein", pdTab_variants: "Varianten", pdTab_media: "Fotos und Dateien",
+    pdTab_channels: "Kanäle", pdTab_offers: "Angebote",
+    pdPriceNone: "kein Preis", pdPriceNoRate: "kein Wechselkurs zum Umrechnen", pdSrc_ucet: "Preis für diesen Shop", pdSrc_kanal: "Preis für ganz Etsy", pdSrc_vypocet: "aus dem Grundpreis berechnet",
+    pdName: "Titel", pdSkuAuto: "wird automatisch ergänzt", pdBasePrice: "Grundpreis ({c})", pdType: "Art", pdMake: "Herstellung", pdMakeOrder: "Auf Bestellung", pdMakeStock: "Ab Lager",
+    pdCategory: "Kategorie im Katalog", pdCategoryPh: "z. B. Planer", pdWeight: "Gewicht (g)", pdSize: "Maße (mm)", pdLen: "Länge", pdWid: "Breite", pdHei: "Höhe",
+    pdDesc: "Beschreibung", pdNoBase: "Die Grundwährung des Katalogs legst du in den <a href=\"#nastaveni\">Einstellungen</a> fest.", pdPrices: "Preis je Verkaufskonto",
+    pdDelete: "Produkt löschen", pdCreate: "Produkt anlegen",
+    pdDelConfirm: "„{n}“ samt Fotos und Dateien auf diesem Computer aus dem Katalog löschen?",
+    pdDelConfirmOffers: "„{n}“ samt Fotos und Dateien auf diesem Computer aus dem Katalog löschen? {o} auf Etsy bleibt bestehen, ist aber nicht mehr mit dem Katalog verknüpft.",
+    pdVarHint: "Eigenschaften wie Farbe oder Größe. Jede Zeile ist eine Kombination mit eigener SKU, Aufpreis zum Grundpreis und Bestand.",
+    pdVarProp: "Eigenschaft {n}", pdVarExtra: "Aufpreis {c}", pdVarOn: "Aktiv", pdVarAdd: "Variante hinzufügen", pdVarNoProps: "Jede Variante braucht mindestens eine Eigenschaft.",
+    pdAddPhotos: "Fotos hinzufügen", pdAddFiles: "Dateien hinzufügen", pdUploading: "Wird hochgeladen…",
+    pdMediaHint: "Das erste Foto ist das Hauptfoto. Etsy übernimmt höchstens 10 Fotos und 5 Dateien bis 20 MB.",
+    pdLayerHintAll: "Texte für alle Etsy-Shops. Ein leeres Feld übernimmt den Wert des Produkts (grau).",
+    pdLayerHintShop: "Nur für diesen Shop. Ein leeres Feld übernimmt den Wert für ganz Etsy oder den des Produkts (grau).",
+    pdLayerTitle: "Titel (max. 140 Zeichen)", pdLayerTags: "Tags (max. 13, durch Komma getrennt)", pdLayerTagsPh: "noch keine",
+    pdLayerCat: "Etsy-Kategorie", pdLayerCatPh: "Kategorienamen eintippen", pdLayerCatBad: "Diese Kategorie kennt Etsy nicht, wähle eine aus der Liste.",
+    pdLayerPrice: "Fester Preis", pdLayerPriceHint: "Ohne festen Preis: {p}", pdLayerPriceAll: "Gilt für Shops ohne eigenen Preis.",
+    pdLayerDesc: "Beschreibung", pdLayerExtra: "Von Etsy übernommene Attribute, Personalisierung und Versand bleiben gespeichert. Du bearbeitest sie im Formular beim Einstellen eines Angebots.",
+    catTitle: "Katalog und Verkaufskonten", catHint: "Produktpreise gibst du in der Grundwährung ein. Jedes Konto verkauft in seiner Währung, der Preis wird zum EZB-Kurs nach den Regeln des Kontos umgerechnet.",
+    catBaseCur: "Grundwährung", catLang: "Sprache der Katalogtexte",
+    rTitle: "Regeln der Konten", rCoef: "Preisfaktor", rRound: "Runden", rRound_none: "auf Cent", rRound_99: "auf ,99", rRound_90: "auf ,90", rRound_00: "auf ganze",
+    rQty: "Menge bei Herstellung auf Bestellung", rQtyPh: "z. B. 10", rPhotos: "Höchstens Fotos", rShip: "Standardversand", rProc: "Standard-Bearbeitungszeit",
+    rCat: "Standardkategorie", rFooter: "Fußzeile der Beschreibung", rFooterPh: "Text, der an jede Beschreibung in diesem Konto angehängt wird",
+    rHint: "Preis = Grundpreis in {c} umgerechnet in {m} × Faktor, dann gerundet. Ein fester Preis am Produkt hat Vorrang.",
+    rNoAccts: "Noch keine Konten. Verbinde unten einen Etsy-Shop.",
+  },
+};
+for (const l in T9) Object.assign(T[l], T9[l]);
+Object.assign(T.en.errors, { product_number: "“{hodnota}” isn't a number.", product_title: "The product needs a title.", product_negative: "Price and dimensions can't be negative.",
+  product_sku: "SKU {sku} already belongs to another product.", variant_sku: "SKU {sku} is used by two variants.", layer_scope: "Unknown channel.",
+  layer_title: "An Etsy title can have at most 140 characters.", rules_coef: "The multiplier has to be greater than zero.", rules_account: "This account isn't in the app.", bad_action: "Unknown action." });
+Object.assign(T.de.errors, { product_number: "„{hodnota}“ ist keine Zahl.", product_title: "Das Produkt braucht einen Titel.", product_negative: "Preis und Maße dürfen nicht negativ sein.",
+  product_sku: "SKU {sku} gehört schon zu einem anderen Produkt.", variant_sku: "SKU {sku} ist bei zwei Varianten eingetragen.", layer_scope: "Unbekannter Kanal.",
+  layer_title: "Ein Etsy-Titel darf höchstens 140 Zeichen haben.", rules_coef: "Der Faktor muss größer als null sein.", rules_account: "Dieses Konto ist nicht in der App.", bad_action: "Unbekannte Aktion." });
 
 let K = null, PROWS = [];
 const acctName = id => (K?.ucty || []).find(u => u.id === id)?.nazev || id;
@@ -2892,43 +3006,245 @@ $("#psearch").addEventListener("input", renderProducts);
 $("#ptable").addEventListener("click", e => { const r = e.target.closest("tr[data-p]"); if (r) openProduct(PROWS[+r.dataset.p]); });
 $("#psum").addEventListener("click", e => { if (e.target.id === "pOutside") { e.preventDefault(); if (!S.demo) openAdopt(); } });
 
-function openProduct(p) {
-  const nf = n => n.toLocaleString(loc());
-  const stat = (k, v) => `<div class="dstat"><span>${esc(k)}</span><b>${v}</b></div>`;
-  const fotos = p.media.filter(m => m.druh === "foto" && m.url), files = p.media.filter(m => m.druh === "soubor");
+// detail produktu: obecné údaje, varianty, média, vrstvy pro kanály a nabídky
+let PD = null;
+const pdProduct = () => (K?.produkty || []).find(x => x.id === PD.id) || null;
+const shopOfAcct = id => String(id).startsWith("etsy:") ? String(id).slice(5) : "";
+const etsyAccts = () => (K?.ucty || []).filter(u => u.kanal === "etsy");
+function openProduct(p, tab) {
+  PD = { id: p ? p.id : null, tab: tab || "general", scope: "etsy" };
+  renderPD(); $("#pdetail").showModal();
+  $("#pdetail .dlg").scrollTop = 0; $("#pdetail .dlg").focus();
+}
+async function reloadCatalog() { K = await api("/api/katalog").catch(() => K); if (page === "produkty") renderProducts(); }
+async function shopOpts(shopId) {  // kategorie a profily Etsy shopy (sdílené s formulářem nového listingu)
+  if (!shopId) return {};
+  if (!NLOPTS[shopId]) { try { NLOPTS[shopId] = await api("/api/listing/moznosti?shop=" + encodeURIComponent(shopId)); } catch { return {}; } }
+  return NLOPTS[shopId];
+}
+const catPath = (o, id) => ((o.kategorie || []).find(c => String(c[0]) === String(id)) || [])[1] || (id ? String(id) : "");
+const catIdOf = (o, path) => { const c = (o.kategorie || []).find(x => x[1] === path); return c ? c[0] : /^\d+$/.test(path.trim()) ? +path : null; };
+const pfld = (label, html, cls) => `<div class="field${cls ? " " + cls : ""}"><label>${esc(label)}</label>${html}</div>`;
+const pinp = (id, v, extra) => `<input id="${id}" value="${esc(v ?? "")}" autocomplete="off" ${extra || ""}>`;
+const numStr = v => v === null || v === undefined ? "" : String(v);
+const priceSrc = c => !c ? t("pdPriceNone") : c.zdroj === "bez_kurzu" ? t("pdPriceNoRate") : `${fmtMoney(c.cena, c.mena || "USD")} · ${t("pdSrc_" + c.zdroj)}`;
+
+function renderPD() {
+  const p = pdProduct(), tabs = p ? ["general", "variants", "media", "channels", "offers"] : ["general"];
+  if (!tabs.includes(PD.tab)) PD.tab = "general";
+  const head = `<div class="dhead">${thumbHtml(p ? photoOf(p) : "", p ? p.nazev : "+", "dimg")}
+      <div class="dtitle"><h3>${esc(p ? p.nazev : t("pdNewTitle"))}</h3>${p ? `<div class="dmeta">${esc(p.sku)} · ${esc(t(p.typ === "digital" ? "pDigital" : "pPhysical"))}${p.prodano ? ` · ${esc(t("pdSold"))}: ${p.prodano}` : ""}</div>` : ""}
+      <div class="seg" id="pdTabs">${tabs.map(k => `<button data-pt="${k}" class="${k === PD.tab ? "on" : ""}">${esc(t("pdTab_" + k))}</button>`).join("")}</div></div></div>`;
+  const body = { general: pdGeneral, variants: pdVariants, media: pdMedia, channels: pdChannels, offers: pdOffers }[PD.tab](p);
+  $("#pdBody").innerHTML = head + `<div id="pdTab">${body}</div>`;
+  if (PD.tab === "channels") pdChannelsLoad(p);
+}
+$("#pdBody").addEventListener("click", e => {
+  const b = e.target.closest("[data-pt]"); if (b) { PD.tab = b.dataset.pt; renderPD(); return; }
+  const sc = e.target.closest("[data-scope]"); if (sc) { PD.scope = sc.dataset.scope; renderPD(); return; }
+  const a = e.target.closest("[data-pa]"); if (a) pdAction(a.dataset.pa, a);
+});
+const pdMsg = (text, ok) => { const m = $("#pdMsg"); if (m) msg(m, text, ok); };
+async function pdRun(fn, okText) {
+  try { const r = await fn(); await reloadCatalog(); renderPD(); if (okText) pdMsg(okText, true); return r; }
+  catch (e) { pdMsg(e.message); }
+}
+
+function pdGeneral(p) {
+  const v = p || { typ: "digital", vyroba: "objednavka" }, base = K?.zakladni_mena;
+  const prices = p ? (K.ucty || []).map(u => `<li><span>${esc(u.nazev)}</span><b>${esc(priceSrc(p.ceny?.[u.id]))}</b></li>`).join("") : "";
+  return `<div class="nl-row">
+      ${pfld(t("pdName"), pinp("pfNazev", v.nazev), "span2")}
+      ${pfld("SKU", pinp("pfSku", v.sku, `placeholder="${esc(t("pdSkuAuto"))}"`))}
+      ${pfld(t("pdBasePrice", { c: base || "?" }), pinp("pfCena", numStr(v.zakladni_cena), 'inputmode="decimal"'))}
+      ${pfld(t("pdType"), `<select id="pfTyp"><option value="digital">${esc(t("pDigital"))}</option><option value="physical" ${v.typ === "physical" ? "selected" : ""}>${esc(t("pPhysical"))}</option></select>`)}
+      ${pfld(t("pdMake"), `<select id="pfVyroba"><option value="objednavka">${esc(t("pdMakeOrder"))}</option><option value="sklad" ${v.vyroba === "sklad" ? "selected" : ""}>${esc(t("pdMakeStock"))}</option></select>`)}
+      ${pfld(t("pdCategory"), pinp("pfKat", v.kategorie, `placeholder="${esc(t("pdCategoryPh"))}"`))}
+      ${pfld(t("pdWeight"), pinp("pfHm", numStr(v.hmotnost_g), 'inputmode="decimal"'))}
+      ${pfld(t("pdSize"), `<div class="pricerow">${pinp("pfD", numStr(v.delka_mm), `inputmode="decimal" placeholder="${esc(t("pdLen"))}"`)}${pinp("pfS", numStr(v.sirka_mm), `inputmode="decimal" placeholder="${esc(t("pdWid"))}"`)}${pinp("pfV", numStr(v.vyska_mm), `inputmode="decimal" placeholder="${esc(t("pdHei"))}"`)}</div>`, "span2")}
+      ${pfld(t("pdDesc"), `<textarea id="pfPopis" rows="8">${esc(v.popis || "")}</textarea>`, "span2")}
+    </div>
+    ${base ? "" : `<p class="hint">${t("pdNoBase")}</p>`}
+    ${prices ? `<h4>${esc(t("pdPrices"))}</h4><ul class="osum plist">${prices}</ul>` : ""}
+    <div class="actions"><span class="msg" id="pdMsg"></span>${p ? `<button class="btn danger" data-pa="delete">${esc(t("pdDelete"))}</button>` : ""}<button class="btn primary" data-pa="saveGeneral">${esc(t(p ? "save" : "pdCreate"))}</button></div>`;
+}
+
+function pdVariants(p) {
+  const names = [...new Set(p.varianty.flatMap(v => Object.keys(v.vlastnosti)))];
+  while (names.length < 2) names.push("");
+  const row = v => `<tr>${names.map(n => `<td><input data-vv value="${esc(v ? v.vlastnosti[n] || "" : "")}"></td>`).join("")}
+      <td><input data-vk="sku" value="${esc(v?.sku || "")}"></td><td><input data-vk="cena_rozdil" inputmode="decimal" value="${esc(numStr(v?.cena_rozdil))}"></td>
+      <td><input data-vk="sklad" inputmode="numeric" value="${esc(numStr(v?.sklad))}"></td>
+      <td class="sel"><input type="checkbox" data-vk="aktivni" ${!v || v.aktivni ? "checked" : ""}></td><td><button class="btn ghost" data-pa="varDel">✕</button></td></tr>`;
+  PD.varRow = row;
+  return `<p class="hint">${esc(t("pdVarHint"))}</p>
+    <div class="tablewrap"><table class="vtable"><thead><tr>${names.map((n, i) => `<th><input data-vn value="${esc(n)}" placeholder="${esc(t("pdVarProp", { n: i + 1 }))}"></th>`).join("")}
+      <th>SKU</th><th>${esc(t("pdVarExtra", { c: K.zakladni_mena || "" }))}</th><th>${esc(t("colStock"))}</th><th>${esc(t("pdVarOn"))}</th><th></th></tr></thead>
+      <tbody id="pdVars">${p.varianty.map(row).join("")}</tbody></table></div>
+    <div class="actions left"><button class="btn" data-pa="varAdd">+ ${esc(t("pdVarAdd"))}</button></div>
+    <div class="actions"><span class="msg" id="pdMsg"></span><button class="btn primary" data-pa="saveVariants">${esc(t("save"))}</button></div>`;
+}
+
+function pdMedia(p) {
+  const fotos = p.media.filter(m => m.druh === "foto"), files = p.media.filter(m => m.druh === "soubor");
   const size = b => b ? ` <small class="hint">${b < 1048576 ? Math.max(1, Math.round(b / 1024)) + " kB" : (b / 1048576).toFixed(1) + " MB"}</small>` : "";
-  const layer = k => {
-    const tags = k.stitky || [];
-    return `<div class="card" style="padding:12px 14px;margin-bottom:8px"><b>${esc(k.rozsah === "etsy" ? t("pdLayerAll") : "Etsy · " + acctName(k.rozsah))}</b>` +
-      `${k.cena !== null && k.cena !== undefined ? ` · ${esc(fmtMoney(k.cena, k.mena || "USD"))}` : ""}${k.popis ? ` · <span class="hint">${esc(t("pdOwnDesc"))}</span>` : ""}` +
-      `${k.nazev ? `<div class="hint" style="margin-top:6px">${esc(t("pdOwnTitle"))}: ${esc(k.nazev)}</div>` : ""}` +
-      `${tags.length ? `<div class="chips" style="margin-top:8px">${tags.map(x => `<span class="chip">${esc(x)}</span>`).join("")}</div>` : ""}</div>`;
-  };
+  return `<h4>${esc(t("pdPhotos"))} <small>${fotos.length}</small></h4>
+    <div class="pgal">${fotos.map((m, i) => `<div class="pmi">${m.url ? `<a href="${esc(m.url)}" target="_blank" rel="noopener"><img src="${esc(m.url)}" alt="" loading="lazy"></a>` : `<span class="thumb">?</span>`}
+      <div class="pmb">${i ? `<button class="btn ghost" data-pa="mLeft" data-id="${m.id}" aria-label="←">←</button>` : ""}${i < fotos.length - 1 ? `<button class="btn ghost" data-pa="mRight" data-id="${m.id}" aria-label="→">→</button>` : ""}<button class="btn ghost" data-pa="mDel" data-id="${m.id}" aria-label="✕">✕</button></div></div>`).join("")}</div>
+    <div class="actions left"><button class="btn" data-pa="addPhoto">+ ${esc(t("pdAddPhotos"))}</button></div>
+    <h4>${esc(t("pdFiles"))} <small>${files.length}</small></h4>
+    <ul class="list">${files.map(m => `<li>${m.url ? `<a href="${esc(m.url)}">${esc(m.nazev)}</a>${size(m.velikost)}` : `${esc(m.nazev)} <small class="hint">${esc(t("pdEtsyOnly"))}</small>`}<button class="btn ghost" data-pa="mDel" data-id="${m.id}" aria-label="✕">✕</button></li>`).join("")}</ul>
+    <div class="actions left"><button class="btn" data-pa="addFile">+ ${esc(t("pdAddFiles"))}</button></div>
+    <p class="hint">${esc(t("pdMediaHint"))}</p><span class="msg" id="pdMsg"></span>
+    <input type="file" id="pdPhotoIn" accept="image/*" multiple hidden><input type="file" id="pdFileIn" multiple hidden>`;
+}
+
+function pdLayer(p, scope) {
+  const lang = K.jazyk || "en";
+  return p.vrstvy.find(l => l.rozsah === scope && l.jazyk === lang) || p.vrstvy.find(l => l.rozsah === scope) || null;
+}
+function pdChannels(p) {
+  const accts = etsyAccts(), scopes = [["etsy", t("pdLayerAll")]].concat(accts.map(u => [u.id, u.nazev]));
+  if (!scopes.some(s => s[0] === PD.scope)) PD.scope = "etsy";
+  const L = pdLayer(p, PD.scope) || {}, up = PD.scope === "etsy" ? null : pdLayer(p, "etsy") || {};
+  const inh = (k, prodVal) => (up && up[k]) || prodVal || "";
+  const acct = accts.find(u => u.id === PD.scope), cur = acct ? acct.mena : L.mena || accts[0]?.mena || K.zakladni_mena || "USD";
+  const tagsInh = (up && up.stitky?.length ? up.stitky : []).join(", ");
+  const priceHint = acct ? t("pdLayerPriceHint", { p: priceSrc(p.ceny?.[acct.id]) }) : t("pdLayerPriceAll");
+  const extra = L.atributy?.length || Object.keys(L.extra || {}).length;
+  return `<div class="seg" style="margin-top:16px">${scopes.map(([k, n]) => `<button data-scope="${esc(k)}" class="${k === PD.scope ? "on" : ""}">${esc(n)}</button>`).join("")}</div>
+    <p class="hint">${esc(t(PD.scope === "etsy" ? "pdLayerHintAll" : "pdLayerHintShop"))}</p>
+    ${pfld(t("pdLayerTitle"), pinp("plNazev", L.nazev, `maxlength="140" placeholder="${esc(inh("nazev", p.nazev))}"`))}
+    ${pfld(t("pdLayerTags"), pinp("plStitky", (L.stitky || []).join(", "), `placeholder="${esc(tagsInh || t("pdLayerTagsPh"))}"`))}
+    <div class="nl-row">
+      ${pfld(t("pdLayerCat"), `<input id="plKat" list="pTax" autocomplete="off" data-id="${esc(numStr(L.kategorie_id))}" placeholder="${esc(up && up.kategorie_id ? String(up.kategorie_id) : t("pdLayerCatPh"))}">`)}
+      ${pfld(t("pdLayerPrice"), `<div class="pricerow">${pinp("plCena", numStr(L.cena), 'inputmode="decimal"')}<select id="plMena" ${acct ? "disabled" : ""}>${[...new Set([cur, ...COMMON_CUR])].map(c => `<option ${c === (L.mena || cur) ? "selected" : ""}>${c}</option>`).join("")}</select></div><p class="hint">${esc(priceHint)}</p>`)}
+    </div>
+    ${pfld(t("pdLayerDesc"), `<textarea id="plPopis" rows="8" placeholder="${esc(inh("popis", p.popis).slice(0, 400))}">${esc(L.popis || "")}</textarea>`)}
+    ${extra ? `<p class="hint">${esc(t("pdLayerExtra"))}</p>` : ""}
+    <datalist id="pTax"></datalist>
+    <div class="actions"><span class="msg" id="pdMsg"></span><button class="btn primary" data-pa="saveLayer">${esc(t("save"))}</button></div>`;
+}
+async function pdChannelsLoad(p) {  // strom kategorií z první Etsy shopy, aby šla kategorie vybrat názvem
+  const o = await shopOpts(shopOfAcct((etsyAccts().find(u => u.id === PD.scope) || etsyAccts()[0] || {}).id || ""));
+  if (PD.tab !== "channels" || !$("#plKat")) return;
+  $("#pTax").innerHTML = (o.kategorie || []).map(([, path]) => `<option value="${esc(path)}">`).join("");
+  const k = $("#plKat"); if (!k.value && k.dataset.id) k.value = catPath(o, k.dataset.id);
+  const up = PD.scope === "etsy" ? null : pdLayer(p, "etsy");
+  if (up?.kategorie_id) k.placeholder = catPath(o, up.kategorie_id);
+}
+
+function pdOffers(p) {
   const offer = n => {
     const url = n.ucet_id.startsWith("etsy:") ? `https://www.etsy.com/listing/${encodeURIComponent(n.externi_id)}` : "";
     return `<tr><td>${esc(acctName(n.ucet_id))}</td><td>${listingPill(n.stav)}</td><td class="nw">${n.vytvoreno_ts ? fmtDate(n.vytvoreno_ts) : ""}</td>` +
       `<td class="num">${url ? `<a class="linkbtn" href="${url}" target="_blank" rel="noopener">${esc(t("ldOpen"))} ↗</a>` : esc(n.externi_id)}</td></tr>`;
   };
-  $("#pdBody").innerHTML = `
-    <div class="dhead">${thumbHtml(photoOf(p), p.nazev, "dimg")}
-      <div class="dtitle"><h3>${esc(p.nazev)}</h3><div class="dmeta">${esc(p.sku)} · ${esc(t(p.typ === "digital" ? "pDigital" : "pPhysical"))}</div></div></div>
-    <div class="dstats">
-      ${stat(t("pdSold"), p.prodano ? nf(p.prodano) : "–")}
-      ${stat(t("colOffers"), nf(p.nabidky.length))}
-      ${stat(t("pdCreated"), p.vytvoreno_ts ? new Date(p.vytvoreno_ts * 1000).toLocaleDateString(loc()) : "–")}
-      ${p.slozka ? stat(t("pdFolder"), esc(p.slozka)) : ""}
-    </div>
-    <h4>${esc(t("pdOffers"))}</h4>
-    ${p.nabidky.length ? `<div class="tablewrap"><table><tbody>${p.nabidky.map(offer).join("")}</tbody></table></div>` : `<p class="hint">${esc(t("pdNoOffers"))}</p>`}
-    ${fotos.length ? `<h4>${esc(t("pdPhotos"))} <small>${fotos.length}</small></h4><div class="pgal">${fotos.map(m => `<a href="${esc(m.url)}" target="_blank" rel="noopener"><img src="${esc(m.url)}" alt="" loading="lazy"></a>`).join("")}</div>` : ""}
-    ${files.length ? `<h4>${esc(t("pdFiles"))} <small>${files.length}</small></h4><ul class="list">${files.map(m => `<li>${m.url ? `<a href="${esc(m.url)}">${esc(m.nazev)}</a>${size(m.velikost)}` : `${esc(m.nazev)} <small class="hint">${esc(t("pdEtsyOnly"))}</small>`}</li>`).join("")}</ul>` : ""}
-    ${p.varianty.length ? `<h4>${esc(t("pdVariants"))} <small>${p.varianty.length}</small></h4><div class="tablewrap"><table><tbody>${p.varianty.map(v => `<tr><td>${esc(Object.entries(v.vlastnosti).map(([a, b]) => `${a}: ${b}`).join(", "))}</td><td class="num">${esc(v.sku || "–")}</td></tr>`).join("")}</tbody></table></div>` : ""}
-    <h4>${esc(t("pdLayers"))}</h4>
-    ${p.vrstvy.length ? p.vrstvy.map(layer).join("") : `<p class="hint">${esc(t("pdNoLayers"))}</p>`}
-    ${p.popis ? `<h4>${esc(t("ldDesc"))}</h4><div class="ddesc">${esc(p.popis)}</div>` : ""}`;
-  $("#pdetail").showModal();
-  $("#pdetail .dlg").scrollTop = 0; $("#pdetail .dlg").focus();
+  return p.nabidky.length ? `<div class="tablewrap" style="margin-top:12px"><table><tbody>${p.nabidky.map(offer).join("")}</tbody></table></div>` : `<p class="hint">${esc(t("pdNoOffers"))}</p>`;
 }
+
+async function pdAction(a, el) {
+  const p = pdProduct(), v = s => $(s).value;
+  if (a === "saveGeneral") {
+    const r = await pdRun(() => api("/api/produkt/ulozit", { id: PD.id, nazev: v("#pfNazev"), sku: v("#pfSku"), zakladni_cena: v("#pfCena"),
+      typ: v("#pfTyp"), vyroba: v("#pfVyroba"), kategorie: v("#pfKat"), hmotnost_g: v("#pfHm"), delka_mm: v("#pfD"), sirka_mm: v("#pfS"),
+      vyska_mm: v("#pfV"), popis: v("#pfPopis"), jazyk: K?.jazyk || "en" }).then(r => { PD.id = r.produkt_id; return r; }), t("saved"));
+    return r;
+  }
+  if (a === "delete") {
+    if (!confirm(t(p.nabidky.length ? "pdDelConfirmOffers" : "pdDelConfirm", { n: p.nazev, o: pl(p.nabidky.length, "listing") }))) return;
+    try { await api("/api/produkt/smazat", { id: p.id }); $("#pdetail").close(); await reloadCatalog(); } catch (e) { pdMsg(e.message); }
+    return;
+  }
+  if (a === "varAdd") { $("#pdVars").insertAdjacentHTML("beforeend", PD.varRow(null)); return; }
+  if (a === "varDel") { el.closest("tr").remove(); return; }
+  if (a === "saveVariants") {
+    const names = [...document.querySelectorAll("#pdTab [data-vn]")].map(i => i.value.trim());
+    const rows = [...$("#pdVars").querySelectorAll("tr")].map(tr => {
+      const o = { vlastnosti: {} };
+      tr.querySelectorAll("[data-vv]").forEach((i, k) => { if (names[k] && i.value.trim()) o.vlastnosti[names[k]] = i.value.trim(); });
+      tr.querySelectorAll("[data-vk]").forEach(i => o[i.dataset.vk] = i.type === "checkbox" ? i.checked : i.value);
+      return o;
+    });
+    if (rows.some(r => !Object.keys(r.vlastnosti).length && (r.sku || r.sklad || r.cena_rozdil))) { pdMsg(t("pdVarNoProps")); return; }
+    return pdRun(() => api("/api/produkt/varianty", { produkt_id: p.id, varianty: rows }), t("saved"));
+  }
+  if (a === "mDel") return pdRun(() => api("/api/produkt/media", { produkt_id: p.id, akce: "smazat", id: +el.dataset.id }));
+  if (a === "mLeft" || a === "mRight") {
+    const ids = p.media.filter(m => m.druh === "foto").map(m => m.id), i = ids.indexOf(+el.dataset.id), j = a === "mLeft" ? i - 1 : i + 1;
+    [ids[i], ids[j]] = [ids[j], ids[i]];
+    return pdRun(() => api("/api/produkt/media", { produkt_id: p.id, akce: "poradi", ids }));
+  }
+  if (a === "addPhoto" || a === "addFile") {
+    const inp = $(a === "addPhoto" ? "#pdPhotoIn" : "#pdFileIn");
+    inp.onchange = async () => {
+      const fs = [...inp.files]; if (!fs.length) return;
+      pdMsg(t("pdUploading"), true);
+      const soubory = await Promise.all(fs.map(async f => ({ nazev: f.name, data: await b64(f) })));
+      pdRun(() => api("/api/produkt/media", { produkt_id: p.id, akce: "pridat", druh: a === "addPhoto" ? "foto" : "soubor", soubory }));
+    };
+    inp.click(); return;
+  }
+  if (a === "saveLayer") {
+    const o = NLOPTS[shopOfAcct((etsyAccts().find(u => u.id === PD.scope) || etsyAccts()[0] || {}).id || "")] || {};
+    const kat = v("#plKat").trim(), katId = kat ? catIdOf(o, kat) : null;
+    if (kat && !katId) { pdMsg(t("pdLayerCatBad")); return; }
+    const L = pdLayer(p, PD.scope);
+    return pdRun(() => api("/api/produkt/vrstva", { produkt_id: p.id, rozsah: PD.scope, jazyk: L?.jazyk || K.jazyk || "en", nazev: v("#plNazev"),
+      popis: v("#plPopis"), stitky: v("#plStitky"), kategorie_id: katId, cena: v("#plCena"), mena: $("#plMena").value }), t("saved"));
+  }
+}
+$("#pNewBtn").onclick = () => openProduct(null);
+
+// nastavení: katalog a pravidla prodejních účtů
+const CAT_LANGS = ["en", "cs", "de", "fr", "es", "it", "pl", "sk", "nl"];
+function renderCatalogSettings() {
+  if (document.activeElement?.closest?.("#catSettings input, #catSettings textarea, #catSettings select")) return;
+  const n = S.nastaveni, base = n.zakladni_mena || K?.zakladni_mena || "", list = RATES?.kurzy ? Object.keys(RATES.kurzy).sort() : COMMON_CUR;
+  const curs = [...new Set(COMMON_CUR.filter(c => list.includes(c)).concat(list))];
+  $("#baseCur").innerHTML = `<option value="">–</option>` + curs.map(c => `<option ${c === base ? "selected" : ""}>${c}</option>`).join("");
+  $("#catLang").innerHTML = CAT_LANGS.map(l => `<option value="${l}" ${l === (n.jazyk_katalogu || "en") ? "selected" : ""}>${l.toUpperCase()}</option>`).join("");
+  const accts = K?.ucty || [];
+  $("#acctRules").innerHTML = accts.length ? accts.map(u => {
+    const r = u.pravidla || {};
+    return `<details class="acct" data-acct="${esc(u.id)}"><summary><b>${esc(u.nazev)}</b> <span class="hint">${esc([u.kanal === "etsy" ? "Etsy" : u.kanal, u.mena].filter(Boolean).join(" · "))}</span></summary>
+      <div class="nl-row">
+        ${pfld(t("rCoef"), `<input data-r="koeficient" inputmode="decimal" value="${esc(numStr(r.koeficient ?? 1))}">`)}
+        ${pfld(t("rRound"), `<select data-r="zaokrouhleni">${["", "99", "90", "00"].map(x => `<option value="${x}" ${x === (r.zaokrouhleni || "") ? "selected" : ""}>${esc(t("rRound_" + (x || "none")))}</option>`).join("")}</select>`)}
+        ${pfld(t("rQty"), `<input data-r="mnozstvi" inputmode="numeric" value="${esc(numStr(r.mnozstvi))}" placeholder="${esc(t("rQtyPh"))}">`)}
+        ${pfld(t("rPhotos"), `<input data-r="max_fotek" inputmode="numeric" value="${esc(numStr(r.max_fotek ?? 10))}">`)}
+        ${pfld(t("rShip"), `<select data-r="doprava_id" data-v="${esc(numStr(r.doprava_id))}"><option value="">–</option></select>`)}
+        ${pfld(t("rProc"), `<select data-r="zpracovani_id" data-v="${esc(numStr(r.zpracovani_id))}"><option value="">–</option></select>`)}
+      </div>
+      ${pfld(t("rCat"), `<input data-r="kategorie_id" list="rTax" autocomplete="off" data-v="${esc(numStr(r.kategorie_id))}">`)}
+      ${pfld(t("rFooter"), `<textarea data-r="paticka" rows="3" placeholder="${esc(t("rFooterPh"))}">${esc(r.paticka || "")}</textarea>`)}
+      <p class="hint">${esc(t("rHint", { c: base || "?", m: u.mena || "?" }))}</p>
+      <div class="actions"><span class="msg" data-rmsg></span><button class="btn primary" data-rsave>${esc(t("save"))}</button></div></details>`;
+  }).join("") + `<datalist id="rTax"></datalist>` : `<p class="hint">${esc(t("rNoAccts"))}</p>`;
+}
+$("#acctRules").addEventListener("toggle", async e => {
+  const d = e.target; if (!d.open || d.dataset.loaded) return;
+  d.dataset.loaded = "1";
+  const o = await shopOpts(shopOfAcct(d.dataset.acct));
+  const fillSel = (k, items) => { const s = d.querySelector(`[data-r="${k}"]`); s.innerHTML = `<option value="">–</option>` + (items || []).map(x => `<option value="${x.id}" ${String(x.id) === s.dataset.v ? "selected" : ""}>${esc(x.nazev)}</option>`).join(""); };
+  fillSel("doprava_id", o.doprava); fillSel("zpracovani_id", o.zpracovani);
+  $("#rTax").innerHTML = (o.kategorie || []).map(([, path]) => `<option value="${esc(path)}">`).join("");
+  const k = d.querySelector('[data-r="kategorie_id"]'); if (!k.value && k.dataset.v) k.value = catPath(o, k.dataset.v);
+}, true);
+$("#acctRules").addEventListener("click", async e => {
+  if (!e.target.closest("[data-rsave]")) return;
+  const d = e.target.closest("details"), r = {}, m = d.querySelector("[data-rmsg]");
+  d.querySelectorAll("[data-r]").forEach(i => r[i.dataset.r] = i.value);
+  const o = NLOPTS[shopOfAcct(d.dataset.acct)] || {};
+  if (r.kategorie_id) { const id = catIdOf(o, r.kategorie_id); if (!id) { msg(m, t("pdLayerCatBad")); return; } r.kategorie_id = id; }
+  try { await api("/api/ucet/pravidla", { ucet_id: d.dataset.acct, pravidla: r }); msg(m, t("saved"), true); K = await api("/api/katalog").catch(() => K); }
+  catch (err) { msg(m, err.message); }
+});
+$("#catSave").onclick = async () => {
+  try { await api("/api/nastaveni", { zakladni_mena: $("#baseCur").value, jazyk_katalogu: $("#catLang").value });
+    msg($("#catMsg"), t("saved"), true); S = await api("/api/stav"); await reloadCatalog(); }
+  catch (e) { msg($("#catMsg"), e.message); }
+};
 
 // převzetí listingů z Etsy
 let ADOPT = null;

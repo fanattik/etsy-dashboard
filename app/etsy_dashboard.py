@@ -39,10 +39,11 @@ from etsy_listingy import (
 from prehled import csv_export, dashboard_data, make_demo_db, save_shipping
 from csv_import import fill_items_from_ledger, import_csv
 from katalog import adopt_listing, adoption_proposal, catalog_data, import_folder, media_file
+from produkty import delete_product, media_action, save_layer, save_product, save_rules, save_variants
 
 
 PORT = 8765
-VERSION = "1.24"
+VERSION = "1.25"
 zaklad.VERSION = VERSION  # User-Agent v HTTP požadavcích
 
 
@@ -187,7 +188,8 @@ class Handler(BaseHTTPRequestHandler):
             names = {r[0] for r in con.execute("SELECT shop FROM objednavky UNION SELECT shop FROM vypis UNION SELECT shop FROM listingy")}
             con.close()
             shops += [{"id": None, "name": n} for n in sorted(names - {s["name"] for s in shops})]
-        settings = {k: cfg.get(k) for k in ("interval_minut", "ntfy_topic", "redirect_uri", "keystring", "jazyk")}
+        settings = {k: cfg.get(k) for k in ("interval_minut", "ntfy_topic", "redirect_uri", "keystring", "jazyk",
+                                            "zakladni_mena", "jazyk_katalogu")}
         settings["ma_secret"] = bool(cfg.get("shared_secret"))
         return {
             "demo": self.demo,
@@ -212,7 +214,9 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/kurzy":
             return self.send(200, get_rates())
         if path == "/api/katalog":
-            return self.send(200, catalog_data(self.db_path))
+            cfg = load_config()
+            return self.send(200, catalog_data(self.db_path, "USD" if self.demo else cfg.get("zakladni_mena", ""),
+                                               cfg.get("jazyk_katalogu") or "en"))
         if path == "/api/katalog/navrh":
             return self.send(200, adoption_proposal(load_config(), self.db_path))
         if path.startswith("/media/"):
@@ -260,11 +264,13 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send(400, {"chyba": "V ukázkovém režimu nejde nic měnit.", "kod": "demo"})
             if path == "/api/nastaveni":
                 cfg = load_config()
-                for k in ("keystring", "redirect_uri", "ntfy_topic", "jazyk"):
+                for k in ("keystring", "redirect_uri", "ntfy_topic", "jazyk", "jazyk_katalogu"):
                     if k in body:
                         cfg[k] = str(body[k]).strip()
                 if body.get("shared_secret"):
                     cfg["shared_secret"] = str(body["shared_secret"]).strip()
+                if "zakladni_mena" in body:
+                    cfg["zakladni_mena"] = str(body["zakladni_mena"]).strip().upper()[:3]
                 if body.get("interval_minut"):
                     cfg["interval_minut"] = max(5, int(body["interval_minut"]))
                 save_config(cfg)
@@ -297,6 +303,11 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send(200, cancel_discount(load_config(), body, self.db_path))
             if path == "/api/katalog/prevzit":
                 return self.send(200, adopt_listing(load_config(), body, self.db_path, self.demo))
+            katalog_post = {"/api/produkt/ulozit": save_product, "/api/produkt/smazat": delete_product,
+                            "/api/produkt/varianty": save_variants, "/api/produkt/media": media_action,
+                            "/api/produkt/vrstva": save_layer, "/api/ucet/pravidla": save_rules}
+            if path in katalog_post:
+                return self.send(200, katalog_post[path](body, self.db_path, self.demo))
             if path == "/api/katalog/slozka":
                 return self.send(200, import_folder(body, self.db_path, self.demo))
             if path == "/api/doprava":

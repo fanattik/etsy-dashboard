@@ -42,6 +42,8 @@ DEFAULT_CONFIG = {
     "prvni_stazeni_dni": 365,
     "ntfy_topic": "",
     "jazyk": "cs",
+    "zakladni_mena": "",  # měna základních cen v katalogu
+    "jazyk_katalogu": "en",  # výchozí jazyk textů produktů
 }
 
 LOCK = threading.Lock()  # jedna kontrola / zápis tokenů naráz

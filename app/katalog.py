@@ -1,6 +1,6 @@
 """Katalog produktů: produkt je v katalogu jednou, nad ním vrstvy obsahu pro kanály (kanal_data)
-a nabídky v jednotlivých prodejních účtech (nabidky). Fáze 1: převzetí listingů z Etsy a import složky,
-do kanálů se nic nezapisuje."""
+a nabídky v jednotlivých prodejních účtech (nabidky). Převzetí listingů z Etsy a import složky;
+do kanálů se nic nezapisuje. Úpravy katalogu jsou v produkty.py."""
 
 import base64
 import hashlib
@@ -56,7 +56,7 @@ def ensure_accounts(con):
         save_account(con, etsy_account(shop_id), "etsy", tok.get("shop_name", shop_id), None, "en")
 
 
-def catalog_data(db_path=None):
+def catalog_data(db_path=None, base_cur="", lang="en"):
     """Katalog pro stránku Produkty: účty, produkty s médii, variantami, vrstvami a nabídkami."""
     con = db(db_path)
     if db_path is None:
@@ -92,8 +92,14 @@ def catalog_data(db_path=None):
             sold[pid] = sold.get(pid, 0) + (q or 0)
     for p in products:
         p["prodano"] = sold.get(p["id"], 0)
-    data = {"ucty": rows_as_dicts(con, "SELECT id, kanal, nazev, mena, jazyk FROM kanal_ucty WHERE aktivni=1 ORDER BY nazev"),
-            "produkty": products}
+    from produkty import account_price, cached_rates  # produkty importuje katalog
+    accounts = rows_as_dicts(con, "SELECT id, kanal, nazev, mena, jazyk, pravidla FROM kanal_ucty WHERE aktivni=1 ORDER BY nazev")
+    rates = cached_rates()
+    for a in accounts:
+        a["pravidla"] = _jl(a["pravidla"], {})
+    for p in products:
+        p["ceny"] = {a["id"]: account_price(p, p["vrstvy"], a, base_cur, rates) for a in accounts}
+    data = {"ucty": accounts, "produkty": products, "zakladni_mena": base_cur, "jazyk": lang, "kurzy": bool(rates)}
     con.close()
     return data
 
