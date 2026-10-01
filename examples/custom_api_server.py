@@ -13,6 +13,7 @@ to a real shop. Python 3.9+, standard library only.
 import argparse
 import base64
 import hashlib
+import hmac
 import json
 import os
 import sys
@@ -88,7 +89,11 @@ def store_media(store, items):
     return out
 
 
-def handle(store, base_url, method, path, query, body):
+def upload_token(key, digest):
+    return hmac.new(key.encode(), digest.encode(), hashlib.sha256).hexdigest()
+
+
+def handle(store, base_url, method, path, query, body, key=""):
     data = store.load()
     now = int(time.time())
     parts = [urllib.parse.unquote(p) for p in path.strip("/").split("/")]
@@ -96,6 +101,16 @@ def handle(store, base_url, method, path, query, body):
 
     if method == "GET" and parts == ["info"]:
         return 200, {**data["info"], "api_version": 1}
+
+    if method == "POST" and parts == ["media"]:
+        digest = str(body.get("sha256") or "").lower()
+        if len(digest) != 64:
+            raise ApiError(422, "Invalid sha256")
+        if store.has_blob(digest):
+            return 200, {"exists": True}
+        # A real shop would usually return a pre-signed URL of its file storage here.
+        return 200, {"exists": False, "method": "PUT", "headers": {"Content-Type": body.get("content_type") or ""},
+                     "upload_url": f"{base_url}{PREFIX}/uploads/{digest}?token={upload_token(key, digest)}"}
 
     if parts and parts[0] == "products":
         if method == "GET" and len(parts) == 1:
@@ -170,14 +185,25 @@ def make_handler(store, key):
             url = urllib.parse.urlparse(self.path)
             if not url.path.startswith(PREFIX + "/"):
                 return self.reply(404, {"error": "Not found"})
+            n = int(self.headers.get("Content-Length") or 0)
+            rest = url.path[len(PREFIX):].strip("/").split("/")
+            if self.command == "PUT" and len(rest) == 2 and rest[0] == "uploads":  # upload URL from POST /media
+                token = (urllib.parse.parse_qs(url.query).get("token") or [""])[0]
+                if not hmac.compare_digest(token, upload_token(key, rest[1])):
+                    return self.reply(403, {"error": "Bad upload token"})
+                data = self.rfile.read(n)
+                if hashlib.sha256(data).hexdigest() != rest[1]:
+                    return self.reply(400, {"error": "sha256 doesn't match the data"})
+                with LOCK:
+                    store.put_blob(data)
+                return self.reply(200, {"sha256": rest[1]})
             if self.headers.get("Authorization") != f"Bearer {key}":
                 return self.reply(401, {"error": "Wrong API key"})
-            n = int(self.headers.get("Content-Length") or 0)
             try:
                 body = json.loads(self.rfile.read(n) or b"{}") if n else {}
                 base = f"http://{self.headers.get('Host')}"
                 with LOCK:
-                    status, obj = handle(store, base, self.command, url.path[len(PREFIX):], urllib.parse.parse_qs(url.query), body)
+                    status, obj = handle(store, base, self.command, url.path[len(PREFIX):], urllib.parse.parse_qs(url.query), body, key)
                 self.reply(status, obj)
             except ApiError as e:
                 self.reply(e.status, {"error": str(e)})

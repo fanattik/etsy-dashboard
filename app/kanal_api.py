@@ -213,9 +213,42 @@ def payload(product, offer, create, status="active"):
     return body
 
 
-def _with_data(items, have):
+def _with_data(items, have, staged=False):
+    """Položky pro PUT: obsah v base64 jen u souborů, které e-shop nemá a nebyly nahrané přes /media."""
     return [{**{k: v for k, v in it.items() if k != "_data"},
-             **({} if it["sha256"] in have else {"data": base64.b64encode(it["_data"]).decode()})} for it in items]
+             **({} if staged or it["sha256"] in have else {"data": base64.b64encode(it["_data"]).decode()})} for it in items]
+
+
+def _upload(acct, items, have):
+    """Nahraje nové fotky a soubory zvlášť přes POST /media (e-shop vrátí adresu pro nahrání), aby PUT produktu
+    zůstal malý. Vrátí False, když e-shop /media neumí; pak se data posílají přímo v PUT."""
+    for it in items:
+        if it["sha256"] in have:
+            continue
+        r = call(acct, "POST", "/media", {"sha256": it["sha256"], "filename": it["filename"],
+                                          "content_type": it["content_type"], "size": len(it["_data"])}, ok404=True)
+        if r is None:
+            return False
+        if r.get("exists"):
+            continue
+        url = str(r.get("upload_url") or "")
+        if not url.startswith(("https://", "http://")):
+            raise AppError("api_failed", f"{acct['nazev']}: /media nevrátilo adresu pro nahrání.", shop=acct["nazev"],
+                           e="/media returned no upload_url", status=0)
+        req = urllib.request.Request(url, data=it["_data"], method=str(r.get("method") or "PUT").upper())
+        for k, v in (r.get("headers") or {}).items():
+            req.add_header(str(k), str(v))
+        try:
+            with urllib.request.urlopen(req, timeout=300, context=SSL_CTX) as resp:
+                resp.read()
+        except urllib.error.HTTPError as e:
+            text = e.read().decode("utf-8", "replace")[:200]
+            raise AppError("api_failed", f"{acct['nazev']}: {it['filename']}: {text or e.reason} ({e.code})",
+                           shop=acct["nazev"], e=f"{it['filename']}: {text or e.reason} ({e.code})", status=e.code) from None
+        except (urllib.error.URLError, OSError, ValueError) as e:
+            raise AppError("api_failed", f"{acct['nazev']}: {it['filename']}: {e}", shop=acct["nazev"],
+                           e=f"{it['filename']}: {e}", status=0) from None
+    return True
 
 
 def _store_live(con, ucet, p, now=None):
@@ -260,13 +293,16 @@ def publish(cfg, body, db_path=None, demo=False):
     req["sku"] = sku
     have = {i.get("sha256") for i in ((current or {}).get("images") or []) + ((current or {}).get("files") or [])}
     raw_images, raw_files = req["images"], req["files"]
-    req["images"], req["files"] = _with_data(raw_images, have), _with_data(raw_files, have)
+    staged = _upload(acct, raw_images + raw_files, have)  # nové fotky zvlášť, PUT pak nese jen otisky
+    req["images"], req["files"] = _with_data(raw_images, have, staged), _with_data(raw_files, have, staged)
     try:
         result = call(acct, "PUT", path, req)
     except AppError as e:
         if e.param.get("status") != 409:
             raise
-        req["images"], req["files"] = _with_data(raw_images, set()), _with_data(raw_files, set())  # e-shop fotku nezná: poslat vše
+        # e-shop některou fotku nezná: nahrát (nebo poslat) znovu všechny
+        staged = _upload(acct, raw_images + raw_files, set())
+        req["images"], req["files"] = _with_data(raw_images, set(), staged), _with_data(raw_files, set(), staged)
         result = call(acct, "PUT", path, req)
     result = result or {}
     now = int(time.time())

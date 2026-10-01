@@ -25,6 +25,7 @@ A complete reference implementation in Python (standard library only, data in a 
 | GET | `/products` | Summary of all products the dashboard manages (state, price, stock, last change) |
 | GET | `/products/{sku}` | One product in full |
 | PUT | `/products/{sku}` | Create or replace a product |
+| POST | `/media` | Optional: where to upload a new image or file before `PUT /products/{sku}` |
 | PATCH | `/products/{sku}/stock` | Change stock only |
 | GET | `/orders?since={ts}` | Orders created or changed since a time |
 | POST | `/orders/{id}/shipment` | Carrier and tracking number; marks the order shipped |
@@ -87,7 +88,26 @@ Creates the product or replaces it completely. Body as above, without `url` and 
 - `images`: the full ordered list; the first one is the main image. Each item has `filename`, `content_type`, `sha256` and, **only when the shop doesn't have that image yet**, `data` with the file in base64. The dashboard first calls `GET /products/{sku}` and sends `data` only for hashes the shop didn't list. The shop must keep images it already has by `sha256`, add the new ones, delete images that are no longer listed, and follow the list order.
 - `files`: downloadable files of a digital product, same rules as `images`.
 
-Answer `200` (or `201`) with the stored product in the same shape as `GET /products/{sku}` (without `data`), including `url` and `updated_at`. If an image arrives without `data` and the shop doesn't know its hash, answer `409` with an error, and the dashboard resends all images with data.
+If the shop implements `POST /media` (below), the dashboard uploads new images and files there first and the `PUT` carries only their `sha256`, never `data`. This keeps the request small; hosting platforms such as Vercel reject request bodies over 4.5 MB.
+
+Answer `200` (or `201`) with the stored product in the same shape as `GET /products/{sku}` (without `data`), including `url` and `updated_at`. If an image arrives without `data` and the shop doesn't know its hash, answer `409` with an error, and the dashboard uploads (or sends with `data`) all images again.
+
+### POST /media
+
+Optional, but recommended for shops behind a request size limit. Before `PUT /products/{sku}`, the dashboard calls it for every image or file the shop doesn't have yet:
+
+```json
+{"sha256": "9f2c…", "filename": "mug.jpg", "content_type": "image/jpeg", "size": 2483021}
+```
+
+Answer `{"exists": true}` when the shop already holds a file with that hash. Otherwise answer where the dashboard should send the raw file:
+
+```json
+{"exists": false, "upload_url": "https://storage.example.com/upload/9f2c…?token=…", "method": "PUT",
+ "headers": {"content-type": "image/jpeg"}}
+```
+
+The dashboard sends the file's bytes as the request body to `upload_url` with that method and those headers, and without its API key, so the URL must carry its own authorization, for example a pre-signed storage URL. The following `PUT /products/{sku}` then lists the file by `sha256` only, and the shop takes it from where it was uploaded. Answer `404` if the shop doesn't implement this endpoint; the dashboard then sends `data` inside the `PUT` as described above.
 
 ### PATCH /products/{sku}/stock
 
