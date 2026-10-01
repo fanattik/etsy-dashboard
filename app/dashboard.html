@@ -244,6 +244,14 @@ th.sortable:hover, th.sorted { color: var(--text); }
 .nl-bar .field { margin: 0; flex: 1 1 320px; }
 .nl-empty { text-align: center; padding: 40px 20px; color: var(--muted); }
 .pill.err { background: var(--bad-soft); color: var(--bad); }
+.pill.ost { color: var(--text); } .pill.ost .dot { width: 7px; height: 7px; }
+.ostrow { border-top: 1px solid var(--line); padding: 10px 0; } .ostrow:first-child { border-top: 0; }
+.ostline { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; } .ostline input[data-o="nazev"] { flex: 1; min-width: 140px; }
+.ostline input[type="color"] { width: 34px; height: 30px; padding: 2px; border-radius: 7px; border: 1px solid var(--line); background: var(--panel); flex: none; }
+.ostrow details { margin-top: 6px; font-size: 13px; } .ostrow summary { cursor: pointer; color: var(--muted); }
+.ostrow .ostgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 14px; margin: 8px 0; }
+@media (max-width: 600px) { .ostrow .ostgrid { grid-template-columns: 1fr; } }
+.oitems { margin: 0; padding: 0; list-style: none; display: grid; gap: 4px; } .oitems .hint { margin: 0; }
 .lbulk { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; background: var(--panel-2); border-radius: 10px; padding: 8px 10px 8px 14px; margin: 0 0 12px; font-size: 13px; }
 .lbulk b { font-weight: 500; }
 .nl-pub { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; background: var(--brand-soft); border-radius: 10px; padding: 10px 14px; margin: 10px 0 4px; font-size: 13.5px; }
@@ -505,6 +513,7 @@ dialog::backdrop { background: rgba(0,0,0,.4); }
         <div class="card-h">
           <input class="search" id="search" data-i18n-ph="searchPh">
           <div class="spacer"></div>
+          <button class="btn" id="oSheet" data-i18n-title="oSheetTip"><svg class="i" viewBox="0 0 24 24"><path d="M7 8V3h10v5M7 17H4v-7h16v7h-3"/><path d="M7 14h10v7H7z"/></svg><span data-i18n="oSheet"></span></button>
           <a class="btn" id="exportBtn" href="/export/objednavky.csv"><svg class="i" viewBox="0 0 24 24"><path d="M12 4v12M7 11l5 5 5-5M4 20h16"/></svg><span data-i18n="exportCsv"></span></a>
         </div>
         <div class="tfilters">
@@ -515,6 +524,9 @@ dialog::backdrop { background: rgba(0,0,0,.4); }
           <label><span data-i18n="fSort"></span><select id="fSort"></select></label>
           <button class="btn" id="fReset" data-i18n="fReset"></button>
         </div>
+        <div class="lbulk" id="oBulk" hidden><b id="oBulkN"></b><div class="spacer"></div>
+          <select id="oBulkState"></select><button class="btn primary" id="oBulkGo" data-i18n="oSetState"></button><button class="btn ghost" id="oClearSel" data-i18n="lClearSel"></button></div>
+        <p class="msg" id="oMsg"></p>
         <p class="tsum" id="tsum"></p>
         <div class="tablewrap"><table id="table"></table></div>
         <div class="more"><button class="btn" id="moreBtn" data-i18n="moreBtn" hidden></button></div>
@@ -543,6 +555,12 @@ dialog::backdrop { background: rgba(0,0,0,.4); }
             <div class="actions"><span class="msg" id="catMsg"></span><button class="btn primary" id="catSave" data-i18n="save"></button></div>
             <h4 class="dsec" data-i18n="rTitle"></h4>
             <div id="acctRules"></div>
+          </div>
+          <div class="card" id="ostSettings">
+            <h2 data-i18n="ostTitle"></h2>
+            <p class="hint" data-i18n="ostHint"></p>
+            <div id="ostList"></div>
+            <div class="actions"><span class="msg" id="ostMsg"></span><button class="btn" id="ostAdd" data-i18n="ostAdd"></button><button class="btn primary" id="ostSave" data-i18n="save"></button></div>
           </div>
           <div class="card">
             <h2 data-i18n="secData"></h2>
@@ -618,6 +636,7 @@ dialog::backdrop { background: rgba(0,0,0,.4); }
       <div class="field"><label for="shPrice" data-i18n="shipPrice"></label><div class="pricerow"><input id="shPrice" inputmode="decimal" autocomplete="off"><select id="shCur"></select></div></div>
     </div>
     <p class="hint" id="shTrackLink"></p>
+    <div id="shPush"></div>
     <div class="actions"><span class="msg" id="shMsg"></span><button class="btn" id="shClear" data-i18n="shipClear"></button><button class="btn primary" id="shSave" data-i18n="save"></button></div>
   </div>
 </dialog>
@@ -1027,6 +1046,7 @@ function applyStatic() {
   $("#lang").value = LANG;
   document.querySelectorAll("[data-i18n]").forEach(el => el.innerHTML = t(el.dataset.i18n));
   document.querySelectorAll("[data-i18n-ph]").forEach(el => el.placeholder = t(el.dataset.i18nPh));
+  document.querySelectorAll("[data-i18n-title]").forEach(el => el.title = t(el.dataset.i18nTitle));
   document.querySelectorAll("[data-i18n-aria]").forEach(el => el.setAttribute("aria-label", t(el.dataset.i18nAria)));
   [["#expOrders", "objednavky"], ["#expLedger", "vypis"], ["#expListings", "listingy"]].forEach(([s, k]) => $(s).href = `/export/${k}.csv?lang=${LANG}`);
 }
@@ -1330,6 +1350,7 @@ function renderFees(f) {
 }
 
 function statusPill(r) {
+  const s = stOf(r); if (s) return ostPill(s, "Etsy: " + etsyState(r));
   if (r.zaplaceno && r.odeslano === 0) return `<span class="pill ship">${t("kToShip")}</span>`;
   return `<span class="pill ${r.odeslano ? "done" : ""}">${esc(tMap("statuses", r.stav) || r.stav)}</span>`;
 }
@@ -1344,11 +1365,14 @@ function shipTd(r) {
   const tip = d.puv ? ` title="${esc(t("curOrig", { v: fmtMoney(d.puv[0], d.puv[1]) }))}"` : "";
   return `<td class="num"${tip}>${c === null ? "–" : fmtMoney(c, d.mena || r.mena)}${d.dopravce ? `<div class="carrier">${esc(d.dopravce)}</div>` : ""}</td>`;
 }
+const OSEL = new Set();
 function orderRows(rows, multi, compact) {
+  const sel = !compact, selTh = sel ? `<th class="sel"><input type="checkbox" id="oSelAll" ${rows.length && rows.every(r => OSEL.has(r.receipt_id)) ? "checked" : ""} aria-label="all"></th>` : "";
+  const selTd = r => sel ? `<td class="sel"><input type="checkbox" data-osel="${r.receipt_id}" ${OSEL.has(r.receipt_id) ? "checked" : ""}></td>` : "";
   const shopTd = r => multi ? `<td class="nw"><span class="dot" style="background:${shopColor(r.shop)}"></span> ${esc(r.shop)}</td>` : "";
   const sk = k => compact ? "" : k;
-  return `<thead><tr>${sortTh(sk("date"), t("colDate"))}${multi && !compact ? `<th>${t("colShop")}</th>` : ""}<th>${t("colBuyer")}</th>${compact ? "" : `<th>${t("colItems")}</th>${sortTh("qty", t("colQty"), "num")}`}${sortTh(sk("amount"), t("colTotal"), "num")}${compact ? "" : sortTh("ship", t("colShip"), "num")}${sortTh(sk("state"), t("colStatus"))}</tr></thead><tbody>` +
-    rows.map(r => `<tr class="click ${r.pridano_ts > lastSeen ? "new" : ""}" data-rid="${r.receipt_id}"><td class="nw">${fmtDate(r.vytvoreno_ts)}</td>${compact ? "" : shopTd(r)}<td>${esc(r.zakaznik) || "–"}${compact ? `<div class="hint" style="margin:0">${esc(r.polozky)}</div>` : ""}</td>${compact ? "" : `<td class="items">${esc(r.polozky)}</td><td class="num">${qtyOf(r)}</td>`}<td class="num"${origTitle(r)}>${fmtMoney(r.celkem, r.mena)}</td>${compact ? "" : shipTd(r)}<td>${statusPill(r)}</td></tr>`).join("") + "</tbody>";
+  return `<thead><tr>${selTh}${sortTh(sk("date"), t("colDate"))}${multi && !compact ? `<th>${t("colShop")}</th>` : ""}<th>${t("colBuyer")}</th>${compact ? "" : `<th>${t("colItems")}</th>${sortTh("qty", t("colQty"), "num")}`}${sortTh(sk("amount"), t("colTotal"), "num")}${compact ? "" : sortTh("ship", t("colShip"), "num")}${sortTh(sk("state"), t("colStatus"))}</tr></thead><tbody>` +
+    rows.map(r => `<tr class="click ${r.pridano_ts > lastSeen ? "new" : ""}" data-rid="${r.receipt_id}">${selTd(r)}<td class="nw">${fmtDate(r.vytvoreno_ts)}</td>${compact ? "" : shopTd(r)}<td>${esc(r.zakaznik) || "–"}${compact ? `<div class="hint" style="margin:0">${esc(r.polozky)}</div>` : ""}</td>${compact ? "" : `<td class="items">${esc(r.polozky)}</td><td class="num">${qtyOf(r)}</td>`}<td class="num"${origTitle(r)}>${fmtMoney(r.celkem, r.mena)}</td>${compact ? "" : shipTd(r)}<td>${statusPill(r)}</td></tr>`).join("") + "</tbody>";
 }
 
 function renderRecent(f) {
@@ -1365,8 +1389,13 @@ const SORT_ASC_FIRST = { state: 1, type: 1, name: 1, stock: 1 };
 const L_SORTS = ["sold-desc", "revenue-desc", "views-desc", "favs-desc", "price-desc", "price-asc", "stock-asc", "name-asc"];  // text se řadí od A, čísla od největšího
 function qtyOf(r) { return (r.polozky || "").split("; ").reduce((n, it) => { const m = it.match(/^(\d+)(x | ks$)/); return n + (m ? +m[1] : it ? 1 : 0); }, 0); }
 function itemNames(r) { return (r.polozky || "").split("; ").map(it => it.replace(/^\d+x /, "")).filter(it => it && !/^\d+ ks$/.test(it)); }
-function orderState(r) { return r.zaplaceno && r.odeslano === 0 ? "_ship" : r.stav || ""; }
-function stateLabel(k) { return k === "_ship" ? t("kToShip") : tMap("statuses", k) || k || "–"; }
+// vlastní stavy objednávek (Nastavení → Stavy objednávek); bez nich stav z Etsy
+function stOf(r) { const o = RAW.obj_stav?.[r.receipt_id]; return o ? (RAW.stavy || []).find(s => s.id === o.stav_id) || null : null; }
+function orderState(r) { const s = stOf(r); return s ? "#" + s.id : r.zaplaceno && r.odeslano === 0 ? "_ship" : r.stav || ""; }
+function stateLabel(k) { if (k[0] === "#") return (RAW.stavy || []).find(s => "#" + s.id === k)?.nazev || "–"; return k === "_ship" ? t("kToShip") : tMap("statuses", k) || k || "–"; }
+function stateRank(k) { return k[0] === "#" ? (RAW.stavy || []).find(s => "#" + s.id === k)?.poradi ?? 999 : k === "_ship" ? -1 : 1000; }
+function etsyState(r) { return r.zaplaceno && r.odeslano === 0 ? t("kToShip") : tMap("statuses", r.stav) || r.stav || ""; }
+function ostPill(s, title) { return `<span class="pill ost"${title ? ` title="${esc(title)}"` : ""}><span class="dot" style="background:${esc(s.barva || "#8a8f98")}"></span>${esc(s.nazev)}</span>`; }
 function typeLabel(k) { return tMap("types", k) || tMap("types", (k || "").toLowerCase()) || k || "–"; }
 function dayTs(v, end) { return v ? new Date(v + "T00:00:00").getTime() / 1000 + (end ? 86400 : 0) : null; }
 function saveTF() { LS.set("tf_" + page, TF[page]); }
@@ -1383,7 +1412,7 @@ function fillTableFilters(base, orders, st) {
   if (orders) {
     const names = [...new Set(base.flatMap(itemNames))].sort(coll.compare);
     st.what = opts($("#fWhat"), t("fAllItems"), names.map(n => [n, n]), st.what);
-    const states = [...new Set(base.map(orderState))].sort((a, b) => (a === "_ship" ? -1 : b === "_ship" ? 1 : coll.compare(stateLabel(a), stateLabel(b))));
+    const states = [...new Set(base.map(orderState))].sort((a, b) => stateRank(a) - stateRank(b) || coll.compare(stateLabel(a), stateLabel(b)));
     st.state = opts($("#fState"), t("fAllStates"), states.map(k => [k, stateLabel(k)]), st.state);
   } else {
     const types = [...new Set(base.map(r => r.typ))].map(k => [k, typeLabel(k)]).sort((a, b) => coll.compare(a[1], b[1]));
@@ -1417,7 +1446,7 @@ function renderTable(f) {
   }
   const [key, dir] = st.sort.split("-"), sgn = dir === "asc" ? 1 : -1, coll = new Intl.Collator(loc());
   const val = { date: ts, amount: amt, qty: qtyOf, ship: r => shipCost(r) ?? -1,
-    state: r => { const k = orderState(r); return (k === "_ship" ? "0" : "1") + stateLabel(k); }, type: r => typeLabel(r.typ) }[key] || ts;
+    state: r => { const k = orderState(r); return String(stateRank(k) + 10).padStart(5, "0") + stateLabel(k); }, type: r => typeLabel(r.typ) }[key] || ts;
   rows.sort((x, y) => { const p = val(x), o = val(y); return (typeof p === "string" ? coll.compare(p, o) : p - o) * sgn || ts(y) - ts(x); });
 
   const sum = Object.entries(sumByCur(rows, orders ? "celkem" : "castka")).map(([c, v]) => fmtMoney(v, c)).join(" + ") || "–";
@@ -1436,6 +1465,16 @@ function renderTable(f) {
   }
   $("#table").innerHTML = rows.length ? html : `<tbody><tr><td class="empty">${t("nothingF")}</td></tr></tbody>`;
   $("#moreBtn").hidden = rows.length <= shown;
+  $("#oSheet").hidden = !orders; ORDER_ROWS = orders ? rows : [];
+  [...OSEL].forEach(id => { if (!D.objednavky.some(r => r.receipt_id === id)) OSEL.delete(id); });
+  $("#oBulk").hidden = !orders || !OSEL.size || !(RAW.stavy || []).length;
+  if (orders && OSEL.size) {
+    $("#oBulkN").textContent = t("lSelected", { n: pl(OSEL.size, "order") });
+    const v = $("#oBulkState").value;
+    $("#oBulkState").innerHTML = (RAW.stavy || []).map(s => `<option value="${s.id}">${esc(s.nazev)}</option>`).join("");
+    if ([...$("#oBulkState").options].some(o => o.value === v)) $("#oBulkState").value = v;
+  }
+  if (!orders) $("#oMsg").textContent = "";
   $("#exportBtn").href = (orders ? "/export/objednavky.csv" : "/export/vypis.csv") + "?lang=" + LANG;
 }
 
@@ -1661,16 +1700,17 @@ function openOrder(rid) {
       <span>${esc(t("colDate"))}</span><b style="font-weight:400">${fmtDate(r.vytvoreno_ts)}</b>
       <span>${esc(t("colShop"))}</span><b style="font-weight:400"><span class="dot" style="background:${shopColor(r.shop)}"></span> ${esc(r.shop)}</b>
       <span>${esc(t("colBuyer"))}</span><b style="font-weight:400">${esc(r.zakaznik) || "–"}</b>
-      <span>${esc(t("colItems"))}</span><b style="font-weight:400">${esc(r.polozky) || "–"}</b>
+      <span>${esc(t("colItems"))}</span><b style="font-weight:400">${orderItemsHtml(r)}</b>
       <span>${esc(t("colTotal"))}</span><b class="num" style="font-weight:500"${origTitle(r)}>${fmtMoney(r.celkem, r.mena)}</b>
-      <span>${esc(t("colStatus"))}</span><b style="font-weight:400">${statusPill(r)}</b>
+      <span>Etsy</span><b style="font-weight:400"><span class="pill ${r.odeslano ? "done" : r.zaplaceno ? "ship" : ""}">${esc(etsyState(r))}</span></b>
+      ${(RAW.stavy || []).length ? `<span>${esc(t("odState"))}</span><b style="font-weight:400"><select id="odState">${(RAW.stavy || []).map(s => `<option value="${s.id}" ${stOf(r)?.id === s.id ? "selected" : ""}>${esc(s.nazev)}</option>`).join("")}</select> <span class="msg" id="odStateMsg"></span></b>` : ""}
     </div>`;
   $("#shCarrier").value = d.dopravce || ""; $("#shTrack").value = d.cislo || "";
   $("#shPrice").value = d.cena === null || d.cena === undefined ? "" : String(d.cena).replace(".", LANG === "en" ? "." : ",");
   const cur = d.mena || raw.mena || "USD";
   const list = [...new Set([cur, raw.mena, "CZK", "EUR", "USD", "GBP", "PLN"].filter(Boolean))];
   $("#shCur").innerHTML = list.map(c => `<option>${esc(c)}</option>`).join(""); $("#shCur").value = cur;
-  trackLink(); $("#shMsg").textContent = ""; $("#shClear").hidden = !d.receipt_id;
+  trackLink(); $("#shMsg").textContent = ""; $("#shClear").hidden = !d.receipt_id; renderPush(r, d);
   $("#odetail").showModal(); $("#odetail .dlg").focus();
 }
 function trackLink() {
@@ -1803,11 +1843,11 @@ function fillSettings() {
   $("#secret").placeholder = n.ma_secret ? t("secretSaved") : "";
   $("#redirect").value = n.redirect_uri || ""; $("#interval").value = n.interval_minut || 15; $("#ntfy").value = n.ntfy_topic || "";
   $("#verze").textContent = S.verze || "";
-  renderShopList(); buildCurrency(); renderNotif(); applyTheme(); if (K) renderCatalogSettings();
+  renderShopList(); buildCurrency(); renderNotif(); applyTheme(); if (K) renderCatalogSettings(); renderOrderStates();
 }
 function renderShopList() {
   $("#shopList").innerHTML = S.shopy.length ? S.shopy.map(s =>
-    `<div class="shoprow"><span class="dot" style="background:${shopColor(s.name)}"></span><b>${esc(s.name)}</b><div class="spacer"></div>${s.id ? `<button class="btn ghost" data-remove="${esc(s.id)}">${t("remove")}</button>` : ""}</div>`).join("")
+    `<div class="shoprow"><span class="dot" style="background:${shopColor(s.name)}"></span><b>${esc(s.name)}</b>${s.id && s.expedice === false ? ` <span class="hint">${esc(t("shopRelogin"))}</span>` : ""}<div class="spacer"></div>${s.id ? `<button class="btn ghost" data-remove="${esc(s.id)}">${t("remove")}</button>` : ""}</div>`).join("")
     : `<p class="hint">${t("noShops")}</p>`;
 }
 function msg(el, text, ok) { el.textContent = text; el.className = "msg " + (ok ? "ok" : "err"); }
@@ -1896,7 +1936,13 @@ $("#ltable").addEventListener("click", e => {
   const tr = e.target.closest("tr[data-i]"); if (tr) openListing(LROWS[+tr.dataset.i]);
 });
 $("#table").addEventListener("click", e => {
-  if (e.target.closest("th, a")) return;
+  const c = e.target.closest("input[data-osel], #oSelAll");
+  if (c) {
+    if (c.id === "oSelAll") ORDER_ROWS.slice(0, shown).forEach(r => c.checked ? OSEL.add(r.receipt_id) : OSEL.delete(r.receipt_id));
+    else c.checked ? OSEL.add(+c.dataset.osel) : OSEL.delete(+c.dataset.osel);
+    renderTable(filtered()); return;
+  }
+  if (e.target.closest("th, a, td.sel")) return;
   const tr = e.target.closest("tr[data-rid]"); if (tr) openOrder(+tr.dataset.rid);
 });
 $("#recent").addEventListener("click", e => { const tr = e.target.closest("tr[data-rid]"); if (tr) openOrder(+tr.dataset.rid); });
@@ -1906,6 +1952,7 @@ $("#shClear").onclick = () => saveShipping(true);
 $("#odetail").onclick = e => { if (e.target.id === "odetail") e.target.close(); };
 $("#ldetail").onclick = e => { if (e.target.id === "ldetail") e.target.close(); };  // klik mimo kartu
 $("#table").onclick = $("#ltable").onclick = e => {
+  if (e.target.closest("th.sel")) return;
   const th = e.target.closest("th[data-sort]"); if (!th) return;
   const k = th.dataset.sort, [ck, cd] = TF[page].sort.split("-");
   tfSet("sort", k === ck ? `${k}-${cd === "asc" ? "desc" : "asc"}` : `${k}-${SORT_ASC_FIRST[k] ? "asc" : "desc"}`);
@@ -2679,6 +2726,7 @@ async function startEdit() {
       const r = await api(`/api/katalog/nabidka?ucet=etsy:${encodeURIComponent(EDIT.shop)}&produkt=${pid}`);
       Object.assign(d, { nazev: r.nazev, popis: r.popis, stitky: r.stitky, kategorie: r.kategorie || d.kategorie });
       if (r.cena !== null && (d.produkty || []).length <= 1) { d.cena = r.cena; if (d.produkty?.[0]) d.produkty[0].cena = r.cena; }
+      (d.produkty || []).forEach(pr => { const v = (r.produkty || []).find(x => x.sku && x.sku === pr.sku); if (v && v.mnozstvi !== null) pr.mnozstvi = v.mnozstvi; });  // sklad z katalogu
       $("#nlEditMsg").textContent = t("offEditFromCatalog");
     }
     NL = [detailToProduct(d)]; if (pid) NL[0].produkt_id = +pid; nlSetMode(); renderNlList();
@@ -3036,6 +3084,64 @@ const T10 = {
 for (const l in T10) Object.assign(T[l], T10[l]);
 Object.assign(T.en.errors, { offer_missing: "This offer is no longer in the catalog." });
 Object.assign(T.de.errors, { offer_missing: "Dieses Angebot ist nicht mehr im Katalog." });
+const T11 = {
+  cs: {
+    oSheet: "Výrobní list", oSheetTip: "Vytiskne vybrané objednávky. Bez výběru všechny zobrazené, které ještě nejsou v koncovém stavu.",
+    oSetState: "Změnit stav", oStateDone: "Stav změněn: {n}.", oTrackSent: "Tracking odeslán na Etsy: {n}.",
+    oStateTrackConfirm: "Stav {s} posílá tracking na Etsy. U objednávek s číslem zásilky ho Etsy označí jako odeslané a napíše zákazníkovi. Pokračovat?",
+    odState: "Stav", odPerso: "Personalizace",
+    trackPush: "Odeslat tracking na Etsy", trackConfirm: "Poslat dopravce a číslo zásilky na Etsy? Etsy objednávku označí jako odeslanou a pošle zákazníkovi e-mail. Nejde to vzít zpět.",
+    trackSent: "Tracking odeslán na Etsy {d}.", trackShipped: "Na Etsy je objednávka už odeslaná.", trackSaveFirst: "Ulož číslo zásilky, pak ho půjde odeslat na Etsy.",
+    trackRelogin: "Pro odesílání trackingu přihlas shop {s} v Nastavení znovu, aplikace potřebuje nové oprávnění.", trackErr: "Poslední pokus o odeslání selhal: {e}",
+    ostTitle: "Stavy objednávek", ostHint: "Stavy platí pro objednávky ze všech shopů. Nová objednávka začne v prvním stavu a podle pravidel se sama posouvá dál, nikdy zpět. Ručně stav změníš v detailu objednávky nebo hromadně na stránce Objednávky.",
+    ostFinal: "Koncový", ostWhen: "Objednávka sem přejde sama, když", ostAll: "musí platit vše", ostAny: "stačí jedno", ostAnyAcct: "z kteréhokoli účtu",
+    ostC_zaplaceno: "je zaplacená", ostC_odeslano: "je odeslaná v kanálu", ostC_tracking: "má číslo zásilky", ostC_personalizace: "má personalizaci", ostC_digital: "má jen digitální produkty",
+    ostDo: "Když sem objednávka přejde", ostA_tracking: "poslat tracking na Etsy (jen při ruční změně, u objednávek s číslem zásilky)", ostA_trackingShort: "tracking na Etsy",
+    ostA_ntfy: "poslat upozornění na telefon (ntfy), když přejde sama",
+    ostAdd: "Přidat stav", ostNew: "Nový stav", ostFirst: "začátek", ostNoRule: "jen ručně",
+    sheetTitle: "Výrobní list", sheetSum: "Celkem vyrobit", sheetPrint: "Tisknout", sheetNone: "Žádné objednávky k výrobě.", sheetDigital: "digitální položky vynechány",
+    offChgStock: "jiný sklad než na Etsy", shopRelogin: "pro odesílání trackingu přihlas znovu",
+  },
+  en: {
+    oSheet: "Production sheet", oSheetTip: "Prints the selected orders. With nothing selected, all shown orders that aren't in a final state yet.",
+    oSetState: "Change state", oStateDone: "State changed: {n}.", oTrackSent: "Tracking sent to Etsy: {n}.",
+    oStateTrackConfirm: "State {s} sends tracking to Etsy. Etsy marks orders with a tracking number as shipped and emails the buyer. Continue?",
+    odState: "State", odPerso: "Personalization",
+    trackPush: "Send tracking to Etsy", trackConfirm: "Send the carrier and tracking number to Etsy? Etsy marks the order as shipped and emails the buyer. This can't be undone.",
+    trackSent: "Tracking sent to Etsy on {d}.", trackShipped: "Etsy already shows this order as shipped.", trackSaveFirst: "Save the tracking number first, then you can send it to Etsy.",
+    trackRelogin: "To send tracking, sign shop {s} in again in Settings. The app needs a new permission.", trackErr: "The last attempt to send failed: {e}",
+    ostTitle: "Order states", ostHint: "States apply to orders from all shops. A new order starts in the first state and its rules move it forward on their own, never back. Change a state by hand in the order detail or in bulk on the Orders page.",
+    ostFinal: "Final", ostWhen: "An order moves here on its own when", ostAll: "all must hold", ostAny: "any one is enough", ostAnyAcct: "from any account",
+    ostC_zaplaceno: "it's paid", ostC_odeslano: "it's shipped in the channel", ostC_tracking: "it has a tracking number", ostC_personalizace: "it has personalization", ostC_digital: "it has only digital products",
+    ostDo: "When an order moves here", ostA_tracking: "send tracking to Etsy (only on a manual change, orders with a tracking number)", ostA_trackingShort: "tracking to Etsy",
+    ostA_ntfy: "send a phone notification (ntfy) when it moves on its own",
+    ostAdd: "Add state", ostNew: "New state", ostFirst: "start", ostNoRule: "by hand only",
+    sheetTitle: "Production sheet", sheetSum: "Total to make", sheetPrint: "Print", sheetNone: "No orders to make.", sheetDigital: "digital items left out",
+    offChgStock: "stock differs from Etsy", shopRelogin: "sign in again to send tracking",
+  },
+  de: {
+    oSheet: "Produktionsliste", oSheetTip: "Druckt die ausgewählten Bestellungen. Ohne Auswahl alle angezeigten, die noch nicht in einem Endstatus sind.",
+    oSetState: "Status ändern", oStateDone: "Status geändert: {n}.", oTrackSent: "Sendungsnummer an Etsy gesendet: {n}.",
+    oStateTrackConfirm: "Der Status {s} sendet die Sendungsnummer an Etsy. Etsy markiert Bestellungen mit Sendungsnummer als versandt und schreibt dem Kunden. Fortfahren?",
+    odState: "Status", odPerso: "Personalisierung",
+    trackPush: "Sendungsnummer an Etsy senden", trackConfirm: "Versanddienst und Sendungsnummer an Etsy senden? Etsy markiert die Bestellung als versandt und schickt dem Kunden eine E-Mail. Das lässt sich nicht rückgängig machen.",
+    trackSent: "Sendungsnummer am {d} an Etsy gesendet.", trackShipped: "Bei Etsy ist die Bestellung schon versandt.", trackSaveFirst: "Speichere zuerst die Sendungsnummer, dann kannst du sie an Etsy senden.",
+    trackRelogin: "Um Sendungsnummern zu senden, melde den Shop {s} in den Einstellungen neu an. Die App braucht eine neue Berechtigung.", trackErr: "Der letzte Sendeversuch ist fehlgeschlagen: {e}",
+    ostTitle: "Bestellstatus", ostHint: "Die Status gelten für Bestellungen aus allen Shops. Eine neue Bestellung beginnt im ersten Status und rückt nach den Regeln selbst weiter, nie zurück. Von Hand änderst du den Status im Bestelldetail oder gesammelt auf der Seite Bestellungen.",
+    ostFinal: "Endstatus", ostWhen: "Eine Bestellung kommt von selbst hierher, wenn", ostAll: "alles muss gelten", ostAny: "eins reicht", ostAnyAcct: "aus jedem Konto",
+    ostC_zaplaceno: "sie bezahlt ist", ostC_odeslano: "sie im Kanal versandt ist", ostC_tracking: "sie eine Sendungsnummer hat", ostC_personalizace: "sie eine Personalisierung hat", ostC_digital: "sie nur digitale Produkte hat",
+    ostDo: "Wenn eine Bestellung hierher wechselt", ostA_tracking: "Sendungsnummer an Etsy senden (nur bei manueller Änderung, Bestellungen mit Sendungsnummer)", ostA_trackingShort: "Sendungsnummer an Etsy",
+    ostA_ntfy: "Benachrichtigung aufs Telefon (ntfy), wenn sie von selbst wechselt",
+    ostAdd: "Status hinzufügen", ostNew: "Neuer Status", ostFirst: "Anfang", ostNoRule: "nur von Hand",
+    sheetTitle: "Produktionsliste", sheetSum: "Insgesamt herzustellen", sheetPrint: "Drucken", sheetNone: "Keine Bestellungen herzustellen.", sheetDigital: "digitale Artikel ausgelassen",
+    offChgStock: "Bestand anders als auf Etsy", shopRelogin: "für Sendungsnummern neu anmelden",
+  },
+};
+for (const l in T11) Object.assign(T[l], T11[l]);
+Object.assign(T.en.errors, { states_empty: "Keep at least one state.", states_name: "Every state needs a name.", state_missing: "The chosen state no longer exists.",
+  track_missing: "The order has no tracking number.", track_relogin: "The shop is connected without permission to send shipments. Sign it in again in Settings.", track_failed: "Etsy didn't accept the tracking: {e}" });
+Object.assign(T.de.errors, { states_empty: "Lass mindestens einen Status übrig.", states_name: "Jeder Status braucht einen Namen.", state_missing: "Der gewählte Status existiert nicht mehr.",
+  track_missing: "Die Bestellung hat keine Sendungsnummer.", track_relogin: "Der Shop ist ohne das Recht verbunden, Sendungen zu melden. Melde ihn in den Einstellungen neu an.", track_failed: "Etsy hat die Sendungsnummer nicht angenommen: {e}" });
 
 let K = null, PROWS = [];
 const acctName = id => (K?.ucty || []).find(u => u.id === id)?.nazev || id;
@@ -3050,6 +3156,7 @@ const photoOf = p => p.media.find(m => m.druh === "foto" && m.url)?.url || "";
 const thumbHtml = (src, name, cls) => src ? `<img class="${cls}" src="${esc(src)}" alt="" loading="lazy">` : `<span class="${cls} thumb">${esc((name || "?").trim()[0] || "?")}</span>`;
 
 const PSEL = new Set();
+const OFF_CHG = { katalog: "offChgCat", kanal: "offChgShop", sklad: "offChgStock" };
 function renderProducts() {
   const all = K?.produkty || [], links = catalogLinks(), nf = n => n.toLocaleString(loc());
   const outside = (RAW.listingy || []).filter(l => l.listing_id > 0 && !links.has(l.shop + "/" + l.listing_id)).length;
@@ -3063,7 +3170,7 @@ function renderProducts() {
     (!fv || (fv === "zmeny" ? p.nabidky.some(n => n.zmeny?.length) : !p.nabidky.some(n => n.ucet_id === fv.slice(4)))));
   $("#psum").innerHTML = all.length ? esc(t("pSum", { n: pl(all.length, "product") })) + (outside ? ` · <a class="linkbtn" href="#" id="pOutside">${esc(t("pOutside", { n: pl(outside, "listing") }))}</a>` : "") : "";
   const offerPill = n => {
-    const warn = n.zmeny?.length, tip = [tMap("lstates", n.stav) || n.stav || ""].concat((n.zmeny || []).map(z => t(z === "katalog" ? "offChgCat" : "offChgShop")));
+    const warn = n.zmeny?.length, tip = [tMap("lstates", n.stav) || n.stav || ""].concat((n.zmeny || []).map(z => t(OFF_CHG[z])));
     return `<span class="pill ${warn ? "ship" : n.stav === "active" ? "done" : ""}" title="${esc(tip.filter(Boolean).join(" · "))}">${warn ? "⚠ " : ""}${esc(acctName(n.ucet_id))}</span>`;
   };
   [...PSEL].forEach(id => { if (!all.some(p => p.id === id)) PSEL.delete(id); });
@@ -3230,9 +3337,9 @@ function pdOffers(p) {
   const offer = n => {
     const url = n.ucet_id.startsWith("etsy:") ? `https://www.etsy.com/listing/${encodeURIComponent(n.externi_id)}` : "";
     const shop = shopOfAcct(n.ucet_id), can = !S.demo && shops.some(x => x.id === shop && x.zapis);
-    const chg = (n.zmeny || []).map(z => `<span class="pill ship">${esc(t(z === "katalog" ? "offChgCat" : "offChgShop"))}${z === "katalog" && fields(n) ? `: ${esc(fields(n))}` : ""}</span>`).join(" ");
+    const chg = (n.zmeny || []).map(z => `<span class="pill ship">${esc(t(OFF_CHG[z]))}${z === "katalog" && fields(n) ? `: ${esc(fields(n))}` : ""}</span>`).join(" ");
     return `<tr class="offrow"><td>${esc(acctName(n.ucet_id))}<div>${listingPill(n.stav)} ${chg}</div>${n.posledni_chyba ? `<div class="hint err">${esc(n.posledni_chyba)}</div>` : ""}</td>` +
-      `<td class="nw" style="text-align:right">${can && n.zmeny?.includes("katalog") ? `<a class="btn" href="#upravit/${esc(shop)}/${esc(n.externi_id)}/katalog/${p.id}">${esc(t("offSend"))}</a> ` : ""}` +
+      `<td class="nw" style="text-align:right">${can && (n.zmeny?.includes("katalog") || n.zmeny?.includes("sklad")) ? `<a class="btn" href="#upravit/${esc(shop)}/${esc(n.externi_id)}/katalog/${p.id}">${esc(t("offSend"))}</a> ` : ""}` +
       `${can && n.zmeny?.includes("kanal") ? `<button class="btn" data-pa="offTake" data-id="${n.id}">${esc(t("offTake"))}</button> ` : ""}` +
       `${url ? `<a class="btn ghost" href="${url}" target="_blank" rel="noopener">${esc(t("ldOpen"))} ↗</a>` : esc(n.externi_id)} ` +
       `${S.demo ? "" : `<button class="btn ghost" data-pa="offUnlink" data-id="${n.id}" title="${esc(t("offUnlink"))}">✕</button>`}</td></tr>`;
@@ -3480,6 +3587,150 @@ async function importFolder(files) {
   $("#pFolderBtn").disabled = false;
   K = await api("/api/katalog").catch(() => K); render();
 }
+
+// objednávky: položky, ruční stav, tracking na Etsy, hromadná změna stavu, výrobní list
+let ORDER_ROWS = [];
+function itemsOf(rid) { return (RAW.polozky || []).filter(i => i.receipt_id === rid); }
+function orderItemsHtml(r) {
+  const items = itemsOf(r.receipt_id);
+  if (!items.length) return esc(r.polozky) || "–";
+  return `<ul class="oitems">${items.map(i => {
+    const p = i.produkt_id && (K?.produkty || []).find(x => x.id === i.produkt_id);
+    const name = p ? `<a class="linkbtn" href="#" data-oprod="${p.id}">${esc(i.nazev)}</a>` : esc(i.nazev);
+    return `<li><span>${i.mnozstvi}× ${name}</span>${i.varianta ? `<p class="hint">${esc(i.varianta)}</p>` : ""}${i.personalizace ? `<p class="hint">${esc(t("odPerso"))}: ${esc(i.personalizace)}</p>` : ""}</li>`;
+  }).join("")}</ul>`;
+}
+function renderPush(r, d) {
+  const o = RAW.obj_stav?.[r.receipt_id] || {}, shop = (S.shopy || []).find(x => x.name === r.shop && x.id);
+  let h = "";
+  if (o.tracking_ts) h = `<p class="hint">✓ ${esc(t("trackSent", { d: fmtDate(o.tracking_ts) }))}</p>`;
+  else if (r.odeslano) h = d.cislo ? `<p class="hint">${esc(t("trackShipped"))}</p>` : "";
+  else if (!d.cislo) h = shop ? `<p class="hint">${esc(t("trackSaveFirst"))}</p>` : "";
+  else if (shop && !shop.expedice) h = `<p class="hint">${esc(t("trackRelogin", { s: shop.name }))}</p>`;
+  else if (shop) h = `<div class="actions left"><button class="btn" id="shPushBtn">${esc(t("trackPush"))}</button><span class="msg" id="shPushMsg"></span></div>`;
+  if (o.tracking_chyba && !o.tracking_ts) h += `<p class="err">${esc(t("trackErr", { e: o.tracking_chyba }))}</p>`;
+  $("#shPush").innerHTML = h;
+}
+$("#shPush").addEventListener("click", async e => {
+  if (!e.target.closest("#shPushBtn") || !confirm(t("trackConfirm"))) return;
+  const b = $("#shPushBtn"); b.disabled = true;
+  try { await api("/api/objednavka/tracking", { receipt_id: ORDER.receipt_id }); await load(); openOrder(ORDER.receipt_id); }
+  catch (err) { msg($("#shPushMsg"), err.message); b.disabled = false; await load(); }
+});
+$("#odBody").addEventListener("click", e => {
+  const a = e.target.closest("[data-oprod]"); if (!a) return;
+  e.preventDefault(); const p = (K?.produkty || []).find(x => x.id === +a.dataset.oprod);
+  if (p) { $("#odetail").close(); location.hash = "#produkty"; openProduct(p); }
+});
+async function setOrderState(rids, sid) {
+  const r = await api("/api/objednavka/stav", { receipt_ids: rids, stav_id: sid });
+  await load();
+  return [t("oStateDone", { n: pl(rids.length, "order") })].concat(r.odeslano ? [t("oTrackSent", { n: pl(r.odeslano, "order") })] : []).join(" ") +
+    (r.chyby?.length ? " " + r.chyby.join("; ") : "");
+}
+$("#odBody").addEventListener("change", async e => {
+  if (e.target.id !== "odState") return;
+  const sid = +e.target.value, target = (RAW.stavy || []).find(s => s.id === sid);
+  if (target?.akce?.tracking && !confirm(t("oStateTrackConfirm", { s: target.nazev }))) { openOrder(ORDER.receipt_id); return; }
+  e.target.disabled = true;
+  try { const m = await setOrderState([ORDER.receipt_id], sid); openOrder(ORDER.receipt_id); msg($("#odStateMsg"), m, true); }
+  catch (err) { msg($("#odStateMsg"), err.message); e.target.disabled = false; }
+});
+$("#oBulkGo").onclick = async () => {
+  const sid = +$("#oBulkState").value, target = (RAW.stavy || []).find(s => s.id === sid);
+  if (target?.akce?.tracking && !confirm(t("oStateTrackConfirm", { s: target.nazev }))) return;
+  $("#oBulkGo").disabled = true;
+  try { const m = await setOrderState([...OSEL], sid); OSEL.clear(); renderTable(filtered()); msg($("#oMsg"), m, true); }
+  catch (err) { msg($("#oMsg"), err.message); }
+  $("#oBulkGo").disabled = false;
+};
+$("#oClearSel").onclick = () => { OSEL.clear(); renderTable(filtered()); };
+$("#oSheet").onclick = () => {
+  const finals = new Set((RAW.stavy || []).filter(s => s.koncovy).map(s => s.id));
+  const rows = OSEL.size ? D.objednavky.filter(r => OSEL.has(r.receipt_id)) : ORDER_ROWS.filter(r => !finals.has(stOf(r)?.id) && !(!stOf(r) && r.odeslano));
+  productionSheet(rows.slice().sort((a, b) => a.vytvoreno_ts - b.vytvoreno_ts));
+};
+function productionSheet(rows) {
+  const digital = new Set((K?.produkty || []).filter(p => p.typ === "digital").map(p => p.id));
+  let skipped = 0; const sum = new Map(), orders = [];
+  rows.forEach(r => {
+    const raw = itemsOf(r.receipt_id), items = raw.length ? raw.filter(i => !digital.has(i.produkt_id)) : [{ nazev: r.polozky, mnozstvi: "", varianta: "", personalizace: "" }];
+    skipped += raw.length - (raw.length ? items.length : 0);
+    if (!items.length) return;
+    items.forEach(i => { if (i.mnozstvi === "") return; const k = i.nazev + "\u0000" + i.varianta; sum.set(k, (sum.get(k) || 0) + i.mnozstvi); });
+    orders.push([r, items]);
+  });
+  const w = window.open("", "_blank"); if (!w) return;
+  const st = r => stOf(r)?.nazev || etsyState(r);
+  w.document.write(`<!doctype html><html lang="${LANG}"><head><meta charset="utf-8"><title>${esc(t("sheetTitle"))}</title><style>
+    body { font: 13px/1.45 -apple-system, "Segoe UI", sans-serif; color: #111; margin: 24px; } h1 { font-size: 20px; margin: 0 0 4px; } h2 { font-size: 14px; margin: 22px 0 6px; }
+    table { border-collapse: collapse; width: 100%; } td, th { text-align: left; padding: 5px 8px; border-bottom: 1px solid #ddd; vertical-align: top; } th { font-weight: 600; font-size: 12px; color: #555; }
+    .q { width: 40px; text-align: right; font-weight: 600; } .muted { color: #666; } .box { width: 14px; height: 14px; border: 1.5px solid #333; border-radius: 3px; display: inline-block; }
+    .o { break-inside: avoid; } button { font: inherit; padding: 6px 12px; } @media print { button { display: none; } body { margin: 0; } }
+  </style></head><body><button onclick="print()">${esc(t("sheetPrint"))}</button>
+  <h1>${esc(t("sheetTitle"))}</h1><div class="muted">${esc(new Date().toLocaleString(loc()))} · ${esc(pl(orders.length, "order"))}${skipped ? " · " + esc(t("sheetDigital")) : ""}</div>
+  ${orders.length ? `<h2>${esc(t("sheetSum"))}</h2><table><tbody>${[...sum].sort((a, b) => a[0].localeCompare(b[0])).map(([k, q]) => { const [n, v] = k.split("\u0000"); return `<tr><td class="q">${q}×</td><td>${esc(n)}${v ? `<div class="muted">${esc(v)}</div>` : ""}</td></tr>`; }).join("")}</tbody></table>
+  <h2>${esc(t("tabOrders"))}</h2><table><thead><tr><th></th><th>${esc(t("colItems"))}</th><th>${esc(t("colBuyer"))}</th><th>${esc(t("colStatus"))}</th></tr></thead><tbody>${orders.map(([r, items]) =>
+    `<tr class="o"><td><span class="box"></span></td><td><b>${esc(t("orderNo", { n: r.receipt_id }))}</b> <span class="muted">${esc(fmtDate(r.vytvoreno_ts))} · ${esc(r.shop)}</span>${items.map(i =>
+      `<div>${i.mnozstvi === "" ? "" : `<b>${i.mnozstvi}×</b> `}${esc(i.nazev)}${i.varianta ? ` <span class="muted">(${esc(i.varianta)})</span>` : ""}${i.personalizace ? `<div>✎ ${esc(i.personalizace)}</div>` : ""}</div>`).join("")}</td><td>${esc(r.zakaznik || "")}</td><td>${esc(st(r))}</td></tr>`).join("")}</tbody></table>`
+    : `<p>${esc(t("sheetNone"))}</p>`}</body></html>`);
+  w.document.close();
+}
+
+// nastavení: vlastní stavy objednávek
+let OSTE = null;  // rozpracovaný seznam stavů
+const OST_COND = ["zaplaceno", "odeslano", "tracking", "personalizace", "digital"];
+function renderOrderStates(force) {
+  if (!force && (OSTE?.dirty || document.activeElement?.closest?.("#ostList"))) return;
+  if (!OSTE || force === "reset") OSTE = { dirty: false, list: JSON.parse(JSON.stringify(RAW.stavy || [])) };
+  const accts = K?.ucty || [];
+  $("#ostList").innerHTML = OSTE.list.map((s, i) => {
+    const r = s.pravidlo || {}, a = s.akce || {}, conds = r.kdyz || [];
+    const sum = conds.length || r.ucet ? conds.map(c => t("ostC_" + c)).concat(r.ucet ? [acctName(r.ucet)] : []).join(r.vse === false ? " / " : " + ") : t("ostNoRule");
+    return `<div class="ostrow" data-i="${i}"><div class="ostline">
+      <input type="color" data-o="barva" value="${esc(s.barva || "#8a8f98")}" aria-label="color"><input data-o="nazev" value="${esc(s.nazev)}" maxlength="60">
+      <label class="check"><input type="checkbox" data-o="koncovy" ${s.koncovy ? "checked" : ""}> ${esc(t("ostFinal"))}</label>
+      <button class="btn ghost" data-om="up" ${i ? "" : "disabled"} aria-label="up">↑</button><button class="btn ghost" data-om="down" ${i < OSTE.list.length - 1 ? "" : "disabled"} aria-label="down">↓</button><button class="btn ghost" data-om="del" ${OSTE.list.length > 1 ? "" : "disabled"} aria-label="${esc(t("remove"))}">✕</button></div>
+      <details ${s.open ? "open" : ""}><summary>${esc(i === 0 ? t("ostFirst") + " · " : "")}${esc(sum)}${a.tracking || a.ntfy ? " · " + esc([a.tracking ? t("ostA_trackingShort") : "", a.ntfy ? "ntfy" : ""].filter(Boolean).join(", ")) : ""}</summary>
+        <div class="flabel">${esc(t("ostWhen"))}</div>
+        <div class="ostgrid">${OST_COND.map(c => `<label class="check"><input type="checkbox" data-oc="${c}" ${conds.includes(c) ? "checked" : ""}> ${esc(t("ostC_" + c))}</label>`).join("")}</div>
+        <div class="nl-row"><div class="field"><select data-o="vse"><option value="1">${esc(t("ostAll"))}</option><option value="0" ${r.vse === false ? "selected" : ""}>${esc(t("ostAny"))}</option></select></div>
+          <div class="field"><select data-o="ucet"><option value="">${esc(t("ostAnyAcct"))}</option>${accts.map(u => `<option value="${esc(u.id)}" ${u.id === r.ucet ? "selected" : ""}>${esc(u.nazev)}</option>`).join("")}</select></div></div>
+        <div class="flabel">${esc(t("ostDo"))}</div>
+        <label class="check"><input type="checkbox" data-oa="tracking" ${a.tracking ? "checked" : ""}> ${esc(t("ostA_tracking"))}</label>
+        <label class="check"><input type="checkbox" data-oa="ntfy" ${a.ntfy ? "checked" : ""}> ${esc(t("ostA_ntfy"))}</label>
+      </details></div>`;
+  }).join("");
+}
+function readOrderStates() {
+  $("#ostList").querySelectorAll(".ostrow").forEach(row => {
+    const s = OSTE.list[+row.dataset.i], q = k => row.querySelector(`[data-o="${k}"]`);
+    s.nazev = q("nazev").value; s.barva = q("barva").value; s.koncovy = q("koncovy").checked; s.open = row.querySelector("details").open;
+    s.pravidlo = { kdyz: [...row.querySelectorAll("[data-oc]")].filter(c => c.checked).map(c => c.dataset.oc), vse: q("vse").value === "1", ucet: q("ucet").value };
+    s.akce = { tracking: row.querySelector('[data-oa="tracking"]').checked, ntfy: row.querySelector('[data-oa="ntfy"]').checked };
+  });
+}
+$("#ostList").addEventListener("change", e => { readOrderStates(); OSTE.dirty = true; if (!e.target.matches('[data-o="nazev"], [type="color"]')) renderOrderStates(true); });
+$("#ostList").addEventListener("input", () => { OSTE.dirty = true; });
+$("#ostList").addEventListener("click", e => {
+  const b = e.target.closest("[data-om]"); if (!b) return;
+  readOrderStates(); OSTE.dirty = true;
+  const i = +b.closest(".ostrow").dataset.i, L = OSTE.list;
+  if (b.dataset.om === "del") L.splice(i, 1);
+  else { const j = b.dataset.om === "up" ? i - 1 : i + 1; [L[i], L[j]] = [L[j], L[i]]; }
+  renderOrderStates(true);
+});
+$("#ostAdd").onclick = () => {
+  if (!OSTE) renderOrderStates(true);
+  readOrderStates(); OSTE.dirty = true;
+  OSTE.list.push({ nazev: t("ostNew"), barva: "#8a8f98", koncovy: false, pravidlo: {}, akce: {}, open: true });
+  renderOrderStates(true); $("#ostList").querySelector(".ostrow:last-child [data-o=nazev]").select();
+};
+$("#ostSave").onclick = async () => {
+  readOrderStates();
+  try { await api("/api/stavy", { stavy: OSTE.list }); await load(); renderOrderStates("reset"); msg($("#ostMsg"), t("saved"), true); }
+  catch (e) { msg($("#ostMsg"), e.message); }
+};
 
 applyStatic();
 $("#status").textContent = t("loading");

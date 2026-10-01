@@ -31,7 +31,7 @@ from zaklad import (
     BASE_DIR, CONFIG_PATH, config_ready, DASHBOARD_PATH, DATA_DIR, http_json, load_config, load_tokens, LOCK,
     save_config, save_tokens, SSL_CTX, STATUS, tr, UPDATE_BASE, UPDATE_EVERY)
 from databaze import db
-from etsy_api import auth_finish, auth_start, can_delete, can_write
+from etsy_api import auth_finish, auth_start, can_delete, can_ship, can_write
 from synchronizace import check_shop, get_rates
 from etsy_listingy import (
     add_discount, cancel_discount, listing_detail, listing_options, listing_properties, listings_state,
@@ -39,12 +39,13 @@ from etsy_listingy import (
 from prehled import csv_export, dashboard_data, make_demo_db, save_shipping
 from csv_import import fill_items_from_ledger, import_csv
 from katalog import adopt_listing, adoption_proposal, catalog_data, import_folder, media_file
+from objednavky import after_sync, push_tracking, save_states, set_state
 from nabidky import link_offer, offer_data, readopt_offer, unlink_offer
 from produkty import delete_product, media_action, save_layer, save_product, save_rules, save_variants
 
 
 PORT = 8765
-VERSION = "1.26"
+VERSION = "1.27"
 zaklad.VERSION = VERSION  # User-Agent v HTTP požadavcích
 
 
@@ -67,6 +68,10 @@ def run_check(cfg):
                     STATUS["chyby"][name] = str(e)
                     print(f"⚠️  {name}: {e}")
             con.close()
+            try:
+                all_news.extend(after_sync(cfg))
+            except Exception as e:
+                print(f"⚠️  stavy objednávek: {e}")
             STATUS["posledni_kontrola"] = int(time.time())
         finally:
             STATUS["bezi"] = False
@@ -182,9 +187,11 @@ class Handler(BaseHTTPRequestHandler):
         cfg = load_config()
         tokens = load_tokens()
         if self.demo:
-            shops = [{"id": "1", "name": "DemoPrintables", "zapis": True, "mazani": True}, {"id": "2", "name": "DemoHandmade", "zapis": True, "mazani": True}]
+            shops = [{"id": "1", "name": "DemoPrintables", "zapis": True, "mazani": True, "expedice": True},
+                     {"id": "2", "name": "DemoHandmade", "zapis": True, "mazani": True, "expedice": True}]
         else:
-            shops = [{"id": k, "name": v.get("shop_name", k), "zapis": can_write(v), "mazani": can_delete(v)} for k, v in tokens.items()]
+            shops = [{"id": k, "name": v.get("shop_name", k), "zapis": can_write(v), "mazani": can_delete(v),
+                      "expedice": can_ship(v)} for k, v in tokens.items()]
             con = db(self.db_path)
             names = {r[0] for r in con.execute("SELECT shop FROM objednavky UNION SELECT shop FROM vypis UNION SELECT shop FROM listingy")}
             con.close()
@@ -211,7 +218,7 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/stav":
             return self.send(200, self.state())
         if path == "/api/data":
-            return self.send(200, dashboard_data(self.db_path))
+            return self.send(200, dashboard_data(self.db_path, load_config().get("jazyk") or "cs"))
         if path == "/api/kurzy":
             return self.send(200, get_rates())
         if path == "/api/katalog":
@@ -268,7 +275,7 @@ class Handler(BaseHTTPRequestHandler):
             return self.send(403, {"chyba": "zakázáno"})
         try:
             body = self.read_json()
-            if self.demo and path not in ("/api/zkontrolovat", "/api/doprava"):
+            if self.demo and path not in ("/api/zkontrolovat", "/api/doprava", "/api/objednavka/stav", "/api/stavy"):
                 return self.send(400, {"chyba": "V ukázkovém režimu nejde nic měnit.", "kod": "demo"})
             if path == "/api/nastaveni":
                 cfg = load_config()
@@ -324,6 +331,12 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send(200, katalog_post[path](body, self.db_path, self.demo))
             if path == "/api/katalog/slozka":
                 return self.send(200, import_folder(body, self.db_path, self.demo))
+            if path == "/api/objednavka/stav":
+                return self.send(200, set_state(load_config(), body, self.db_path, self.demo))
+            if path == "/api/objednavka/tracking":
+                return self.send(200, push_tracking(load_config(), body.get("receipt_id"), self.db_path))
+            if path == "/api/stavy":
+                return self.send(200, save_states(body, self.db_path, self.demo))
             if path == "/api/doprava":
                 return self.send(200, save_shipping(body, self.db_path))
             if path == "/api/import":

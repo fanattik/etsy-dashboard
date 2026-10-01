@@ -32,7 +32,8 @@ def stats_data(con):
             "info": {r[0]: [r[1], r[2], r[3]] for r in con.execute("SELECT receipt_id, kupujici, mesto, zeme FROM obj_info")}}
 
 
-def dashboard_data(db_path=None):
+def dashboard_data(db_path=None, lang="cs"):
+    from objednavky import orders_data  # objednavky importuje databázi i Etsy API
     con = db(db_path)
     data = {
         "objednavky": rows_as_dicts(con, "SELECT * FROM objednavky ORDER BY vytvoreno_ts DESC"),
@@ -42,23 +43,24 @@ def dashboard_data(db_path=None):
         "slevy": rows_as_dicts(con, "SELECT id, shop_id, listing_id, procento, od_ts, do_ts, stav, chyba FROM slevy "
                                     "WHERE stav IN ('naplanovano','bezi') OR do_ts > strftime('%s','now') - 30*86400 ORDER BY od_ts"),
         "statistiky": stats_data(con),
+        **orders_data(con, lang),
     }
     con.close()
     return data
 
 
 CSV_HEADERS = {
-    "cs": {"dopravce": "Dopravce", "cislo_zasilky": "Číslo zásilky", "cena_dopravy": "Cena dopravy", "mena_dopravy": "Měna dopravy", "listing_id": "ID listingu", "nazev": "Název", "cena": "Cena", "mnozstvi": "Skladem", "zobrazeni": "Zobrazení", "oblibene": "Oblíbené", "stitky": "Štítky", "sku": "SKU", "url": "Odkaz", "shop": "Shopa", "receipt_id": "Číslo objednávky", "vytvoreno_ts": "Datum", "zakaznik": "Zákazník",
+    "cs": {"stav_vlastni": "Vlastní stav", "dopravce": "Dopravce", "cislo_zasilky": "Číslo zásilky", "cena_dopravy": "Cena dopravy", "mena_dopravy": "Měna dopravy", "listing_id": "ID listingu", "nazev": "Název", "cena": "Cena", "mnozstvi": "Skladem", "zobrazeni": "Zobrazení", "oblibene": "Oblíbené", "stitky": "Štítky", "sku": "SKU", "url": "Odkaz", "shop": "Shopa", "receipt_id": "Číslo objednávky", "vytvoreno_ts": "Datum", "zakaznik": "Zákazník",
            "polozky": "Položky", "celkem": "Celkem", "mena": "Měna", "zaplaceno": "Zaplaceno",
            "odeslano": "Odesláno", "stav": "Stav", "entry_id": "ID pohybu", "datum_ts": "Datum",
            "typ": "Typ", "popis": "Popis", "castka": "Částka", "zustatek": "Zůstatek",
            "reference": "Reference"},
-    "en": {"dopravce": "Carrier", "cislo_zasilky": "Tracking number", "cena_dopravy": "Shipping cost", "mena_dopravy": "Shipping currency", "listing_id": "Listing ID", "nazev": "Title", "cena": "Price", "mnozstvi": "Quantity", "zobrazeni": "Views", "oblibene": "Favorites", "stitky": "Tags", "sku": "SKU", "url": "URL", "shop": "Shop", "receipt_id": "Order ID", "vytvoreno_ts": "Date", "zakaznik": "Buyer",
+    "en": {"stav_vlastni": "Own state", "dopravce": "Carrier", "cislo_zasilky": "Tracking number", "cena_dopravy": "Shipping cost", "mena_dopravy": "Shipping currency", "listing_id": "Listing ID", "nazev": "Title", "cena": "Price", "mnozstvi": "Quantity", "zobrazeni": "Views", "oblibene": "Favorites", "stitky": "Tags", "sku": "SKU", "url": "URL", "shop": "Shop", "receipt_id": "Order ID", "vytvoreno_ts": "Date", "zakaznik": "Buyer",
            "polozky": "Items", "celkem": "Total", "mena": "Currency", "zaplaceno": "Paid",
            "odeslano": "Shipped", "stav": "Status", "entry_id": "Entry ID", "datum_ts": "Date",
            "typ": "Type", "popis": "Description", "castka": "Amount", "zustatek": "Balance",
            "reference": "Reference"},
-    "de": {"dopravce": "Versanddienst", "cislo_zasilky": "Sendungsnummer", "cena_dopravy": "Versandkosten", "mena_dopravy": "Versandwährung", "listing_id": "Angebots-ID", "nazev": "Titel", "cena": "Preis", "mnozstvi": "Bestand", "zobrazeni": "Aufrufe", "oblibene": "Favoriten", "stitky": "Tags", "sku": "SKU", "url": "Link", "shop": "Shop", "receipt_id": "Bestellnr.", "vytvoreno_ts": "Datum", "zakaznik": "Kunde",
+    "de": {"stav_vlastni": "Eigener Status", "dopravce": "Versanddienst", "cislo_zasilky": "Sendungsnummer", "cena_dopravy": "Versandkosten", "mena_dopravy": "Versandwährung", "listing_id": "Angebots-ID", "nazev": "Titel", "cena": "Preis", "mnozstvi": "Bestand", "zobrazeni": "Aufrufe", "oblibene": "Favoriten", "stitky": "Tags", "sku": "SKU", "url": "Link", "shop": "Shop", "receipt_id": "Bestellnr.", "vytvoreno_ts": "Datum", "zakaznik": "Kunde",
            "polozky": "Artikel", "celkem": "Gesamt", "mena": "Währung", "zaplaceno": "Bezahlt",
            "odeslano": "Versandt", "stav": "Status", "entry_id": "Buchungsnr.", "datum_ts": "Datum",
            "typ": "Typ", "popis": "Beschreibung", "castka": "Betrag", "zustatek": "Saldo",
@@ -71,10 +73,11 @@ def csv_export(kind, db_path=None, lang="cs"):
     con = db(db_path)
     if kind == "objednavky":
         cols = ["shop", "receipt_id", "vytvoreno_ts", "zakaznik", "polozky", "celkem", "mena",
-                "zaplaceno", "odeslano", "stav", "dopravce", "cislo_zasilky", "cena_dopravy", "mena_dopravy"]
+                "zaplaceno", "odeslano", "stav", "stav_vlastni", "dopravce", "cislo_zasilky", "cena_dopravy", "mena_dopravy"]
         rows = con.execute("SELECT o.shop, o.receipt_id, o.vytvoreno_ts, o.zakaznik, o.polozky, o.celkem, o.mena, "
-                           "o.zaplaceno, o.odeslano, o.stav, d.dopravce, d.cislo, d.cena, d.mena FROM objednavky o "
-                           "LEFT JOIN doprava d ON d.receipt_id=o.receipt_id ORDER BY o.shop, o.vytvoreno_ts").fetchall()
+                           "o.zaplaceno, o.odeslano, o.stav, so.nazev, d.dopravce, d.cislo, d.cena, d.mena FROM objednavky o "
+                           "LEFT JOIN doprava d ON d.receipt_id=o.receipt_id LEFT JOIN obj_stav os ON os.receipt_id=o.receipt_id "
+                           "LEFT JOIN stavy_objednavek so ON so.id=os.stav_id ORDER BY o.shop, o.vytvoreno_ts").fetchall()
     elif kind == "listingy":
         cols = ["shop", "listing_id", "nazev", "stav", "cena", "mena", "mnozstvi", "zobrazeni", "oblibene",
                 "stitky", "sku", "url"]

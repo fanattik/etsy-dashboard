@@ -152,3 +152,7 @@ def can_write(tok):
 
 def can_delete(tok):
     return "listings_d" in (tok.get("scope") or "").split()
+
+
+def can_ship(tok):
+    return "transactions_w" in (tok.get("scope") or "").split()

@@ -1,1 +1,1 @@
-{"verze": "1.26", "soubory": ["csv_import.py", "databaze.py", "etsy_api.py", "etsy_dashboard.py", "etsy_listingy.py", "katalog.py", "nabidky.py", "prehled.py", "produkty.py", "synchronizace.py", "zaklad.py", "dashboard.html"]}
+{"verze": "1.27", "soubory": ["csv_import.py", "databaze.py", "etsy_api.py", "etsy_dashboard.py", "etsy_listingy.py", "katalog.py", "nabidky.py", "objednavky.py", "prehled.py", "produkty.py", "synchronizace.py", "zaklad.py", "dashboard.html"]}
