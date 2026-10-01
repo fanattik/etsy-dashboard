@@ -41,7 +41,7 @@ AUTH_URL = "https://www.etsy.com/oauth/connect"
 TOKEN_URL = "https://api.etsy.com/v3/public/oauth/token"
 SCOPES = "transactions_r shops_r profile_r listings_r listings_w listings_d"
 PORT = 8765
-VERSION = "1.19"
+VERSION = "1.21"
 UPDATE_BASE = os.environ.get("ETSY_DASHBOARD_UPDATE_URL") or "https://raw.githubusercontent.com/fanattik/etsy-dashboard/main/app/"
 UPDATE_EVERY = 24 * 3600
 RATES_URL = os.environ.get("ETSY_DASHBOARD_RATES_URL") or "https://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml"
@@ -334,6 +334,15 @@ def db(path=None):
     con.execute("""CREATE TABLE IF NOT EXISTS slevy (
         id INTEGER PRIMARY KEY AUTOINCREMENT, shop_id TEXT, listing_id INTEGER, procento REAL, od_ts INTEGER,
         do_ts INTEGER, stav TEXT, puvodni TEXT, nove TEXT, chyba TEXT, vytvoreno_ts INTEGER)""")
+    # statistiky: Etsy API dává jen celkové počty zobrazení a oblíbených, proto se ukládají denní stavy
+    con.execute("""CREATE TABLE IF NOT EXISTS stat_listingy (
+        datum TEXT, listing_id INTEGER, shop TEXT, zobrazeni INTEGER, oblibene INTEGER, PRIMARY KEY (datum, listing_id))""")
+    con.execute("""CREATE TABLE IF NOT EXISTS stat_shop (
+        datum TEXT, shop TEXT, sledujici INTEGER, PRIMARY KEY (datum, shop))""")
+    con.execute("""CREATE TABLE IF NOT EXISTS recenze (
+        id TEXT PRIMARY KEY, shop TEXT, listing_id INTEGER, hodnoceni INTEGER, text TEXT, ts INTEGER)""")
+    con.execute("""CREATE TABLE IF NOT EXISTS obj_info (
+        receipt_id INTEGER PRIMARY KEY, kupujici TEXT, mesto TEXT, zeme TEXT)""")
     con.execute("""CREATE TABLE IF NOT EXISTS csv_polozky (
         receipt_id INTEGER PRIMARY KEY, polozky TEXT)""")
     con.execute("""CREATE TABLE IF NOT EXISTS stav (
@@ -383,6 +392,7 @@ def check_shop(cfg, tokens, con, shop_id):
                         (ship.get("carrier_name") or "", r["receipt_id"]))
             con.execute("UPDATE doprava SET cislo=? WHERE receipt_id=? AND cislo=''",
                         (ship.get("tracking_code") or "", r["receipt_id"]))
+        save_receipt_info(con, r)
         old = con.execute("SELECT stav, pridano_ts FROM objednavky WHERE receipt_id=?", (r["receipt_id"],)).fetchone()
         added = old[1] if old else (0 if first else now)
         con.execute("INSERT OR REPLACE INTO objednavky VALUES (?,?,?,?,?,?,?,?,?,?,?,?)", (
@@ -395,6 +405,15 @@ def check_shop(cfg, tokens, con, shop_id):
         elif old is not None and old[0] != r.get("status", ""):
             news.append(tr(cfg, "status", shop=name, id=r["receipt_id"], status=r.get("status", "")))
     set_last_ts(con, shop_id, "objednavky", now)
+    if not first and last_ts(con, shop_id, "obj_info") is None:  # objednávky stažené před verzí 1.21: doplnit město a kupujícího
+        try:
+            for r in api_get_all(cfg, tokens, shop_id, f"/shops/{shop_id}/receipts", {"min_created": first_start}):
+                save_receipt_info(con, r)
+            set_last_ts(con, shop_id, "obj_info", now)
+        except Exception as e:
+            print(f"⚠️  {name}: města objednávek: {e}")
+    elif first:
+        set_last_ts(con, shop_id, "obj_info", now)
 
     # --- platební účet (měsíční výpis): prodeje, poplatky, refundy, výplaty
     since = last_ts(con, shop_id, "vypis")
@@ -426,8 +445,57 @@ def check_shop(cfg, tokens, con, shop_id):
         sync_listings(cfg, tokens, con, shop_id, name, now)
     except Exception as e:
         print(f"⚠️  {name}: listingy: {e}")
+    try:
+        sync_shop_stats(cfg, tokens, con, shop_id, name, now)
+    except Exception as e:
+        print(f"⚠️  {name}: statistiky: {e}")
     con.commit()
     return news
+
+
+def save_receipt_info(con, r):
+    con.execute("INSERT OR REPLACE INTO obj_info VALUES (?,?,?,?)", (
+        r["receipt_id"], str(r.get("buyer_user_id") or r.get("buyer_email") or r.get("name") or ""),
+        (r.get("city") or "").strip(), r.get("country_iso") or ""))
+
+
+def today():
+    return time.strftime("%Y-%m-%d")
+
+
+def sync_shop_stats(cfg, tokens, con, shop_id, name, now):
+    """Sledující shopy (denní stav) a recenze."""
+    shop = api_get(cfg, tokens, shop_id, f"/shops/{shop_id}")
+    if shop.get("num_favorers") is not None:
+        con.execute("INSERT OR REPLACE INTO stat_shop VALUES (?,?,?)", (today(), name, shop["num_favorers"]))
+    since = last_ts(con, shop_id, "recenze")
+    params = {"min_created": since - OVERLAP} if since else {}
+    for r in api_get_all(cfg, tokens, shop_id, f"/shops/{shop_id}/reviews", params):
+        ts = r.get("created_timestamp") or r.get("create_timestamp") or 0
+        con.execute("INSERT OR REPLACE INTO recenze VALUES (?,?,?,?,?,?)", (
+            str(r.get("transaction_id") or f"{r.get('listing_id')}-{ts}"), name, r.get("listing_id"),
+            r.get("rating"), r.get("review") or "", ts))
+    set_last_ts(con, shop_id, "recenze", now)
+
+
+def stats_data(con):
+    """Denní přírůstky zobrazení a oblíbených z uložených stavů (jen nenulové), sledující, recenze, města objednávek."""
+    delty, prev = [], {}
+    for d, lid, v, f in con.execute("SELECT datum, listing_id, zobrazeni, oblibene FROM stat_listingy ORDER BY listing_id, datum"):
+        if lid in prev:
+            pv, pf = prev[lid]
+            dv = max(0, (v or 0) - (pv or 0)) if v is not None and pv is not None else 0
+            df = (f or 0) - (pf or 0) if f is not None and pf is not None else 0
+            if dv or df:
+                delty.append([d, lid, dv, df])
+        prev[lid] = (v, f)
+    first = con.execute("SELECT MIN(datum) FROM stat_listingy").fetchone()[0]
+    sled = {}
+    for d, shop, n in con.execute("SELECT datum, shop, sledujici FROM stat_shop ORDER BY datum"):
+        sled.setdefault(shop, []).append([d, n])
+    return {"od": first, "delty": delty, "sledujici": sled,
+            "recenze": rows_as_dicts(con, "SELECT shop, listing_id, hodnoceni, text, ts FROM recenze ORDER BY ts DESC"),
+            "info": {r[0]: [r[1], r[2], r[3]] for r in con.execute("SELECT receipt_id, kupujici, mesto, zeme FROM obj_info")}}
 
 
 LISTING_STATES = ("active", "inactive", "draft", "sold_out", "expired")
@@ -457,6 +525,9 @@ def sync_listings(cfg, tokens, con, shop_id, name, now):
             l.get("last_modified_timestamp") or l.get("updated_timestamp") or 0, old[0] if old else 0,
             html.unescape(l.get("description") or "")))
         seen.add(l["listing_id"])
+        if l.get("views") is not None or l.get("num_favorers") is not None:
+            con.execute("INSERT OR REPLACE INTO stat_listingy VALUES (?,?,?,?,?)",
+                        (today(), l["listing_id"], name, l.get("views"), l.get("num_favorers")))
     con.execute("DELETE FROM listingy WHERE shop=? AND listing_id<0", (name,))  # API nahradí data z CSV
     if complete:  # smazané listingy
         for (lid,) in con.execute("SELECT listing_id FROM listingy WHERE shop=?", (name,)).fetchall():
@@ -1215,6 +1286,7 @@ def dashboard_data(db_path=None):
         "doprava": rows_as_dicts(con, "SELECT * FROM doprava"),
         "slevy": rows_as_dicts(con, "SELECT id, shop_id, listing_id, procento, od_ts, do_ts, stav, chyba FROM slevy "
                                     "WHERE stav IN ('naplanovano','bezi') OR do_ts > strftime('%s','now') - 30*86400 ORDER BY od_ts"),
+        "statistiky": stats_data(con),
     }
     con.close()
     return data
@@ -1374,6 +1446,29 @@ def make_demo_db(path):
                 ts = int(day.replace(hour=5, minute=0).timestamp())
                 con.execute("INSERT INTO vypis VALUES (?,?,?,?,?,?,?,?,?,?)", (
                     shop, eid, ts, "offsite_ads_fee", "Etsy Ads", amt, "USD", round(balance, 2), "", 0))
+    # demo statistiky: denní stavy zobrazení a oblíbených za 120 dní, sledující, recenze, města
+    cities = [("Austin", "US"), ("Denver", "US"), ("Seattle", "US"), ("Toronto", "CA"), ("London", "GB"), ("Berlin", "DE"), ("Prague", "CZ")]
+    buyers = [f"u{i}" for i in range(60)]
+    for (rid,) in con.execute("SELECT receipt_id FROM objednavky").fetchall():
+        c = rnd.choice(cities)
+        con.execute("INSERT INTO obj_info VALUES (?,?,?,?)", (rid, rnd.choice(buyers), c[0], c[1]))
+    for shop, lid0, views, favs in con.execute("SELECT shop, listing_id, zobrazeni, oblibene FROM listingy WHERE stav != 'draft'").fetchall():
+        v, f = views, favs
+        for d in range(0, 121):
+            day = (now - timedelta(days=d)).strftime("%Y-%m-%d")
+            con.execute("INSERT INTO stat_listingy VALUES (?,?,?,?,?)", (day, lid0, shop, v, f))
+            v -= rnd.choice([0, 1, 2, 3, 5, 8]) * (2 if (now - timedelta(days=d)).weekday() >= 5 else 1)
+            f -= 1 if rnd.random() < .15 else 0
+    for shop, n in (("DemoPrintables", 412), ("DemoHandmade", 158)):
+        for d in range(0, 121):
+            con.execute("INSERT INTO stat_shop VALUES (?,?,?)", ((now - timedelta(days=d)).strftime("%Y-%m-%d"), shop, n))
+            n -= 1 if rnd.random() < .3 else 0
+    texts = ["Love it, thank you!", "Exactly as described.", "Beautiful quality, fast delivery.", "Great value.", ""]
+    for i, (shop, lid0, ts) in enumerate(con.execute("SELECT o.shop, l.listing_id, o.vytvoreno_ts FROM objednavky o JOIN listingy l "
+                                                     "ON l.shop = o.shop AND o.polozky LIKE '%' || l.nazev WHERE o.vytvoreno_ts > ?",
+                                                     (int(time.time()) - 200 * 86400,)).fetchall()):
+        if rnd.random() < .25:
+            con.execute("INSERT OR IGNORE INTO recenze VALUES (?,?,?,?,?,?)", (f"demo{i}", shop, lid0, rnd.choice([5, 5, 5, 4, 4, 3]), rnd.choice(texts), ts + 6 * 86400))
     for (rid, ts) in con.execute("SELECT receipt_id, vytvoreno_ts FROM objednavky WHERE shop='DemoHandmade' AND odeslano=1").fetchall():
         if rnd.random() < .8:
             carrier = rnd.choice(["Zásilkovna", "Česká pošta", "PPL", "DPD"])
